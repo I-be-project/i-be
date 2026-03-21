@@ -41,8 +41,8 @@ export default function InterpretingPage() {
   }, [router, setPersona]);
 
   return (
-    <main className="min-h-[100dvh] flex flex-col items-center justify-center bg-zinc-950 px-4 overflow-hidden relative">
-      <div className="absolute inset-0 bg-gradient-to-tr from-indigo-950/20 via-zinc-950 to-purple-950/20 animate-pulse" />
+    <main className="min-h-[100dvh] flex flex-col items-center justify-center bg-white px-4 overflow-hidden relative font-sans">
+      <div className="absolute inset-0 bg-white" />
 
       <div className="z-10 flex flex-col items-center max-w-sm text-center">
         <div className="relative w-32 h-32 mb-12 flex items-center justify-center">
@@ -50,7 +50,7 @@ export default function InterpretingPage() {
           {[...Array(3)].map((_, i) => (
             <motion.div
               key={i}
-              className="absolute inset-0 border border-indigo-500/30 rounded-full"
+              className="absolute inset-0 border-2 border-solid border-zinc-300 rounded-full"
               initial={{ scale: 0.8, opacity: 0 }}
               animate={{
                 scale: 2,
@@ -66,7 +66,7 @@ export default function InterpretingPage() {
           ))}
 
           <motion.div
-            className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-full shadow-[0_0_30px_rgba(99,102,241,0.5)] flex items-center justify-center text-white"
+            className="w-16 h-16 bg-white border-2 border-solid border-indigo-400 rounded-full shadow-sm flex items-center justify-center text-indigo-500"
             animate={{
               scale: [1, 1.1, 1],
             }}
@@ -89,7 +89,7 @@ export default function InterpretingPage() {
         </div>
 
         <motion.h2
-          className="text-2xl font-bold text-zinc-100 mb-6 drop-shadow-md"
+          className="text-2xl font-extrabold text-zinc-900 mb-6"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
@@ -106,7 +106,7 @@ export default function InterpretingPage() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 1.5, y: -20 }}
                 transition={{ duration: 0.5 }}
-                className="px-6 py-2 bg-white/10 backdrop-blur-md rounded-full text-indigo-300 font-semibold tracking-wide border border-white/5"
+                className="px-6 py-2 bg-zinc-50 rounded-full text-zinc-700 font-bold tracking-wide border border-solid border-zinc-300"
               >
                 #{currentKeyword}
               </motion.div>
