@@ -59,11 +59,12 @@ class ExternalServiceError(DomainError):
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def _domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
-        logger.info(
+        logger.warning(
             "domain_error",
             code=exc.code,
             message=exc.message,
             path=request.url.path,
+            details=exc.details,
         )
         return JSONResponse(
             status_code=exc.status_code,
