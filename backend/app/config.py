@@ -48,16 +48,28 @@ class Settings(BaseSettings):
     operator_token_ttl_hours: int = 12
     share_link_ttl_hours: int = 24
 
-    # AI
-    ai_provider_base_url: str = "https://openrouter.ai/api/v1"
-    ai_api_key: str = ""
+    # AI — Chat 계열 (OpenAI 호환: OpenRouter/OpenAI 직접)
+    ai_chat_base_url: str = "https://openrouter.ai/api/v1"
+    ai_chat_api_key: str = ""
     ai_model_analyze: str = "openai/gpt-5-mini"
     ai_model_adaptive_questions: str = "openai/gpt-5-mini"
     ai_model_final_question: str = "openai/gpt-5.2"
     ai_model_persona: str = "openai/gpt-5.2"
     ai_model_image_prompt: str = "openai/gpt-5-mini"
-    ai_model_portrait_image: str = "openai/gpt-image-1.5"
-    ai_model_world_image: str = "openai/gpt-image-1.5"
+
+    # AI — 이미지 생성 (Mindlogic Factchat 등 별도 엔드포인트)
+    # 표준 OpenAI 경로(/v1/images/generations)와 달라 SDK 미사용, httpx 직접 호출.
+    ai_image_api_url: str = (
+        "https://factchat-cloud.mindlogic.ai/v1/api/openai/images/generate"
+    )
+    ai_image_api_key: str = ""
+    ai_image_model: str = "gpt-image-1"
+    ai_image_size: str = "1024x1024"
+    ai_image_timeout_seconds: float = 60.0
+    # 일부 게이트웨이는 response_format을 지원하지 않음. 빈 문자열이면 페이로드에서 생략.
+    # - Mindlogic: 비워두기 (기본 b64 반환)
+    # - OpenRouter/OpenAI 직접: "b64_json"
+    ai_image_response_format: str = ""
     image_concurrency: int = 10
 
     # Worker
