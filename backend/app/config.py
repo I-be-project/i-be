@@ -29,6 +29,7 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
 
     # DB
+    database_enabled: bool = True
     database_url: str = Field(
         default="postgresql://postgres:postgres@localhost:5432/postgres",
         description="asyncpg 호환 Postgres DSN",
