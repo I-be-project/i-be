@@ -60,9 +60,7 @@ class Settings(BaseSettings):
 
     # AI — 이미지 생성 (Mindlogic Factchat 등 별도 엔드포인트)
     # 표준 OpenAI 경로(/v1/images/generations)와 달라 SDK 미사용, httpx 직접 호출.
-    ai_image_api_url: str = (
-        "https://factchat-cloud.mindlogic.ai/v1/api/openai/images/generate"
-    )
+    ai_image_api_url: str = "https://factchat-cloud.mindlogic.ai/v1/api/openai/images/generate"
     ai_image_api_key: str = ""
     ai_image_model: str = "gpt-image-1"
     ai_image_size: str = "1024x1024"
@@ -72,6 +70,9 @@ class Settings(BaseSettings):
     # - OpenRouter/OpenAI 직접: "b64_json"
     ai_image_response_format: str = ""
     image_concurrency: int = 10
+    # 일시적 실패(타임아웃·429·5xx·손상응답) 재시도. 총 시도 = max_retries + 1.
+    ai_image_max_retries: int = 2
+    ai_image_retry_base_delay: float = 0.5  # 지수 백오프 기준(초): 0.5, 1.0, 2.0 …
 
     # Worker
     card_worker_enabled: bool = True
