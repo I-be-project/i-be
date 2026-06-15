@@ -31,3 +31,30 @@ class GenerateImageResponse(BaseModel):
     size: str
     target: ImageTarget
     prompt: str
+
+
+class GenerateCardRequest(BaseModel):
+    """질문이 끝났다고 가정 — 준비된 프롬프트·페르소나로 완성 카드를 생성."""
+
+    portrait_prompt: str = Field(
+        ..., min_length=1, max_length=4000, description="인물 그림 설명(영문 권장)"
+    )
+    background_prompt: str = Field(
+        ..., min_length=1, max_length=4000, description="배경 그림 설명(영문 권장)"
+    )
+    title: str = Field(..., min_length=1, max_length=60, description="페르소나 타이틀")
+    tagline: str = Field("", max_length=160, description="한 줄 소개 (선택)")
+    keywords: list[str] = Field(default_factory=list, max_length=8, description="키워드 3~5개 권장")
+    qr_data: str = Field(
+        "https://nabe.example/c/demo",
+        max_length=512,
+        description="QR에 인코딩할 문자열(공유 링크/토큰). dev에선 임의값.",
+    )
+
+
+class GenerateCardResponse(BaseModel):
+    image_base64: str = Field(..., description="완성 카드 PNG의 base64 인코딩")
+    size_bytes: int
+    width: int
+    height: int
+    elapsed_seconds: float
