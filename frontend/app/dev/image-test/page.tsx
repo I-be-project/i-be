@@ -1,23 +1,21 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
+import { ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
+import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { cn } from "@/lib/utils"
 
-type ImageTarget = "id_photo" | "card_background"
-
-interface GenerateImageResponse {
+interface GenerateCardResponse {
   image_base64: string
   size_bytes: number
+  width: number
+  height: number
   elapsed_seconds: number
-  model: string
-  size: string
-  target: ImageTarget
-  prompt: string
 }
 
 interface ApiError {
@@ -38,112 +36,157 @@ const BACKGROUND_PRESETS = [
   "A neo-Seoul rooftop at sunset, holographic city map projection, painterly illustration, no people, warm sky gradient, wide horizontal",
 ]
 
-export default function ImageTestPage() {
+export default function CardTestPage() {
   const [portraitPrompt, setPortraitPrompt] = useState("")
   const [backgroundPrompt, setBackgroundPrompt] = useState("")
-  const [loadingPortrait, setLoadingPortrait] = useState(false)
-  const [loadingBackground, setLoadingBackground] = useState(false)
-  const [portrait, setPortrait] = useState<GenerateImageResponse | null>(null)
-  const [background, setBackground] = useState<GenerateImageResponse | null>(null)
+  const [title, setTitle] = useState("숲을 지키는 드론 전문가")
+  const [tagline, setTagline] = useState(
+    "자연과 기술을 함께 활용해 생태를 지키는 미래형 탐사 역할",
+  )
+  const [keywords, setKeywords] = useState("자연, 드론, 탐사, 기술, 보호")
+  const [qrData, setQrData] = useState("https://nabe.example/c/demo")
+  const [loading, setLoading] = useState(false)
+  const [card, setCard] = useState<GenerateCardResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const loadingAny = loadingPortrait || loadingBackground
-
-  const generate = async (
-    target: ImageTarget,
-    prompt: string,
-  ): Promise<GenerateImageResponse> => {
-    const res = await fetch(`${API_URL}/api/dev/image`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt, target }),
-    })
-    if (!res.ok) {
-      const data = (await res.json().catch(() => null)) as ApiError | null
-      const msg = data?.error?.message ?? `HTTP ${res.status} ${res.statusText}`
-      const details = data?.error?.details
-      const detailsStr = details ? `\n${JSON.stringify(details, null, 2)}` : ""
-      throw new Error(`[${target}] ${msg}${detailsStr}`)
-    }
-    return (await res.json()) as GenerateImageResponse
-  }
-
-  const handleGenerateBoth = async () => {
+  const handleGenerate = async () => {
     if (!portraitPrompt.trim() || !backgroundPrompt.trim()) {
-      setError("두 프롬프트 모두 입력해주세요")
+      setError("인물·배경 프롬프트를 모두 입력해주세요")
+      return
+    }
+    if (!title.trim()) {
+      setError("페르소나 타이틀을 입력해주세요")
       return
     }
     setError(null)
-    setPortrait(null)
-    setBackground(null)
-    setLoadingPortrait(true)
-    setLoadingBackground(true)
-
-    const portraitTask = generate("id_photo", portraitPrompt)
-      .then((data) => {
-        setPortrait(data)
-        return data
+    setCard(null)
+    setLoading(true)
+    try {
+      const res = await fetch(`${API_URL}/api/dev/card`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          portrait_prompt: portraitPrompt,
+          background_prompt: backgroundPrompt,
+          title,
+          tagline,
+          keywords: keywords
+            .split(",")
+            .map((k) => k.trim())
+            .filter(Boolean),
+          qr_data: qrData,
+        }),
       })
-      .finally(() => setLoadingPortrait(false))
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as ApiError | null
+        const msg = data?.error?.message ?? `HTTP ${res.status} ${res.statusText}`
+        const details = data?.error?.details
+        const detailsStr = details ? `\n${JSON.stringify(details, null, 2)}` : ""
+        throw new Error(`${msg}${detailsStr}`)
+      }
+      setCard((await res.json()) as GenerateCardResponse)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
 
-    const backgroundTask = generate("card_background", backgroundPrompt)
-      .then((data) => {
-        setBackground(data)
-        return data
-      })
-      .finally(() => setLoadingBackground(false))
-
-    const [p, b] = await Promise.allSettled([portraitTask, backgroundTask])
-    const errors = [p, b]
-      .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-      .map((r) => (r.reason instanceof Error ? r.reason.message : String(r.reason)))
-    if (errors.length > 0) setError(errors.join("\n"))
+  const handleDownload = () => {
+    if (!card) return
+    const link = document.createElement("a")
+    link.href = `data:image/png;base64,${card.image_base64}`
+    link.download = `nabe-card-${Date.now()}.png`
+    link.click()
   }
 
   return (
     <div className="container mx-auto max-w-5xl px-4 py-8 md:py-12">
       <header className="mb-8">
-        <Badge variant="secondary" className="mb-3">
+        <Link
+          href="/dev"
+          className="mb-3 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition"
+        >
+          <ArrowLeft className="size-3.5" /> 개발 도구
+        </Link>
+        <Badge variant="secondary" className="mb-3 ml-2">
           dev
         </Badge>
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-          카드 이미지 생성 테스트
+          페르소나 카드 생성 테스트
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          포트레이트(증명사진 2:3)와 카드 배경(3:2)을 동시에 생성합니다. 백엔드{" "}
-          <code className="font-mono text-xs">POST /api/dev/image</code> 직접 호출.
+          백엔드{" "}
+          <code className="font-mono text-xs">POST /api/dev/card</code> — 인물·배경
+          그림 2장을 생성하고 글자·QR까지 합성한 <b>완성 카드 한 장</b>을 반환합니다.
         </p>
       </header>
 
+      {/* 그림 프롬프트 */}
       <div className="grid gap-6 md:grid-cols-2 mb-6">
         <PromptCard
-          title="포트레이트 (증명사진)"
-          description="카드 안의 인물 — 2:3 비율, 1024×1536"
+          title="인물 프롬프트"
+          description="카드 속 인물 (2:3) — 영문 권장"
           prompt={portraitPrompt}
           setPrompt={setPortraitPrompt}
           presets={PORTRAIT_PRESETS}
-          disabled={loadingAny}
+          disabled={loading}
         />
         <PromptCard
-          title="카드 배경 (신용카드 비율)"
-          description="카드 전체 배경 — 3:2 비율, 1536×1024"
+          title="배경 프롬프트"
+          description="카드 배경 (3:2) — 영문 권장"
           prompt={backgroundPrompt}
           setPrompt={setBackgroundPrompt}
           presets={BACKGROUND_PRESETS}
-          disabled={loadingAny}
+          disabled={loading}
         />
       </div>
+
+      {/* 페르소나 정보 */}
+      <Card className="mb-6">
+        <CardContent className="grid gap-4 pt-6 md:grid-cols-2">
+          <Field label="페르소나 타이틀 (이름/직업)">
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="예) 숲을 지키는 드론 전문가"
+              disabled={loading}
+            />
+          </Field>
+          <Field label="QR 데이터 (공유 링크/토큰)">
+            <Input
+              value={qrData}
+              onChange={(e) => setQrData(e.target.value)}
+              placeholder="https://..."
+              disabled={loading}
+              className="font-mono text-xs"
+            />
+          </Field>
+          <Field label="한 줄 소개 (선택)" className="md:col-span-2">
+            <Input
+              value={tagline}
+              onChange={(e) => setTagline(e.target.value)}
+              placeholder="역할을 한 문장으로"
+              disabled={loading}
+            />
+          </Field>
+          <Field label="키워드 (쉼표로 구분, 3~5개 권장)" className="md:col-span-2">
+            <Input
+              value={keywords}
+              onChange={(e) => setKeywords(e.target.value)}
+              placeholder="자연, 드론, 탐사"
+              disabled={loading}
+            />
+          </Field>
+        </CardContent>
+      </Card>
 
       <div className="flex items-center justify-between mb-6">
         <div className="text-xs text-muted-foreground">
           API: <code className="font-mono">{API_URL}</code>
         </div>
-        <Button
-          onClick={handleGenerateBoth}
-          disabled={loadingAny || !portraitPrompt.trim() || !backgroundPrompt.trim()}
-          size="lg"
-        >
-          {loadingAny ? "생성 중..." : "두 이미지 생성"}
+        <Button onClick={handleGenerate} disabled={loading} size="lg">
+          {loading ? "생성 중..." : "카드 생성"}
         </Button>
       </div>
 
@@ -160,34 +203,62 @@ export default function ImageTestPage() {
         </Card>
       )}
 
-      {/* 카드 미리보기 */}
-      <Card className="mb-6">
+      {/* 완성 카드 */}
+      <Card>
         <CardContent className="pt-6">
           <div className="mb-4 text-sm font-medium text-muted-foreground">
-            카드 미리보기 (신용카드 비율 — 1.586:1)
+            완성 카드 (백엔드 합성 결과)
           </div>
-          <CardPreview
-            portrait={portrait}
-            background={background}
-            loadingPortrait={loadingPortrait}
-            loadingBackground={loadingBackground}
-          />
+          <div className="relative w-full max-w-2xl mx-auto overflow-hidden rounded-xl border shadow-md bg-muted/30">
+            <div className="relative w-full" style={{ aspectRatio: "1.586 / 1" }}>
+              {card ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={`data:image/png;base64,${card.image_base64}`}
+                  alt="페르소나 카드"
+                  className="absolute inset-0 w-full h-full object-contain"
+                />
+              ) : loading ? (
+                <Skeleton className="absolute inset-0 w-full h-full" />
+              ) : (
+                <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
+                  생성 전
+                </div>
+              )}
+            </div>
+          </div>
+
+          {card && (
+            <div className="mt-4 flex items-center justify-between">
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                <Meta label="크기" value={`${(card.size_bytes / 1024).toFixed(0)} KB`} />
+                <Meta label="시간" value={`${card.elapsed_seconds}s`} />
+                <Meta label="해상도" value={`${card.width}×${card.height}`} />
+              </div>
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                PNG 다운로드
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
+    </div>
+  )
+}
 
-      {/* 각 이미지 메타 + 단독 보기 */}
-      <div className="grid gap-6 md:grid-cols-2">
-        <ResultCard
-          title="포트레이트 (1024×1536)"
-          data={portrait}
-          loading={loadingPortrait}
-        />
-        <ResultCard
-          title="카드 배경 (1536×1024)"
-          data={background}
-          loading={loadingBackground}
-        />
-      </div>
+function Field({
+  label,
+  className,
+  children,
+}: {
+  label: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <div className={className}>
+      <div className="mb-1.5 text-xs font-medium text-muted-foreground">{label}</div>
+      {children}
     </div>
   )
 }
@@ -235,157 +306,6 @@ function PromptCard({
             </button>
           ))}
         </div>
-      </CardContent>
-    </Card>
-  )
-}
-
-function CardPreview({
-  portrait,
-  background,
-  loadingPortrait,
-  loadingBackground,
-}: {
-  portrait: GenerateImageResponse | null
-  background: GenerateImageResponse | null
-  loadingPortrait: boolean
-  loadingBackground: boolean
-}) {
-  return (
-    <div className="relative w-full max-w-2xl mx-auto overflow-hidden rounded-xl border shadow-md bg-muted/30">
-      {/* 신용카드 비율 컨테이너 */}
-      <div className="relative w-full" style={{ aspectRatio: "1.586 / 1" }}>
-        {/* 배경 */}
-        {background ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={`data:image/png;base64,${background.image_base64}`}
-            alt="background"
-            className="absolute inset-0 w-full h-full object-cover"
-          />
-        ) : loadingBackground ? (
-          <Skeleton className="absolute inset-0 w-full h-full" />
-        ) : (
-          <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted-foreground/20 flex items-center justify-center text-xs text-muted-foreground">
-            배경 자리
-          </div>
-        )}
-
-        {/* 오버레이: 어두운 그라데이션 */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-black/20" />
-
-        {/* 포트레이트 */}
-        <div className="absolute left-[4%] top-[12%] bottom-[12%] aspect-[2/3]">
-          <div className="w-full h-full rounded-md overflow-hidden border-2 border-white/80 shadow-lg bg-muted">
-            {portrait ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`data:image/png;base64,${portrait.image_base64}`}
-                alt="portrait"
-                className="w-full h-full object-cover"
-              />
-            ) : loadingPortrait ? (
-              <Skeleton className="w-full h-full" />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                포트레이트
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 텍스트 자리 (목업) */}
-        <div className="absolute left-[30%] top-[18%] right-[10%] text-white drop-shadow-lg">
-          <div className="text-[10px] md:text-xs opacity-80 mb-1">
-            나Be한마당 페르소나
-          </div>
-          <div className="text-lg md:text-2xl font-bold">페르소나 타이틀</div>
-          <div className="mt-2 flex flex-wrap gap-1">
-            {["#키워드1", "#키워드2", "#키워드3"].map((k) => (
-              <span
-                key={k}
-                className="text-[9px] md:text-[10px] bg-white/20 backdrop-blur-sm rounded-full px-2 py-0.5"
-              >
-                {k}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        {/* QR 자리 */}
-        <div className="absolute right-[4%] bottom-[8%] w-[14%] aspect-square bg-white/90 rounded flex items-center justify-center text-[8px] text-muted-foreground">
-          QR
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function ResultCard({
-  title,
-  data,
-  loading,
-}: {
-  title: string
-  data: GenerateImageResponse | null
-  loading: boolean
-}) {
-  const handleDownload = () => {
-    if (!data) return
-    const link = document.createElement("a")
-    link.href = `data:image/png;base64,${data.image_base64}`
-    link.download = `nabe-${data.target}-${Date.now()}.png`
-    link.click()
-  }
-
-  return (
-    <Card>
-      <CardContent className="pt-6 space-y-3">
-        <div className="text-sm font-semibold">{title}</div>
-        <div
-          className={cn(
-            "overflow-hidden rounded-md border bg-muted/30 mx-auto",
-            data?.target === "id_photo" || (!data && title.includes("포트레이트"))
-              ? "max-w-[200px]"
-              : "max-w-full",
-          )}
-          style={{
-            aspectRatio:
-              data?.target === "id_photo" || (!data && title.includes("포트레이트"))
-                ? "2 / 3"
-                : "3 / 2",
-          }}
-        >
-          {data ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={`data:image/png;base64,${data.image_base64}`}
-              alt={data.prompt}
-              className="w-full h-full object-cover"
-            />
-          ) : loading ? (
-            <Skeleton className="w-full h-full" />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-              생성 전
-            </div>
-          )}
-        </div>
-
-        {data && (
-          <>
-            <div className="grid grid-cols-3 gap-2 text-xs">
-              <Meta label="크기" value={`${(data.size_bytes / 1024).toFixed(0)} KB`} />
-              <Meta label="시간" value={`${data.elapsed_seconds}s`} />
-              <Meta label="해상도" value={data.size} />
-            </div>
-            <div className="flex justify-end">
-              <Button variant="outline" size="sm" onClick={handleDownload}>
-                PNG 다운로드
-              </Button>
-            </div>
-          </>
-        )}
       </CardContent>
     </Card>
   )
