@@ -1,8 +1,13 @@
-"""AIClient.generate_image 하드닝 테스트 (httpx MockTransport, 실제 API 호출 없음)."""
+"""AIClient.generate_image 하드닝 테스트 (httpx MockTransport, 실제 API 호출 없음).
+
+OpenRouter는 이미지 생성을 /chat/completions(modalities)로 처리하고,
+결과를 choices[0].message.images[0].image_url.url(data URI)로 돌려준다.
+"""
 
 from __future__ import annotations
 
 import base64
+import json
 from collections.abc import Callable
 from io import BytesIO
 
@@ -13,7 +18,7 @@ from PIL import Image
 from app.adapters.ai_client import AIClient, AIPurpose
 from app.core.errors import ExternalServiceError
 
-_GEN_URL = "https://img.test/generate"
+_GEN_URL = "https://img.test/chat/completions"
 
 
 def _png(size: tuple[int, int] = (64, 64)) -> bytes:
@@ -22,8 +27,14 @@ def _png(size: tuple[int, int] = (64, 64)) -> bytes:
     return buf.getvalue()
 
 
-def _b64_body(png: bytes) -> dict[str, object]:
-    return {"data": [{"b64_json": base64.b64encode(png).decode("ascii")}]}
+def _img_body(png: bytes) -> dict[str, object]:
+    """OpenRouter chat 이미지 응답 (data URI)."""
+    uri = "data:image/png;base64," + base64.b64encode(png).decode("ascii")
+    return {"choices": [{"message": {"images": [{"image_url": {"url": uri}}]}}]}
+
+
+def _url_body(url: str) -> dict[str, object]:
+    return {"choices": [{"message": {"images": [{"image_url": {"url": url}}]}}]}
 
 
 def _client(
@@ -39,9 +50,9 @@ def _client(
         chat_model_map={},
         image_api_url=_GEN_URL,
         image_api_key=api_key,
-        image_model="gpt-image-1",
+        image_model="google/gemini-2.5-flash-image",
         image_size="1024x1024",
-        image_response_format="",
+        image_strength=0.5,
         image_timeout_seconds=5.0,
         image_concurrency=4,
         image_max_retries=max_retries,
@@ -50,11 +61,28 @@ def _client(
     )
 
 
-async def test_success_b64() -> None:
+async def test_success_data_uri() -> None:
     png = _png()
-    client = _client(lambda req: httpx.Response(200, json=_b64_body(png)))
+    client = _client(lambda req: httpx.Response(200, json=_img_body(png)))
     data = await client.generate_image(AIPurpose.PORTRAIT_IMAGE, "prompt")
     assert data[:8] == b"\x89PNG\r\n\x1a\n"
+    await client.aclose()
+
+
+async def test_request_has_modalities_and_aspect_ratio() -> None:
+    seen: dict[str, object] = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(req.content)
+        return httpx.Response(200, json=_img_body(_png()))
+
+    client = _client(handler)
+    await client.generate_image(AIPurpose.PORTRAIT_IMAGE, "p", size="1024x1536")
+    body = seen["body"]
+    assert isinstance(body, dict)
+    assert body["modalities"] == ["image", "text"]
+    assert body["image_config"]["aspect_ratio"] == "2:3"  # 1024x1536 → 2:3
+    assert "strength" not in body["image_config"]  # generate는 strength 없음
     await client.aclose()
 
 
@@ -66,7 +94,7 @@ async def test_retry_on_429_then_success() -> None:
         calls["n"] += 1
         if calls["n"] == 1:
             return httpx.Response(429, text="rate limited")
-        return httpx.Response(200, json=_b64_body(png))
+        return httpx.Response(200, json=_img_body(png))
 
     client = _client(handler)
     data = await client.generate_image(AIPurpose.WORLD_IMAGE, "p")
@@ -108,7 +136,7 @@ async def test_missing_image_in_body_retries_then_fails() -> None:
 
     def handler(req: httpx.Request) -> httpx.Response:
         calls["n"] += 1
-        return httpx.Response(200, json={"data": [{}]})
+        return httpx.Response(200, json={"choices": [{"message": {"content": "no image"}}]})
 
     client = _client(handler)
     with pytest.raises(ExternalServiceError):
@@ -119,11 +147,11 @@ async def test_missing_image_in_body_retries_then_fails() -> None:
 
 async def test_non_image_payload_rejected() -> None:
     calls = {"n": 0}
-    bad = base64.b64encode(b"not really an image" * 10).decode("ascii")
+    bad = "data:image/png;base64," + base64.b64encode(b"not really an image" * 10).decode("ascii")
 
     def handler(req: httpx.Request) -> httpx.Response:
         calls["n"] += 1
-        return httpx.Response(200, json={"data": [{"b64_json": bad}]})
+        return httpx.Response(200, json=_url_body(bad))
 
     client = _client(handler)
     with pytest.raises(ExternalServiceError):
@@ -132,12 +160,12 @@ async def test_non_image_payload_rejected() -> None:
     await client.aclose()
 
 
-async def test_url_based_response_fetched() -> None:
+async def test_remote_url_response_fetched() -> None:
     png = _png()
 
     def handler(req: httpx.Request) -> httpx.Response:
-        if req.url.path.endswith("/generate"):
-            return httpx.Response(200, json={"data": [{"url": "https://img.test/out.png"}]})
+        if req.url.path.endswith("/chat/completions"):
+            return httpx.Response(200, json=_url_body("https://img.test/out.png"))
         return httpx.Response(200, content=png)
 
     client = _client(handler)

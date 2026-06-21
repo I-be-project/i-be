@@ -58,19 +58,17 @@ class Settings(BaseSettings):
     ai_model_persona: str = "openai/gpt-5.2"
     ai_model_image_prompt: str = "openai/gpt-5-mini"
 
-    # AI — 이미지 생성 (Mindlogic Factchat 등 별도 엔드포인트)
-    # 표준 OpenAI 경로(/v1/images/generations)와 달라 SDK 미사용, httpx 직접 호출.
-    ai_image_api_url: str = "https://factchat-cloud.mindlogic.ai/v1/api/openai/images/generate"
+    # AI — 이미지 생성·편집 (OpenRouter)
+    # OpenRouter는 /chat/completions 한 엔드포인트로 생성·편집을 처리(modalities + image_config).
+    # 응답: choices[0].message.images[0].image_url.url (data URI). httpx 직접 호출.
+    ai_image_api_url: str = "https://openrouter.ai/api/v1/chat/completions"
     ai_image_api_key: str = ""
-    ai_image_model: str = "gpt-image-1"
+    ai_image_model: str = "google/gemini-2.5-flash-image"
+    # size는 aspect_ratio 변환용 기본값 (예: 1024x1536 → 2:3). 파이프라인이 보통 명시 전달.
     ai_image_size: str = "1024x1024"
+    # 얼굴 입력(image-to-image) 보존 강도: 낮을수록 원본에 가까움 (0.0~1.0).
+    ai_image_strength: float = 0.5
     ai_image_timeout_seconds: float = 60.0
-    # 일부 게이트웨이는 response_format을 지원하지 않음. 빈 문자열이면 페이로드에서 생략.
-    # - Mindlogic: 비워두기 (기본 b64 반환)
-    # - OpenRouter/OpenAI 직접: "b64_json"
-    ai_image_response_format: str = ""
-    # 얼굴 입력(image-to-image) — edits 경로. 빈 문자열이면 edit_image 사용 불가.
-    ai_image_edit_api_url: str = ""
     image_concurrency: int = 10
     # 일시적 실패(타임아웃·429·5xx·손상응답) 재시도. 총 시도 = max_retries + 1.
     ai_image_max_retries: int = 2
