@@ -29,8 +29,8 @@ async function fileToBase64(file: File): Promise<string> {
 
 function QABlock({ qa, index }: { qa: DevQA; index: number }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-white/5 p-4">
-      <p className="text-sm text-white/60">Q{index}. {qa.question}</p>
+    <div className="rounded-lg border bg-muted/40 p-4">
+      <p className="text-sm text-muted-foreground">Q{index}. {qa.question}</p>
       <p className="mt-1 font-medium">{qa.answer}</p>
     </div>
   );
@@ -75,8 +75,8 @@ export default function DevFlowPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl px-6 py-10 text-white">
-      <h1 className="mb-6 text-2xl font-bold">페르소나 카드 생성 흐름 (dev)</h1>
+    <div className="container mx-auto max-w-2xl px-4 py-8 md:py-12">
+      <h1 className="mb-6 text-2xl font-bold tracking-tight">페르소나 카드 생성 흐름 (dev)</h1>
 
       <AnimatePresence mode="wait">
         <motion.div
@@ -88,16 +88,21 @@ export default function DevFlowPage() {
         >
           {step === 0 && (
             <div className="space-y-4">
-              <p className="text-white/70">증명사진을 올리면 얼굴 기반 인물 이미지를 생성합니다. (선택)</p>
-              <input type="file" accept="image/*" onChange={handlePhoto} />
-              {photoBase64 && <p className="text-sm text-green-400">사진 준비됨 ✓</p>}
+              <p className="text-muted-foreground">증명사진을 올리면 얼굴 기반 인물 이미지를 생성합니다. (선택)</p>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={handlePhoto}
+                className="block text-sm file:mr-3 file:rounded-md file:border file:bg-secondary file:px-3 file:py-1.5 file:text-secondary-foreground"
+              />
+              {photoBase64 && <p className="text-sm text-green-600">사진 준비됨 ✓</p>}
               <Button onClick={() => setStep(1)}>다음</Button>
             </div>
           )}
 
           {step === 1 && (
             <div className="space-y-3">
-              <p className="text-white/70">기본 질문 (Q1~6)</p>
+              <p className="text-muted-foreground">기본 질문 (Q1~6)</p>
               {devCoreQuestions.map((qa, i) => (
                 <QABlock key={i} qa={qa} index={i + 1} />
               ))}
@@ -107,7 +112,7 @@ export default function DevFlowPage() {
 
           {step >= ADAPTIVE_START && step <= 4 && (
             <div className="space-y-3">
-              <p className="text-white/70">적응형 질문 Q{step + 5}</p>
+              <p className="text-muted-foreground">적응형 질문 Q{step + 5}</p>
               <QABlock qa={devAdaptiveQuestions[step - ADAPTIVE_START]} index={step + 5} />
               <Button onClick={() => setStep(step + 1)}>다음</Button>
             </div>
@@ -115,17 +120,17 @@ export default function DevFlowPage() {
 
           {step === 5 && (
             <div className="space-y-4">
-              <p className="text-white/70">Q10. 마음에 드는 페르소나를 골라주세요</p>
+              <p className="text-muted-foreground">Q10. 마음에 드는 페르소나를 골라주세요</p>
               <div className="grid gap-3">
                 {devPersonaCandidates.map((p) => (
                   <Card
                     key={p.name}
-                    className="cursor-pointer border-white/10 bg-white/5 transition hover:border-white/40"
+                    className="cursor-pointer transition hover:border-primary/50 hover:shadow-sm"
                     onClick={() => generate(p)}
                   >
                     <CardContent className="p-4">
                       <p className="font-semibold">{p.name}</p>
-                      <p className="mt-1 text-sm text-white/60">{p.tagline}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{p.tagline}</p>
                       <div className="mt-2 flex flex-wrap gap-1">
                         {p.keywords.map((k) => (
                           <Badge key={k} variant="secondary">{k}</Badge>
@@ -140,10 +145,12 @@ export default function DevFlowPage() {
 
           {step === 6 && (
             <div className="space-y-4">
-              {loading && <p className="text-white/70">카드를 생성하고 있어요… (이미지 2장 생성 + 합성)</p>}
+              {loading && (
+                <p className="text-muted-foreground">카드를 생성하고 있어요… (이미지 2장 생성 + 합성)</p>
+              )}
               {error && (
                 <div className="space-y-3">
-                  <p className="text-red-400">생성 실패: {error}</p>
+                  <p className="text-destructive">생성 실패: {error}</p>
                   <Button variant="secondary" onClick={() => selected && generate(selected)}>
                     다시 시도
                   </Button>
