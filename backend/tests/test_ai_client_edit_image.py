@@ -110,3 +110,26 @@ async def test_edit_without_url_raises() -> None:
     with pytest.raises(ExternalServiceError):
         await client.edit_image(AIPurpose.PORTRAIT_IMAGE, "p", _png())
     await client.aclose()
+
+
+async def test_edit_5xx_exhausts_retries() -> None:
+    calls = {"n": 0}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls["n"] += 1
+        return httpx.Response(503, text="service unavailable")
+
+    client = _client(handler, max_retries=2)
+    with pytest.raises(ExternalServiceError):
+        await client.edit_image(AIPurpose.PORTRAIT_IMAGE, "p", _png())
+    assert calls["n"] == 3  # 1 initial + 2 retries
+    await client.aclose()
+
+
+async def test_edit_rejects_invalid_input_image() -> None:
+    from app.core.images import ImageValidationError
+
+    client = _client(lambda req: httpx.Response(200, json=_b64_body(_png())))
+    with pytest.raises(ImageValidationError):
+        await client.edit_image(AIPurpose.PORTRAIT_IMAGE, "p", b"not an image" * 10)
+    await client.aclose()

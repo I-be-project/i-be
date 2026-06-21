@@ -216,6 +216,8 @@ class AIClient:
         if not self._image_edit_api_url:
             raise ExternalServiceError("AI_IMAGE_EDIT_API_URL이 설정되지 않았습니다.")
 
+        inspect_image(image)  # 입력 이미지(얼굴)가 유효한지 사전 검증
+
         async def _attempt() -> bytes:
             return await self._image_edit_attempt(prompt, image, size)
 
