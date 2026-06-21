@@ -9,11 +9,18 @@ from __future__ import annotations
 from app.schemas.persona import ImagePrompts, Persona
 
 _SYSTEM = (
-    "You write concise English prompts for an image generator that produces "
-    "a future-career persona card. Return ONLY JSON with keys "
-    '"portrait_prompt" and "background_prompt". '
-    "portrait_prompt: a confident future professional portrait (2:3, studio lighting). "
-    "background_prompt: a cinematic workplace/world scene (3:2) for that career. "
+    "You write concise English prompts for an image generator that builds a "
+    "future-self persona card from an uploaded face photo. Return ONLY JSON with "
+    'keys "portrait_prompt" and "background_prompt".\n'
+    "portrait_prompt: the SAME person as the input photo, aged about 10 years older "
+    "— a natural, mature adult (roughly late twenties to early thirties). Keep their "
+    "real facial identity and features; make them look grown-up, calm and composed, "
+    "NOT elderly — no gray hair, no heavy wrinkles. A realistic, lifelike head-and-"
+    "shoulders portrait with soft natural lighting (2:3). Do NOT put them in any job "
+    "uniform, costume, or career props, and do NOT tie the portrait to the career — "
+    "just their real future self in everyday adult attire.\n"
+    "background_prompt: a cinematic world/workplace scene (3:2) reflecting the "
+    "persona's career fields and keywords. No people's faces in the background.\n"
     "No text, logos, or watermarks in the images. Keep each prompt under 600 characters."
 )
 
@@ -35,16 +42,19 @@ def build_messages(persona: Persona) -> list[dict[str, str]]:
 
 
 def fallback_prompts(persona: Persona) -> ImagePrompts:
-    """AI 실패 시 결정적 템플릿. fields/keywords로 안전한 프롬프트 구성."""
+    """AI 실패 시 결정적 템플릿. 인물은 직업 무관 '10년 뒤 실제 모습', 배경만 직업 반영."""
     subject = ", ".join(persona.fields) or persona.name
     mood = ", ".join(persona.keywords) or "inspiring, modern"
     return ImagePrompts(
         portrait_prompt=(
-            f"Studio portrait of a confident future professional working in {subject}. "
-            "Clean lighting, 2:3 ratio, photorealistic, no text or watermark."
+            "Realistic portrait of the same person from the photo, aged about 10 years "
+            "older — a natural, mature adult in their late twenties, grown-up and "
+            "composed, NOT elderly, no gray hair or heavy wrinkles, keeping their real "
+            "facial identity, everyday adult attire, soft natural lighting, 2:3 ratio, "
+            "photorealistic, no text or watermark."
         ),
         background_prompt=(
-            f"Cinematic workplace scene representing a career in {subject}, "
-            f"mood: {mood}. Wide 3:2 ratio, no text or watermark."
+            f"Cinematic world scene reflecting a career in {subject}, mood: {mood}. "
+            "Wide 3:2 ratio, no faces, no text or watermark."
         ),
     )
