@@ -545,8 +545,8 @@ IMAGE_CONCURRENCY=10
 ```
 # App
 APP_ENV=production
-APP_BASE_URL=https://api.nabe.example.com
-FRONTEND_ORIGIN=https://nabe.example.com
+APP_BASE_URL=https://api.ibe.example.com
+FRONTEND_ORIGIN=https://ibe.example.com
 
 # DB
 SUPABASE_DB_URL=postgresql://...
@@ -556,7 +556,7 @@ SUPABASE_SERVICE_KEY=...
 # Auth
 JWT_SECRET=...
 JWT_CARD_SHARE_SECRET=...   # 카드 영구 토큰은 별도 키
-JWT_ISSUER=nabe
+JWT_ISSUER=ibe
 
 # AI
 AI_PROVIDER_BASE_URL=https://openrouter.ai/api/v1

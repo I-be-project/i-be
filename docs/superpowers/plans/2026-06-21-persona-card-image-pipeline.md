@@ -687,7 +687,7 @@ class _StubAI:
 
 async def test_generate_card_without_photo_uses_text_to_image() -> None:
     ai = _StubAI()
-    result = await generate_card(ai, _PERSONA, photo=None, qr_data="https://nabe.test/c/x")
+    result = await generate_card(ai, _PERSONA, photo=None, qr_data="https://ibe.test/c/x")
     assert result.card_png[:8] == b"\x89PNG\r\n\x1a\n"
     assert AIPurpose.PORTRAIT_IMAGE in ai.generated  # 사진 없으면 generate
     assert AIPurpose.WORLD_IMAGE in ai.generated
@@ -696,7 +696,7 @@ async def test_generate_card_without_photo_uses_text_to_image() -> None:
 
 async def test_generate_card_with_photo_uses_edit_for_portrait() -> None:
     ai = _StubAI()
-    result = await generate_card(ai, _PERSONA, photo=_png(), qr_data="https://nabe.test/c/x")
+    result = await generate_card(ai, _PERSONA, photo=_png(), qr_data="https://ibe.test/c/x")
     assert result.card_png[:4] == b"\x89PNG"
     assert ai.edited == [AIPurpose.PORTRAIT_IMAGE]  # 사진 있으면 edit
     assert ai.generated == [AIPurpose.WORLD_IMAGE]  # 배경은 항상 generate
@@ -828,7 +828,7 @@ class GeneratePersonaCardRequest(BaseModel):
         None, description="증명사진 PNG/JPEG의 base64. 없으면 text→image."
     )
     qr_data: str = Field(
-        "https://nabe.example/c/demo", max_length=512, description="QR에 인코딩할 문자열."
+        "https://ibe.example/c/demo", max_length=512, description="QR에 인코딩할 문자열."
     )
 
 
@@ -896,7 +896,7 @@ async def test_persona_card_endpoint_returns_card() -> None:
                     "fields": ["건축공학"],
                 },
                 "photo_base64": base64.b64encode(_png()).decode("ascii"),
-                "qr_data": "https://nabe.test/c/x",
+                "qr_data": "https://ibe.test/c/x",
             },
         )
     assert res.status_code == 200
@@ -1133,7 +1133,7 @@ export default function DevFlowPage() {
         body: JSON.stringify({
           persona,
           photo_base64: photoBase64,
-          qr_data: "https://nabe.example/c/dev",
+          qr_data: "https://ibe.example/c/dev",
         }),
       });
       if (!res.ok) throw new Error(`서버 오류 (${res.status})`);
