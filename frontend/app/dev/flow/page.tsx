@@ -76,7 +76,7 @@ export default function DevFlowPage() {
         body: JSON.stringify({
           persona,
           photo_base64: photoBase64,
-          qr_data: "https://nabe.example/c/dev",
+          qr_data: "https://ibe.example/c/dev",
         }),
       });
       if (!res.ok) throw new Error(`서버 오류 (${res.status})`);

@@ -44,7 +44,7 @@ export default function CardTestPage() {
     "자연과 기술을 함께 활용해 생태를 지키는 미래형 탐사 역할",
   )
   const [keywords, setKeywords] = useState("자연, 드론, 탐사, 기술, 보호")
-  const [qrData, setQrData] = useState("https://nabe.example/c/demo")
+  const [qrData, setQrData] = useState("https://ibe.example/c/demo")
   const [loading, setLoading] = useState(false)
   const [card, setCard] = useState<GenerateCardResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -96,7 +96,7 @@ export default function CardTestPage() {
     if (!card) return
     const link = document.createElement("a")
     link.href = `data:image/png;base64,${card.image_base64}`
-    link.download = `nabe-card-${Date.now()}.png`
+    link.download = `ibe-card-${Date.now()}.png`
     link.click()
   }
 
