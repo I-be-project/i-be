@@ -60,18 +60,29 @@ async def test_edit_success_b64() -> None:
     await client.aclose()
 
 
-async def test_edit_sends_multipart_to_edit_url() -> None:
-    seen = {"url": "", "ctype": ""}
+async def test_edit_sends_json_with_base64_image_array() -> None:
+    """Mindlogic edit은 JSON + base64 배열(image)을 받는다."""
+    import base64 as _b64
+    import json as _json
+
+    src = _png()
+    seen: dict[str, object] = {}
 
     def handler(req: httpx.Request) -> httpx.Response:
         seen["url"] = str(req.url)
         seen["ctype"] = req.headers.get("content-type", "")
+        seen["body"] = _json.loads(req.content)
         return httpx.Response(200, json=_b64_body(_png()))
 
     client = _client(handler)
-    await client.edit_image(AIPurpose.PORTRAIT_IMAGE, "p", _png())
+    await client.edit_image(AIPurpose.PORTRAIT_IMAGE, "make future self", src, size="1024x1536")
     assert seen["url"] == _EDIT_URL
-    assert seen["ctype"].startswith("multipart/form-data")
+    assert str(seen["ctype"]).startswith("application/json")
+    body = seen["body"]
+    assert isinstance(body, dict)
+    assert body["prompt"] == "make future self"
+    assert body["size"] == "1024x1536"
+    assert body["image"] == [_b64.b64encode(src).decode("ascii")]  # 배열 형태
     await client.aclose()
 
 

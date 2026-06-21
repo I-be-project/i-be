@@ -226,22 +226,29 @@ class AIClient:
     async def _image_edit_attempt(
         self, prompt: str, image: bytes, size: str | None
     ) -> bytes:
-        """edits 엔드포인트 multipart 1회 호출 → bytes."""
-        data: dict[str, str] = {
+        """edit 엔드포인트 1회 호출 → bytes.
+
+        Mindlogic edit은 multipart가 아니라 JSON + base64 배열을 받는다:
+        {"model","prompt","size","image": ["<base64>"]}. 응답은 generate와 동일(b64_json/url).
+        """
+        payload: dict[str, Any] = {
             "model": self._image_model,
             "prompt": prompt,
             "size": size or self._image_size,
-            "n": "1",
+            "n": 1,
+            "image": [base64.b64encode(image).decode("ascii")],
         }
         if self._image_response_format:
-            data["response_format"] = self._image_response_format
-        files = {"image": ("photo.png", image, "image/png")}
-        headers = {"Authorization": f"Bearer {self._image_api_key}"}  # 멀티파트는 httpx가 Content-Type 설정
+            payload["response_format"] = self._image_response_format
+        headers = {
+            "Authorization": f"Bearer {self._image_api_key}",
+            "Content-Type": "application/json",
+        }
 
         async with self._image_sem:
             try:
                 response = await self._http.post(
-                    self._image_edit_api_url, headers=headers, data=data, files=files
+                    self._image_edit_api_url, headers=headers, json=payload
                 )
             except httpx.TimeoutException as exc:
                 raise _RetryableImageError(f"timeout: {exc}") from exc
