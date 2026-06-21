@@ -1,5 +1,5 @@
 [project]
-name = "nabe-backend"
+name = "ibe-backend"
 version = "0.1.0"
 description = "진로 내비게이터 백엔드 — FastAPI + Supabase"
 requires-python = ">=3.12"

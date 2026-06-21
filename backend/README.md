@@ -1,4 +1,4 @@
-# nabe-backend
+# ibe-backend
 
 진로 내비게이터 백엔드 — FastAPI + Supabase Postgres + 인-프로세스 카드 생성 워커.
 

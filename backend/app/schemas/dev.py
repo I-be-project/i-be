@@ -48,7 +48,7 @@ class GenerateCardRequest(BaseModel):
     tagline: str = Field("", max_length=160, description="한 줄 소개 (선택)")
     keywords: list[str] = Field(default_factory=list, max_length=8, description="키워드 3~5개 권장")
     qr_data: str = Field(
-        "https://nabe.example/c/demo",
+        "https://ibe.example/c/demo",
         max_length=512,
         description="QR에 인코딩할 문자열(공유 링크/토큰). dev에선 임의값.",
     )
@@ -70,7 +70,7 @@ class GeneratePersonaCardRequest(BaseModel):
         None, description="증명사진 PNG/JPEG의 base64. 없으면 text→image."
     )
     qr_data: str = Field(
-        "https://nabe.example/c/demo", max_length=512, description="QR에 인코딩할 문자열."
+        "https://ibe.example/c/demo", max_length=512, description="QR에 인코딩할 문자열."
     )
 
 

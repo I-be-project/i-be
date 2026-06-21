@@ -48,7 +48,7 @@ class _StubAI:
 
 async def test_generate_card_without_photo_uses_text_to_image() -> None:
     ai = _StubAI()
-    result = await generate_card(ai, _PERSONA, photo=None, qr_data="https://nabe.test/c/x")
+    result = await generate_card(ai, _PERSONA, photo=None, qr_data="https://ibe.test/c/x")
     assert result.card_png[:8] == b"\x89PNG\r\n\x1a\n"
     assert AIPurpose.PORTRAIT_IMAGE in ai.generated  # 사진 없으면 generate
     assert AIPurpose.WORLD_IMAGE in ai.generated
@@ -57,7 +57,7 @@ async def test_generate_card_without_photo_uses_text_to_image() -> None:
 
 async def test_generate_card_with_photo_uses_edit_for_portrait() -> None:
     ai = _StubAI()
-    result = await generate_card(ai, _PERSONA, photo=_png(), qr_data="https://nabe.test/c/x")
+    result = await generate_card(ai, _PERSONA, photo=_png(), qr_data="https://ibe.test/c/x")
     assert result.card_png[:4] == b"\x89PNG"
     assert ai.edited == [AIPurpose.PORTRAIT_IMAGE]  # 사진 있으면 edit
     assert ai.generated == [AIPurpose.WORLD_IMAGE]  # 배경은 항상 generate

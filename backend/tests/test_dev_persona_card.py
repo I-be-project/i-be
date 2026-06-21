@@ -49,7 +49,7 @@ async def test_persona_card_endpoint_returns_card() -> None:
                     "fields": ["건축공학"],
                 },
                 "photo_base64": base64.b64encode(_png()).decode("ascii"),
-                "qr_data": "https://nabe.test/c/x",
+                "qr_data": "https://ibe.test/c/x",
             },
         )
     assert res.status_code == 200

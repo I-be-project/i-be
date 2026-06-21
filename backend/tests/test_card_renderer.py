@@ -31,7 +31,7 @@ def test_render_card_produces_valid_png() -> None:
         keywords=["자연", "드론", "탐사", "기술", "보호"],
     )
 
-    out = render_card(background, portrait, content, "https://nabe.example/c/abc123")
+    out = render_card(background, portrait, content, "https://ibe.example/c/abc123")
 
     info = inspect_image(out)
     assert info.image_format == "PNG"
@@ -60,5 +60,5 @@ def test_render_card_minimal_content() -> None:
 
 
 def test_build_qr_returns_square_image() -> None:
-    img = _build_qr("https://nabe.example/c/abc", 200)
+    img = _build_qr("https://ibe.example/c/abc", 200)
     assert img.size == (200, 200)
