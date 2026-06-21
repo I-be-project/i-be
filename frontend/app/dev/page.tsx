@@ -16,6 +16,15 @@ interface DevTool {
 
 const DEV_TOOLS: DevTool[] = [
   {
+    title: "카드 생성 흐름 (mock→실제)",
+    description:
+      "mock 질문/페르소나 선택을 버튼으로 진행한 뒤, 실제 AI로 인물·배경 이미지를 생성해 카드까지 만듭니다.",
+    href: "/dev/flow",
+    tag: "흐름",
+    icon: Workflow,
+    status: "active",
+  },
+  {
     title: "페르소나 카드 생성",
     description:
       "프롬프트·페르소나 정보로 인물·배경 그림을 만들고 글자·QR까지 합성한 완성 카드를 생성합니다.",
