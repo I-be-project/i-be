@@ -68,3 +68,23 @@ async def test_falls_back_on_banned_word() -> None:
     result = await generate_image_prompts(ai, _PERSONA)
     assert "nsfw" not in result.portrait_prompt.lower()
     assert ai.calls == 2  # 금칙어도 재시도를 소진한 뒤 폴백
+
+
+class _EmptyChoicesAI:
+    """비정상 응답: choices가 빈 리스트."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def chat(self, purpose, messages, **kwargs):
+        self.calls += 1
+        return SimpleNamespace(choices=[])
+
+
+async def test_falls_back_on_empty_choices() -> None:
+    ai = _EmptyChoicesAI()
+    result = await generate_image_prompts(ai, _PERSONA)
+    # 빈 choices에도 예외 없이 폴백 (파이프라인 비중단)
+    assert isinstance(result, ImagePrompts)
+    assert result.portrait_prompt
+    assert ai.calls == 2

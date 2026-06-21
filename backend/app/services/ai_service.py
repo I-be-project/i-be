@@ -70,7 +70,8 @@ async def generate_image_prompts(ai: _ChatClient, persona: Persona) -> ImageProm
         resp = await ai.chat(
             AIPurpose.IMAGE_PROMPT, messages, response_format={"type": "json_object"}
         )
-        content = resp.choices[0].message.content
+        # 비정상 응답(빈 choices·None 메시지)도 폴백으로 흡수 — 파이프라인을 멈추지 않는다.
+        content = resp.choices[0].message.content if resp.choices else None
         prompts = _parse(content)
         if prompts is not None:
             return prompts
