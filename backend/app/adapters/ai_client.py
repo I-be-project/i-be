@@ -72,6 +72,7 @@ class AIClient:
         image_size: str,
         image_strength: float,
         image_timeout_seconds: float,
+        image_quality: str = "",
         image_concurrency: int,
         image_max_retries: int = 2,
         image_retry_base_delay: float = 0.5,
@@ -88,6 +89,7 @@ class AIClient:
         self._image_model = image_model
         self._image_size = image_size
         self._image_strength = image_strength
+        self._image_quality = image_quality  # image_config.image_size ("" | 1K | 2K | 4K)
         self._image_max_retries = image_max_retries
         self._image_retry_base_delay = image_retry_base_delay
         self._image_sem = asyncio.Semaphore(image_concurrency)
@@ -120,6 +122,7 @@ class AIClient:
             image_model=settings.ai_image_model,
             image_size=settings.ai_image_size,
             image_strength=settings.ai_image_strength,
+            image_quality=settings.ai_image_quality,
             image_timeout_seconds=settings.ai_image_timeout_seconds,
             image_concurrency=settings.image_concurrency,
             image_max_retries=settings.ai_image_max_retries,
@@ -216,6 +219,8 @@ class AIClient:
         strength: float | None = None,
     ) -> dict[str, Any]:
         image_config: dict[str, Any] = {"aspect_ratio": aspect_ratio}
+        if self._image_quality:
+            image_config["image_size"] = self._image_quality  # 1K/2K/4K (모델 지원 시)
         if strength is not None:
             image_config["strength"] = strength
         return {

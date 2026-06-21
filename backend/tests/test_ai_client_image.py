@@ -41,6 +41,7 @@ def _client(
     handler: Callable[[httpx.Request], httpx.Response],
     *,
     api_key: str = "test-key",
+    quality: str = "",
     max_retries: int = 2,
 ) -> AIClient:
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
@@ -53,6 +54,7 @@ def _client(
         image_model="google/gemini-2.5-flash-image",
         image_size="1024x1024",
         image_strength=0.5,
+        image_quality=quality,
         image_timeout_seconds=5.0,
         image_concurrency=4,
         image_max_retries=max_retries,
@@ -83,6 +85,22 @@ async def test_request_has_modalities_and_aspect_ratio() -> None:
     assert body["modalities"] == ["image", "text"]
     assert body["image_config"]["aspect_ratio"] == "2:3"  # 1024x1536 → 2:3
     assert "strength" not in body["image_config"]  # generate는 strength 없음
+    assert "image_size" not in body["image_config"]  # quality 미설정 → 생략
+    await client.aclose()
+
+
+async def test_image_size_set_when_quality_configured() -> None:
+    seen: dict[str, object] = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(req.content)
+        return httpx.Response(200, json=_img_body(_png()))
+
+    client = _client(handler, quality="2K")
+    await client.generate_image(AIPurpose.PORTRAIT_IMAGE, "p")
+    body = seen["body"]
+    assert isinstance(body, dict)
+    assert body["image_config"]["image_size"] == "2K"
     await client.aclose()
 
 
