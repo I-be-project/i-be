@@ -67,3 +67,4 @@ async def test_falls_back_on_banned_word() -> None:
     ai = _StubAI([body, body])
     result = await generate_image_prompts(ai, _PERSONA)
     assert "nsfw" not in result.portrait_prompt.lower()
+    assert ai.calls == 2  # 금칙어도 재시도를 소진한 뒤 폴백
