@@ -19,8 +19,12 @@ _SYSTEM = (
     "shoulders portrait with soft natural lighting (2:3). Do NOT put them in any job "
     "uniform, costume, or career props, and do NOT tie the portrait to the career — "
     "just their real future self in everyday adult attire.\n"
-    "background_prompt: a cinematic world/workplace scene (3:2) reflecting the "
-    "persona's career fields and keywords. No people's faces in the background.\n"
+    "background_prompt: a CLEAN, MODERN, minimal background (3:2) that only subtly "
+    "evokes the persona's career field — use simple shapes, soft gradients, or a "
+    "single clear focal element. Keep it uncluttered with generous negative space "
+    "and a cohesive, muted color palette, so card text and the portrait stay readable "
+    "on top. Avoid busy scenes, crowds, dense detail, and heavy textures. No people's "
+    "faces in the background.\n"
     "No text, logos, or watermarks in the images. Keep each prompt under 600 characters."
 )
 
@@ -54,7 +58,8 @@ def fallback_prompts(persona: Persona) -> ImagePrompts:
             "photorealistic, no text or watermark."
         ),
         background_prompt=(
-            f"Cinematic world scene reflecting a career in {subject}, mood: {mood}. "
+            f"Clean, modern, minimal background subtly evoking {subject}: simple shapes "
+            f"and soft gradients, calm {mood} tones, generous negative space, uncluttered. "
             "Wide 3:2 ratio, no faces, no text or watermark."
         ),
     )
