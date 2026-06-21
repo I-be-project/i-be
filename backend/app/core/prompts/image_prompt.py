@@ -12,19 +12,16 @@ _SYSTEM = (
     "You write concise English prompts for an image generator that builds a "
     "future-self persona card from an uploaded face photo. Return ONLY JSON with "
     'keys "portrait_prompt" and "background_prompt".\n'
-    "portrait_prompt: the SAME person as the input photo, aged about 10 years older "
-    "— a natural, mature adult (roughly late twenties to early thirties). Keep their "
-    "real facial identity and features; make them look grown-up, calm and composed, "
-    "NOT elderly — no gray hair, no heavy wrinkles. A realistic, lifelike head-and-"
-    "shoulders portrait with soft natural lighting (2:3). Do NOT put them in any job "
-    "uniform, costume, or career props, and do NOT tie the portrait to the career — "
-    "just their real future self in everyday adult attire.\n"
-    "background_prompt: a CLEAN, MODERN, minimal background (3:2) that only subtly "
-    "evokes the persona's career field — use simple shapes, soft gradients, or a "
-    "single clear focal element. Keep it uncluttered with generous negative space "
-    "and a cohesive, muted color palette, so card text and the portrait stay readable "
-    "on top. Avoid busy scenes, crowds, dense detail, and heavy textures. No people's "
-    "faces in the background.\n"
+    "portrait_prompt: the SAME person as the input photo, depicted at exactly 28 years "
+    "old. Keep their real facial identity and features, but render them as an "
+    "attractive, good-looking 28-year-old adult — smooth clear skin, absolutely no "
+    "wrinkles, no gray hair, polished and stylish, naturally beautiful/handsome. A "
+    "photorealistic, lifelike head-and-shoulders portrait with soft flattering "
+    "lighting (2:3). Do NOT put them in any job uniform, costume, or career props, and "
+    "do NOT tie the portrait to the career — just an attractive real future self in "
+    "nice everyday adult attire.\n"
+    "background_prompt: a cinematic world/workplace scene (3:2) reflecting the "
+    "persona's career fields and keywords. No people's faces in the background.\n"
     "No text, logos, or watermarks in the images. Keep each prompt under 600 characters."
 )
 
@@ -51,15 +48,14 @@ def fallback_prompts(persona: Persona) -> ImagePrompts:
     mood = ", ".join(persona.keywords) or "inspiring, modern"
     return ImagePrompts(
         portrait_prompt=(
-            "Realistic portrait of the same person from the photo, aged about 10 years "
-            "older — a natural, mature adult in their late twenties, grown-up and "
-            "composed, NOT elderly, no gray hair or heavy wrinkles, keeping their real "
-            "facial identity, everyday adult attire, soft natural lighting, 2:3 ratio, "
-            "photorealistic, no text or watermark."
+            "Photorealistic portrait of the same person from the photo, depicted at "
+            "exactly 28 years old — an attractive, good-looking young adult with smooth "
+            "clear skin, no wrinkles, no gray hair, stylish and polished, naturally "
+            "beautiful/handsome, keeping their real facial identity, nice everyday adult "
+            "attire, soft flattering lighting, 2:3 ratio, lifelike, no text or watermark."
         ),
         background_prompt=(
-            f"Clean, modern, minimal background subtly evoking {subject}: simple shapes "
-            f"and soft gradients, calm {mood} tones, generous negative space, uncluttered. "
+            f"Cinematic world scene reflecting a career in {subject}, mood: {mood}. "
             "Wide 3:2 ratio, no faces, no text or watermark."
         ),
     )

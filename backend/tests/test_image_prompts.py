@@ -59,7 +59,7 @@ async def test_falls_back_after_persistent_failure() -> None:
     result = await generate_image_prompts(ai, _PERSONA)
     # 폴백 배경은 직업(fields) 기반, 인물은 직업 무관 '10년 뒤 실제 모습'
     assert "환경공학" in result.background_prompt or "항공기술" in result.background_prompt
-    assert "10 years older" in result.portrait_prompt
+    assert "28" in result.portrait_prompt
     assert ai.calls == 2  # 1 + 1 재시도 후 폴백
 
 
