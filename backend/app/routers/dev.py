@@ -20,10 +20,13 @@ from app.schemas.dev import (
     GenerateCardResponse,
     GenerateImageRequest,
     GenerateImageResponse,
+    GeneratePersonaCardRequest,
+    GeneratePersonaCardResponse,
     ImageTarget,
 )
 from app.services.card_image_service import generate_card_images
 from app.services.card_renderer import PersonaCardContent, render_card
+from app.services.persona_pipeline import generate_card as pipeline_generate_card
 
 router = APIRouter(prefix="/api/dev", tags=["dev"])
 
@@ -88,5 +91,25 @@ async def generate_card(req: GenerateCardRequest, ai: AIClientDep) -> GenerateCa
         size_bytes=len(card_png),
         width=info.width,
         height=info.height,
+        elapsed_seconds=round(elapsed, 2),
+    )
+
+
+@router.post("/persona-card", response_model=GeneratePersonaCardResponse)
+async def generate_persona_card(
+    req: GeneratePersonaCardRequest, ai: AIClientDep
+) -> GeneratePersonaCardResponse:
+    """선택된 페르소나 → AI-05 프롬프트 → 인물(얼굴)·배경 → 카드 합성."""
+    photo = base64.b64decode(req.photo_base64) if req.photo_base64 else None
+
+    started = time.perf_counter()
+    result = await pipeline_generate_card(ai, req.persona, photo=photo, qr_data=req.qr_data)
+    elapsed = time.perf_counter() - started
+
+    return GeneratePersonaCardResponse(
+        persona=req.persona,
+        card_base64=base64.b64encode(result.card_png).decode("ascii"),
+        portrait_prompt=result.prompts.portrait_prompt,
+        background_prompt=result.prompts.background_prompt,
         elapsed_seconds=round(elapsed, 2),
     )
