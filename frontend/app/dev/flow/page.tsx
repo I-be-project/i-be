@@ -3,9 +3,11 @@
 import { useState } from "react";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
+import { ImageUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 import {
   devAdaptiveQuestions,
   devCoreQuestions,
@@ -43,10 +45,23 @@ export default function DevFlowPage() {
   const [cardBase64, setCardBase64] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
+
+  async function handleFile(file: File) {
+    if (!file.type.startsWith("image/")) return;
+    setPhotoBase64(await fileToBase64(file));
+  }
 
   async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
-    if (file) setPhotoBase64(await fileToBase64(file));
+    if (file) await handleFile(file);
+  }
+
+  function handleDrop(e: React.DragEvent<HTMLLabelElement>) {
+    e.preventDefault();
+    setDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) void handleFile(file);
   }
 
   async function generate(persona: DevPersona) {
@@ -89,13 +104,44 @@ export default function DevFlowPage() {
           {step === 0 && (
             <div className="space-y-4">
               <p className="text-muted-foreground">증명사진을 올리면 얼굴 기반 인물 이미지를 생성합니다. (선택)</p>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handlePhoto}
-                className="block text-sm file:mr-3 file:rounded-md file:border file:bg-secondary file:px-3 file:py-1.5 file:text-secondary-foreground"
-              />
-              {photoBase64 && <p className="text-sm text-green-600">사진 준비됨 ✓</p>}
+              <label
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
+                className={cn(
+                  "flex cursor-pointer flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed px-6 py-10 text-center transition",
+                  dragging
+                    ? "border-primary bg-primary/5"
+                    : "border-muted-foreground/25 hover:border-primary/50",
+                )}
+              >
+                <input type="file" accept="image/*" onChange={handlePhoto} className="hidden" />
+                {photoBase64 ? (
+                  <>
+                    <Image
+                      src={`data:image/png;base64,${photoBase64}`}
+                      alt="업로드한 사진"
+                      width={112}
+                      height={112}
+                      unoptimized
+                      className="size-28 rounded-lg object-cover"
+                    />
+                    <p className="text-sm text-green-600">
+                      사진 준비됨 ✓ — 클릭하거나 드래그해서 교체
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <ImageUp className="size-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      여기로 사진을 드래그하거나 클릭해서 선택
+                    </p>
+                  </>
+                )}
+              </label>
               <Button onClick={() => setStep(1)}>다음</Button>
             </div>
           )}
