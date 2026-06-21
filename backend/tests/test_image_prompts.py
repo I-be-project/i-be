@@ -29,7 +29,7 @@ class _StubAI:
         self._contents = contents
         self.calls = 0
 
-    async def chat(self, purpose, messages, **kwargs):  # noqa: ANN001
+    async def chat(self, purpose, messages, **kwargs):
         content = self._contents[min(self.calls, len(self._contents) - 1)]
         self.calls += 1
         return _chat_response(content)

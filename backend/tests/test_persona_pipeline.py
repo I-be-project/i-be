@@ -31,17 +31,17 @@ class _StubAI:
         self.generated: list[AIPurpose] = []
         self.edited: list[AIPurpose] = []
 
-    async def chat(self, purpose, messages, **kwargs):  # noqa: ANN001
+    async def chat(self, purpose, messages, **kwargs):
         body = json.dumps({"portrait_prompt": "portrait", "background_prompt": "bg"})
         return SimpleNamespace(
             choices=[SimpleNamespace(message=SimpleNamespace(content=body))]
         )
 
-    async def generate_image(self, purpose, prompt, *, size=None, n=1):  # noqa: ANN001
+    async def generate_image(self, purpose, prompt, *, size=None, n=1):
         self.generated.append(purpose)
         return _png()
 
-    async def edit_image(self, purpose, prompt, image, *, size=None):  # noqa: ANN001
+    async def edit_image(self, purpose, prompt, image, *, size=None):
         self.edited.append(purpose)
         return _png()
 
