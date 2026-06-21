@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+from collections.abc import Awaitable, Callable
 from enum import StrEnum
 from typing import Any
 
@@ -50,6 +51,7 @@ class AIClient:
         chat_api_key: str,
         chat_model_map: dict[AIPurpose, str],
         image_api_url: str,
+        image_edit_api_url: str = "",
         image_api_key: str,
         image_model: str,
         image_size: str,
@@ -67,6 +69,7 @@ class AIClient:
         self._models = chat_model_map
 
         self._image_api_url = image_api_url
+        self._image_edit_api_url = image_edit_api_url
         self._image_api_key = image_api_key
         self._image_model = image_model
         self._image_size = image_size
@@ -99,6 +102,7 @@ class AIClient:
                 AIPurpose.IMAGE_PROMPT: settings.ai_model_image_prompt,
             },
             image_api_url=settings.ai_image_api_url,
+            image_edit_api_url=settings.ai_image_edit_api_url,
             image_api_key=settings.ai_image_api_key,
             image_model=settings.ai_image_model,
             image_size=settings.ai_image_size,
@@ -159,20 +163,29 @@ class AIClient:
             "Content-Type": "application/json",
         }
 
+        async def _attempt() -> bytes:
+            return await self._image_attempt(payload, headers)
+
+        return await self._run_with_image_retries(purpose, _attempt)
+
+    async def _run_with_image_retries(
+        self, purpose: AIPurpose, attempt: Callable[[], Awaitable[bytes]]
+    ) -> bytes:
+        """이미지 1회 시도(attempt)를 검증·지수백오프 재시도로 감싼다."""
         last_error: Exception | None = None
-        for attempt in range(self._image_max_retries + 1):
+        for n in range(self._image_max_retries + 1):
             try:
-                data = await self._image_attempt(payload, headers)
-                inspect_image(data)  # 손상·비이미지면 ImageValidationError
+                data = await attempt()
+                inspect_image(data)
                 return data
             except (_RetryableImageError, ImageValidationError) as exc:
                 last_error = exc
-                if attempt < self._image_max_retries:
-                    delay = self._image_retry_base_delay * (2**attempt)
+                if n < self._image_max_retries:
+                    delay = self._image_retry_base_delay * (2**n)
                     logger.warning(
                         "image.retry",
                         purpose=str(purpose),
-                        attempt=attempt + 1,
+                        attempt=n + 1,
                         max_attempts=self._image_max_retries + 1,
                         delay=delay,
                         reason=str(exc),
@@ -180,7 +193,6 @@ class AIClient:
                     await asyncio.sleep(delay)
                     continue
                 break
-
         raise ExternalServiceError(
             "이미지 생성에 실패했습니다 (재시도 소진).",
             details={
@@ -189,6 +201,60 @@ class AIClient:
                 "reason": str(last_error),
             },
         )
+
+    async def edit_image(
+        self,
+        purpose: AIPurpose,
+        prompt: str,
+        image: bytes,
+        *,
+        size: str | None = None,
+    ) -> bytes:
+        """입력 이미지(얼굴) + 프롬프트로 image-edit 생성. 검증된 bytes 반환."""
+        if not self._image_api_key:
+            raise ExternalServiceError("AI_IMAGE_API_KEY가 설정되지 않았습니다.")
+        if not self._image_edit_api_url:
+            raise ExternalServiceError("AI_IMAGE_EDIT_API_URL이 설정되지 않았습니다.")
+
+        async def _attempt() -> bytes:
+            return await self._image_edit_attempt(prompt, image, size)
+
+        return await self._run_with_image_retries(purpose, _attempt)
+
+    async def _image_edit_attempt(
+        self, prompt: str, image: bytes, size: str | None
+    ) -> bytes:
+        """edits 엔드포인트 multipart 1회 호출 → bytes."""
+        data: dict[str, str] = {
+            "model": self._image_model,
+            "prompt": prompt,
+            "size": size or self._image_size,
+            "n": "1",
+        }
+        if self._image_response_format:
+            data["response_format"] = self._image_response_format
+        files = {"image": ("photo.png", image, "image/png")}
+        headers = {"Authorization": f"Bearer {self._image_api_key}"}  # 멀티파트는 httpx가 Content-Type 설정
+
+        async with self._image_sem:
+            try:
+                response = await self._http.post(
+                    self._image_edit_api_url, headers=headers, data=data, files=files
+                )
+            except httpx.TimeoutException as exc:
+                raise _RetryableImageError(f"timeout: {exc}") from exc
+            except httpx.HTTPError as exc:
+                raise _RetryableImageError(f"network: {exc}") from exc
+
+        if response.status_code == 429 or response.status_code >= 500:
+            raise _RetryableImageError(f"status {response.status_code}: {response.text[:200]}")
+        if response.status_code >= 400:
+            raise ExternalServiceError(
+                "이미지 edit API가 오류를 반환했습니다.",
+                details={"status": response.status_code, "body": response.text[:500]},
+            )
+
+        return await self._extract_image_bytes(response)
 
     async def _image_attempt(self, payload: dict[str, Any], headers: dict[str, str]) -> bytes:
         """이미지 API 1회 호출 → bytes. 일시적 실패는 _RetryableImageError로,

@@ -69,6 +69,8 @@ class Settings(BaseSettings):
     # - Mindlogic: 비워두기 (기본 b64 반환)
     # - OpenRouter/OpenAI 직접: "b64_json"
     ai_image_response_format: str = ""
+    # 얼굴 입력(image-to-image) — edits 경로. 빈 문자열이면 edit_image 사용 불가.
+    ai_image_edit_api_url: str = ""
     image_concurrency: int = 10
     # 일시적 실패(타임아웃·429·5xx·손상응답) 재시도. 총 시도 = max_retries + 1.
     ai_image_max_retries: int = 2
