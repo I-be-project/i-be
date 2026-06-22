@@ -154,6 +154,7 @@ class AIClient:
         *,
         size: str | None = None,
         n: int = 1,  # 인터페이스 호환용 (OpenRouter는 1장 반환)
+        model: str | None = None,
     ) -> bytes:
         """텍스트→이미지 생성. 검증된 이미지 bytes 반환.
 
@@ -166,6 +167,7 @@ class AIClient:
         payload = self._image_payload(
             messages=[{"role": "user", "content": prompt}],
             aspect_ratio=_size_to_aspect_ratio(size or self._image_size),
+            model=model,
         )
 
         async def _attempt() -> bytes:
@@ -180,6 +182,7 @@ class AIClient:
         image: bytes,
         *,
         size: str | None = None,
+        model: str | None = None,
     ) -> bytes:
         """입력 이미지(얼굴) + 프롬프트로 image-to-image 생성. 검증된 bytes 반환.
 
@@ -204,6 +207,7 @@ class AIClient:
             ],
             aspect_ratio=_size_to_aspect_ratio(size or self._image_size),
             strength=self._image_strength,
+            model=model,
         )
 
         async def _attempt() -> bytes:
@@ -217,6 +221,7 @@ class AIClient:
         messages: list[dict[str, Any]],
         aspect_ratio: str,
         strength: float | None = None,
+        model: str | None = None,
     ) -> dict[str, Any]:
         image_config: dict[str, Any] = {"aspect_ratio": aspect_ratio}
         if self._image_quality:
@@ -224,7 +229,7 @@ class AIClient:
         if strength is not None:
             image_config["strength"] = strength
         return {
-            "model": self._image_model,
+            "model": model or self._image_model,
             "messages": messages,
             "modalities": ["image", "text"],
             "image_config": image_config,

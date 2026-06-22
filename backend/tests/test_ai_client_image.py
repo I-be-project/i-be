@@ -197,3 +197,48 @@ async def test_missing_api_key_raises_immediately() -> None:
     with pytest.raises(ExternalServiceError):
         await client.generate_image(AIPurpose.PORTRAIT_IMAGE, "p")
     await client.aclose()
+
+
+async def test_generate_image_uses_override_model() -> None:
+    seen: dict[str, object] = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(req.content)
+        return httpx.Response(200, json=_img_body(_png()))
+
+    client = _client(handler)  # 기본 image_model="google/gemini-2.5-flash-image"
+    await client.generate_image(AIPurpose.PORTRAIT_IMAGE, "p", model="openai/some-model")
+    body = seen["body"]
+    assert isinstance(body, dict)
+    assert body["model"] == "openai/some-model"
+    await client.aclose()
+
+
+async def test_generate_image_defaults_to_settings_model() -> None:
+    seen: dict[str, object] = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(req.content)
+        return httpx.Response(200, json=_img_body(_png()))
+
+    client = _client(handler)
+    await client.generate_image(AIPurpose.PORTRAIT_IMAGE, "p")
+    body = seen["body"]
+    assert isinstance(body, dict)
+    assert body["model"] == "google/gemini-2.5-flash-image"
+    await client.aclose()
+
+
+async def test_edit_image_uses_override_model() -> None:
+    seen: dict[str, object] = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(req.content)
+        return httpx.Response(200, json=_img_body(_png()))
+
+    client = _client(handler)
+    await client.edit_image(AIPurpose.PORTRAIT_IMAGE, "p", _png(), model="openai/some-model")
+    body = seen["body"]
+    assert isinstance(body, dict)
+    assert body["model"] == "openai/some-model"
+    await client.aclose()
