@@ -271,26 +271,69 @@ export default function PhotoPortraitPage() {
           onValueChange={(v) => setModelChoice(v ?? "")}
           disabled={loading || modelsLoading}
         >
-          <SelectTrigger className="h-14 text-base [&>span]:truncate">
-            <SelectValue placeholder={modelsLoading ? "모델 불러오는 중…" : "모델 선택"} />
+          <SelectTrigger className="h-auto py-2.5 [&>span]:flex [&>span]:w-full">
+            <SelectValue>
+              {(value: string | null) => {
+                if (!value) {
+                  return (
+                    <span className="text-muted-foreground">
+                      {modelsLoading ? "모델 불러오는 중…" : "모델 선택"}
+                    </span>
+                  )
+                }
+                if (value === "custom") {
+                  return (
+                    <span className="flex flex-col items-start gap-0.5 text-left">
+                      <span className="text-sm font-semibold">직접 입력</span>
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {customModel.trim() || "모델 ID를 입력하세요"}
+                      </span>
+                    </span>
+                  )
+                }
+                const info = models.find((m) => m.id === value) ?? null
+                return (
+                  <span className="flex w-full items-center gap-2 text-left">
+                    <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="flex items-center gap-1.5 text-sm font-semibold">
+                        <span className="truncate">{info?.name ?? value}</span>
+                        {value === defaultModel && (
+                          <Badge variant="outline" className="shrink-0 px-1 text-[9px]">
+                            기본
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="truncate font-mono text-xs text-muted-foreground">
+                        {priceDetail(info)}
+                      </span>
+                    </span>
+                    <span className="ml-auto shrink-0 rounded-md bg-primary/10 px-2 py-1 font-mono text-sm font-semibold text-primary">
+                      {priceLabel(info)}
+                    </span>
+                  </span>
+                )
+              }}
+            </SelectValue>
           </SelectTrigger>
           <SelectContent>
             {models.map((m) => (
-              <SelectItem key={m.id} value={m.id} className="py-2.5">
-                <span className="flex w-full items-center gap-2.5 pr-1">
-                  <span className="text-base font-semibold">{m.name}</span>
-                  {m.id === defaultModel && (
-                    <Badge variant="outline" className="px-1.5 text-[10px]">
-                      기본
-                    </Badge>
-                  )}
-                  <span className="ml-auto font-mono text-sm text-muted-foreground">
+              <SelectItem key={m.id} value={m.id} className="py-2">
+                <span className="flex w-full items-center gap-2 pr-1">
+                  <span className="flex items-center gap-1.5 text-sm font-medium">
+                    {m.name}
+                    {m.id === defaultModel && (
+                      <Badge variant="outline" className="px-1 text-[9px]">
+                        기본
+                      </Badge>
+                    )}
+                  </span>
+                  <span className="ml-auto rounded-md bg-muted px-2 py-0.5 font-mono text-xs font-semibold">
                     {priceLabel(m)}
                   </span>
                 </span>
               </SelectItem>
             ))}
-            <SelectItem value="custom" className="py-2.5 text-base">
+            <SelectItem value="custom" className="py-2 text-sm">
               직접 입력…
             </SelectItem>
           </SelectContent>
@@ -302,38 +345,34 @@ export default function PhotoPortraitPage() {
             onChange={(e) => setCustomModel(e.target.value)}
             placeholder="모델 ID 입력 (예: openai/gpt-5-image)"
             disabled={loading}
-            className="mt-3 h-12 font-mono text-sm"
+            className="mt-3 font-mono text-xs"
             autoFocus
           />
         )}
       </Section>
 
-      {/* 3. 생성 바 — 선택 모델 + 가격을 크게 */}
-      <div className="mt-6 flex flex-col gap-5 rounded-2xl border bg-muted/30 p-6 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            선택 모델
-          </div>
-          <div className="mt-1 flex items-center gap-2">
-            <span className="text-xl font-bold leading-tight md:text-2xl">
+      {/* 3. 생성 바 */}
+      <div className="mt-6 flex flex-col gap-3 rounded-xl border bg-muted/30 p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 text-sm">
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground">선택 모델</span>
+            <span className="truncate font-medium">
               {selectedInfo?.name ?? selectedModelId ?? "—"}
             </span>
-            {selectedModelId === defaultModel && defaultModel && (
-              <Badge variant="outline" className="text-[10px]">
-                기본
-              </Badge>
-            )}
           </div>
-          <div className="mt-1.5 font-mono text-base text-foreground/80">
-            {selectedModelId ? priceDetail(selectedInfo) : "모델 ID를 입력하세요"}
+          <div className="mt-0.5 font-mono text-xs text-muted-foreground">
+            {selectedModelId
+              ? priceDetail(selectedInfo)
+              : "모델 ID를 입력하세요"}
           </div>
         </div>
         <Button
           onClick={handleGenerate}
           disabled={loading || !photoBase64}
-          className="h-14 shrink-0 px-8 text-lg font-semibold sm:w-auto w-full"
+          size="lg"
+          className="shrink-0"
         >
-          <Sparkles className="size-5" />
+          <Sparkles className="size-4" />
           {loading ? "생성 중…" : "인물 생성"}
         </Button>
       </div>
