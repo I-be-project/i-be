@@ -80,3 +80,24 @@ class GeneratePersonaCardResponse(BaseModel):
     portrait_prompt: str
     background_prompt: str
     elapsed_seconds: float
+
+
+class GeneratePortraitRequest(BaseModel):
+    """사진(필수) + 프롬프트 + 선택 모델로 인물 이미지 1장 생성."""
+
+    prompt: str = Field(..., min_length=1, max_length=4000, description="인물 그림 설명(영문 권장)")
+    photo_base64: str = Field(
+        ..., min_length=1, description="얼굴 사진 PNG/JPEG의 base64 (필수)"
+    )
+    model: str | None = Field(
+        None, description="이미지 모델 ID override. 미지정 시 서버 기본 이미지 모델."
+    )
+
+
+class GeneratePortraitResponse(BaseModel):
+    image_base64: str = Field(..., description="인물 PNG의 base64")
+    size_bytes: int
+    width: int
+    height: int
+    elapsed_seconds: float
+    model: str = Field(..., description="실제 사용된 이미지 모델 ID")
