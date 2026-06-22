@@ -2,7 +2,7 @@
 
 - Chat: OpenAI 호환 SDK (OpenRouter). purpose → model 매핑.
 - Image: OpenRouter는 이미지 생성·편집을 **/chat/completions** 한 엔드포인트로 처리한다.
-        요청에 `modalities: ["image","text"]`와 `image_config`(aspect_ratio·strength)를 싣고,
+        요청에 `modalities: ["image"]`와 `image_config`(aspect_ratio·strength)를 싣고,
         응답 `choices[0].message.images[0].image_url.url`(data URI)에서 bytes를 추출한다.
         편집(얼굴 입력)은 message content에 image_url(data URI)을 함께 넣는다.
 
@@ -44,6 +44,43 @@ class AIPurpose(StrEnum):
 
 class _RetryableImageError(Exception):
     """이미지 생성 중 재시도로 회복 가능한 일시적 실패."""
+
+
+# /models 목록엔 없지만 호출 가능한 이미지 모델(가격은 endpoints API에서 보강).
+_EXTRA_IMAGE_MODELS: tuple[str, ...] = ("x-ai/grok-imagine-image-quality",)
+
+
+def _to_float(v: Any) -> float | None:
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if f > 0 else None
+
+
+def _model_info(model_id: str, name: Any, pricing: Any) -> dict[str, Any]:
+    """모델 가격을 UI 친화 형태로 정규화.
+
+    토큰 과금 모델(prompt/completion 보유) → 입력/출력 $ per 1M tokens.
+    그 외 per-image 과금(image 보유) → per_image $/장.
+    """
+    p = pricing if isinstance(pricing, dict) else {}
+    prompt = _to_float(p.get("prompt"))
+    completion = _to_float(p.get("completion"))
+    image = _to_float(p.get("image"))
+    input_per_m = output_per_m = per_image = None
+    if completion is not None:
+        output_per_m = round(completion * 1_000_000, 4)
+        input_per_m = round(prompt * 1_000_000, 4) if prompt is not None else None
+    elif image is not None:
+        per_image = round(image, 4)
+    return {
+        "id": model_id,
+        "name": name if isinstance(name, str) and name else model_id,
+        "input_per_m": input_per_m,
+        "output_per_m": output_per_m,
+        "per_image": per_image,
+    }
 
 
 def _size_to_aspect_ratio(size: str) -> str:
@@ -146,6 +183,67 @@ class AIClient:
             **kwargs,
         )
 
+    # ─── Models 카탈로그 (가격 표시용) ─────────────────────────────
+    async def list_image_models(self) -> list[dict[str, Any]]:
+        """OpenRouter 카탈로그에서 이미지 출력 모델 + 가격을 조회.
+
+        /models에 노출되는 모델 + _EXTRA_IMAGE_MODELS(목록엔 없지만 사용 가능)를 합친다.
+        실패는 빈 목록/누락 가격으로 흡수해 dev UI가 멈추지 않게 한다.
+        """
+        catalog = await self._get_json(f"{self._chat_base_url}/models")
+        data = catalog.get("data") if isinstance(catalog, dict) else None
+        out: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for m in data or []:
+            if not isinstance(m, dict):
+                continue
+            mid = m.get("id")
+            arch = m.get("architecture") or {}
+            if mid == "openrouter/auto":
+                continue  # 라우터는 제외
+            if not isinstance(mid, str) or "image" not in (arch.get("output_modalities") or []):
+                continue
+            out.append(_model_info(mid, m.get("name"), m.get("pricing")))
+            seen.add(mid)
+
+        for ex in _EXTRA_IMAGE_MODELS:
+            if ex in seen:
+                continue
+            info = await self._extra_model_info(ex)
+            if info is not None:
+                out.append(info)
+        return out
+
+    async def _extra_model_info(self, model_id: str) -> dict[str, Any] | None:
+        """/models에 없는 모델의 가격을 endpoints API에서 best-effort로 가져온다."""
+        try:
+            body = await self._get_json(f"{self._chat_base_url}/models/{model_id}/endpoints")
+        except ExternalServiceError:
+            return _model_info(model_id, None, None)
+        d = body.get("data") if isinstance(body, dict) else None
+        if not isinstance(d, dict):
+            return _model_info(model_id, None, None)
+        endpoints = d.get("endpoints")
+        pricing = None
+        if isinstance(endpoints, list) and endpoints and isinstance(endpoints[0], dict):
+            pricing = endpoints[0].get("pricing")
+        return _model_info(model_id, d.get("name"), pricing)
+
+    async def _get_json(self, url: str) -> Any:
+        headers = {"Authorization": f"Bearer {self._image_api_key}"}
+        try:
+            resp = await self._http.get(url, headers=headers)
+        except httpx.HTTPError as exc:
+            raise ExternalServiceError("모델 카탈로그 조회 실패.", details={"reason": str(exc)}) from exc
+        if resp.status_code >= 400:
+            raise ExternalServiceError(
+                "모델 카탈로그 API 오류.", details={"status": resp.status_code}
+            )
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise ExternalServiceError("모델 카탈로그 응답 파싱 실패.") from exc
+
     # ─── Image (OpenRouter /chat/completions + modalities) ──────────────
     async def generate_image(
         self,
@@ -154,6 +252,7 @@ class AIClient:
         *,
         size: str | None = None,
         n: int = 1,  # 인터페이스 호환용 (OpenRouter는 1장 반환)
+        model: str | None = None,
     ) -> bytes:
         """텍스트→이미지 생성. 검증된 이미지 bytes 반환.
 
@@ -166,6 +265,7 @@ class AIClient:
         payload = self._image_payload(
             messages=[{"role": "user", "content": prompt}],
             aspect_ratio=_size_to_aspect_ratio(size or self._image_size),
+            model=model,
         )
 
         async def _attempt() -> bytes:
@@ -180,6 +280,7 @@ class AIClient:
         image: bytes,
         *,
         size: str | None = None,
+        model: str | None = None,
     ) -> bytes:
         """입력 이미지(얼굴) + 프롬프트로 image-to-image 생성. 검증된 bytes 반환.
 
@@ -204,6 +305,7 @@ class AIClient:
             ],
             aspect_ratio=_size_to_aspect_ratio(size or self._image_size),
             strength=self._image_strength,
+            model=model,
         )
 
         async def _attempt() -> bytes:
@@ -217,6 +319,7 @@ class AIClient:
         messages: list[dict[str, Any]],
         aspect_ratio: str,
         strength: float | None = None,
+        model: str | None = None,
     ) -> dict[str, Any]:
         image_config: dict[str, Any] = {"aspect_ratio": aspect_ratio}
         if self._image_quality:
@@ -224,9 +327,11 @@ class AIClient:
         if strength is not None:
             image_config["strength"] = strength
         return {
-            "model": self._image_model,
+            "model": model or self._image_model,
             "messages": messages,
-            "modalities": ["image", "text"],
+            # 이미지만 추출하므로 출력은 image 단독. text를 함께 요구하면
+            # image-only 모델(예: x-ai/grok-imagine-*)이 404("No endpoints ...")를 낸다.
+            "modalities": ["image"],
             "image_config": image_config,
         }
 

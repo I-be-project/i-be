@@ -22,9 +22,13 @@ from app.schemas.dev import (
     GenerateImageResponse,
     GeneratePersonaCardRequest,
     GeneratePersonaCardResponse,
+    GeneratePortraitRequest,
+    GeneratePortraitResponse,
+    ImageModelInfo,
+    ImageModelsResponse,
     ImageTarget,
 )
-from app.services.card_image_service import generate_card_images
+from app.services.card_image_service import PORTRAIT_SIZE, generate_card_images
 from app.services.card_renderer import PersonaCardContent, render_card
 from app.services.persona_pipeline import generate_card as pipeline_generate_card
 
@@ -112,4 +116,39 @@ async def generate_persona_card(
         portrait_prompt=result.prompts.portrait_prompt,
         background_prompt=result.prompts.background_prompt,
         elapsed_seconds=round(elapsed, 2),
+    )
+
+
+@router.post("/portrait", response_model=GeneratePortraitResponse)
+async def generate_portrait(
+    req: GeneratePortraitRequest, ai: AIClientDep
+) -> GeneratePortraitResponse:
+    """사진(필수) + 프롬프트 + 선택 모델 → 인물 이미지 1장 (2:3)."""
+    photo = base64.b64decode(req.photo_base64)
+    settings = get_settings()
+
+    started = time.perf_counter()
+    image_bytes = await ai.edit_image(
+        AIPurpose.PORTRAIT_IMAGE, req.prompt, photo, size=PORTRAIT_SIZE, model=req.model
+    )
+    elapsed = time.perf_counter() - started
+
+    info = inspect_image(image_bytes)
+    return GeneratePortraitResponse(
+        image_base64=base64.b64encode(image_bytes).decode("ascii"),
+        size_bytes=len(image_bytes),
+        width=info.width,
+        height=info.height,
+        elapsed_seconds=round(elapsed, 2),
+        model=req.model or settings.ai_image_model,
+    )
+
+
+@router.get("/image-models", response_model=ImageModelsResponse)
+async def list_image_models(ai: AIClientDep) -> ImageModelsResponse:
+    """이미지 출력 모델 목록 + 가격(OpenRouter 카탈로그, 무료 메타데이터)."""
+    models = await ai.list_image_models()
+    return ImageModelsResponse(
+        models=[ImageModelInfo(**m) for m in models],
+        default=get_settings().ai_image_model,
     )
