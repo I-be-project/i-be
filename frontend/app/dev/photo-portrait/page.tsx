@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, ImageUp } from "lucide-react"
@@ -32,23 +32,29 @@ interface ApiError {
   error: { code: string; message: string; details?: Record<string, unknown> }
 }
 
+interface ImageModel {
+  id: string
+  name: string
+  input_per_m: number | null
+  output_per_m: number | null
+  per_image: number | null
+}
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000"
 
 // 기존 카드 생성 흐름의 인물 프롬프트(결정적 폴백 템플릿)를 기본값으로 복사.
 const DEFAULT_PROMPT =
   "Photorealistic portrait of the same person from the photo, depicted at exactly 28 years old — an attractive, good-looking young adult with smooth clear skin, no wrinkles, no gray hair, stylish and polished, naturally beautiful/handsome, keeping their real facial identity, nice everyday adult attire, soft flattering lighting, 2:3 ratio, lifelike, no text or watermark."
 
-// value "" → 서버 기본 모델(model 미전송). "custom" → 직접 입력.
-// OpenRouter의 image 출력(modalities) 지원 모델만. ID는 /api/v1/models로 확인됨.
-const MODEL_PRESETS: { value: string; label: string }[] = [
-  { value: "", label: "기본값 (서버 설정 모델)" },
-  { value: "google/gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash Image" },
-  { value: "google/gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image" },
-  { value: "google/gemini-3-pro-image", label: "Gemini 3 Pro Image" },
-  { value: "openai/gpt-5-image", label: "GPT-5 Image" },
-  { value: "x-ai/grok-imagine-image-quality", label: "Grok Imagine (Image Quality)" },
-  { value: "custom", label: "직접 입력…" },
-]
+// 모델 가격을 한 줄 텍스트로. per-image 과금이면 장당, 아니면 토큰당(per 1M).
+function priceText(m: ImageModel | null): string {
+  if (!m) return "가격 정보 없음"
+  if (m.per_image != null) return `$${m.per_image}/장`
+  const parts: string[] = []
+  if (m.input_per_m != null) parts.push(`입력 $${m.input_per_m}`)
+  if (m.output_per_m != null) parts.push(`출력 $${m.output_per_m}`)
+  return parts.length ? `${parts.join(" · ")} / 1M토큰` : "가격 정보 없음"
+}
 
 async function fileToBase64(file: File): Promise<string> {
   const buf = await file.arrayBuffer()
@@ -67,6 +73,35 @@ export default function PhotoPortraitPage() {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<PortraitResponse | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [models, setModels] = useState<ImageModel[]>([])
+  const [defaultModel, setDefaultModel] = useState<string>("")
+
+  // 이미지 모델 목록 + 가격을 백엔드에서 조회(OpenRouter 무료 메타데이터).
+  useEffect(() => {
+    let cancelled = false
+    fetch(`${API_URL}/api/dev/image-models`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { models: ImageModel[]; default: string } | null) => {
+        if (cancelled || !data) return
+        setModels(data.models)
+        setDefaultModel(data.default)
+      })
+      .catch(() => {
+        /* 목록 조회 실패해도 기본값/직접입력으로 계속 사용 가능 */
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  // 현재 선택된 모델 ID(기본값이면 서버 default)와 그 가격 정보.
+  const selectedModelId =
+    modelChoice === "default"
+      ? defaultModel
+      : modelChoice === "custom"
+        ? customModel.trim()
+        : modelChoice
+  const selectedInfo = models.find((m) => m.id === selectedModelId) ?? null
 
   async function handleFile(file: File) {
     if (!file.type.startsWith("image/")) return
@@ -212,22 +247,35 @@ export default function PhotoPortraitPage() {
                   <SelectValue placeholder="모델 선택" />
                 </SelectTrigger>
                 <SelectContent>
-                  {MODEL_PRESETS.map((m) => (
-                    <SelectItem key={m.value || "default"} value={m.value || "default"}>
-                      {m.label}
+                  <SelectItem value="default">기본값 (서버 설정 모델)</SelectItem>
+                  {models.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      <span className="flex w-full items-center justify-between gap-3">
+                        <span>{m.name}</span>
+                        <span className="font-mono text-[10px] text-muted-foreground">
+                          {priceText(m)}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
+                  <SelectItem value="custom">직접 입력…</SelectItem>
                 </SelectContent>
               </Select>
               {modelChoice === "custom" && (
                 <Input
                   value={customModel}
                   onChange={(e) => setCustomModel(e.target.value)}
-                  placeholder="예) openai/gpt-image-1"
+                  placeholder="예) openai/gpt-5-image"
                   disabled={loading}
                   className="mt-2 font-mono text-xs"
                 />
               )}
+              <div className="mt-1.5 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span className="font-mono truncate">{selectedModelId || "—"}</span>
+                <span className="font-mono shrink-0">
+                  {selectedModelId ? priceText(selectedInfo) : ""}
+                </span>
+              </div>
             </div>
             <div>
               <div className="mb-1.5 text-xs font-medium text-muted-foreground">
