@@ -3,20 +3,20 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import {
-  ArrowLeft,
-  Check,
-  Download,
-  ImageUp,
-  Pencil,
-  Sparkles,
-} from "lucide-react"
+import { ArrowLeft, Download, ImageUp, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 
 interface PortraitResponse {
@@ -264,41 +264,35 @@ export default function PhotoPortraitPage() {
         </Section>
       </div>
 
-      {/* 2. 모델 선택 (가격 표시) */}
+      {/* 2. 모델 선택 (메뉴 — 항목마다 가격 표시) */}
       <Section step={3} title="AI 모델" hint="장당 또는 1M 토큰당 단가" className="mt-5">
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-          {modelsLoading
-            ? Array.from({ length: 6 }).map((_, i) => (
-                <Skeleton key={i} className="h-[88px] rounded-xl" />
-              ))
-            : models.map((m) => (
-                <ModelTile
-                  key={m.id}
-                  model={m}
-                  selected={modelChoice === m.id}
-                  isDefault={m.id === defaultModel}
-                  disabled={loading}
-                  onSelect={() => setModelChoice(m.id)}
-                />
-              ))}
-
-          {/* 직접 입력 타일 */}
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() => setModelChoice("custom")}
-            className={cn(
-              "flex h-[88px] flex-col items-center justify-center gap-1.5 rounded-xl border text-center transition",
-              modelChoice === "custom"
-                ? "border-primary bg-primary/5 ring-2 ring-primary/25"
-                : "border-dashed hover:border-primary/40 hover:bg-muted/40",
-              loading && "cursor-not-allowed opacity-50",
-            )}
-          >
-            <Pencil className="size-4 text-muted-foreground" />
-            <span className="text-xs font-medium">직접 입력</span>
-          </button>
-        </div>
+        <Select
+          value={modelChoice}
+          onValueChange={(v) => setModelChoice(v ?? "")}
+          disabled={loading || modelsLoading}
+        >
+          <SelectTrigger className="h-11">
+            <SelectValue placeholder={modelsLoading ? "모델 불러오는 중…" : "모델 선택"} />
+          </SelectTrigger>
+          <SelectContent>
+            {models.map((m) => (
+              <SelectItem key={m.id} value={m.id}>
+                <span className="flex w-full items-center gap-2 pr-1">
+                  <span className="font-medium">{m.name}</span>
+                  {m.id === defaultModel && (
+                    <Badge variant="outline" className="px-1 text-[9px]">
+                      기본
+                    </Badge>
+                  )}
+                  <span className="ml-auto font-mono text-xs text-muted-foreground">
+                    {priceLabel(m)}
+                  </span>
+                </span>
+              </SelectItem>
+            ))}
+            <SelectItem value="custom">직접 입력…</SelectItem>
+          </SelectContent>
+        </Select>
 
         {modelChoice === "custom" && (
           <Input
@@ -421,50 +415,6 @@ function Section({
         {children}
       </CardContent>
     </Card>
-  )
-}
-
-function ModelTile({
-  model,
-  selected,
-  isDefault,
-  disabled,
-  onSelect,
-}: {
-  model: ImageModel
-  selected: boolean
-  isDefault: boolean
-  disabled: boolean
-  onSelect: () => void
-}) {
-  return (
-    <button
-      type="button"
-      disabled={disabled}
-      onClick={onSelect}
-      className={cn(
-        "flex h-[88px] flex-col justify-between rounded-xl border p-2.5 text-left transition",
-        selected
-          ? "border-primary bg-primary/5 ring-2 ring-primary/25"
-          : "hover:border-primary/40 hover:bg-muted/40",
-        disabled && "cursor-not-allowed opacity-50",
-      )}
-    >
-      <div className="flex items-start gap-1">
-        <span className="line-clamp-2 text-xs font-semibold leading-tight">{model.name}</span>
-        {selected && <Check className="ml-auto size-3.5 shrink-0 text-primary" />}
-      </div>
-      <div className="flex items-center justify-between gap-1">
-        <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold">
-          {priceLabel(model)}
-        </span>
-        {isDefault && (
-          <Badge variant="outline" className="px-1 text-[9px]">
-            기본
-          </Badge>
-        )}
-      </div>
-    </button>
   )
 }
 
