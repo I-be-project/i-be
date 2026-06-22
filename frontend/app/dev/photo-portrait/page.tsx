@@ -39,10 +39,13 @@ const DEFAULT_PROMPT =
   "Photorealistic portrait of the same person from the photo, depicted at exactly 28 years old — an attractive, good-looking young adult with smooth clear skin, no wrinkles, no gray hair, stylish and polished, naturally beautiful/handsome, keeping their real facial identity, nice everyday adult attire, soft flattering lighting, 2:3 ratio, lifelike, no text or watermark."
 
 // value "" → 서버 기본 모델(model 미전송). "custom" → 직접 입력.
+// OpenRouter의 image 출력(modalities) 지원 모델만. ID는 /api/v1/models로 확인됨.
 const MODEL_PRESETS: { value: string; label: string }[] = [
   { value: "", label: "기본값 (서버 설정 모델)" },
   { value: "google/gemini-3.1-flash-image-preview", label: "Gemini 3.1 Flash Image" },
-  { value: "google/gemini-2.5-flash-image-preview", label: "Gemini 2.5 Flash Image" },
+  { value: "google/gemini-2.5-flash-image", label: "Gemini 2.5 Flash Image" },
+  { value: "google/gemini-3-pro-image", label: "Gemini 3 Pro Image" },
+  { value: "openai/gpt-5-image", label: "GPT-5 Image" },
   { value: "custom", label: "직접 입력…" },
 ]
 
