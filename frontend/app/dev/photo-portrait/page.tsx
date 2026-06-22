@@ -271,7 +271,7 @@ export default function PhotoPortraitPage() {
           onValueChange={(v) => setModelChoice(v ?? "")}
           disabled={loading || modelsLoading}
         >
-          <SelectTrigger className="h-auto py-2.5 [&>span]:flex [&>span]:w-full">
+          <SelectTrigger className="h-12 w-full [&>span]:flex [&>span]:w-full">
             <SelectValue>
               {(value: string | null) => {
                 if (!value) {
@@ -283,31 +283,24 @@ export default function PhotoPortraitPage() {
                 }
                 if (value === "custom") {
                   return (
-                    <span className="flex flex-col items-start gap-0.5 text-left">
-                      <span className="text-sm font-semibold">직접 입력</span>
-                      <span className="font-mono text-xs text-muted-foreground">
-                        {customModel.trim() || "모델 ID를 입력하세요"}
+                    <span className="flex w-full items-center gap-2">
+                      <span className="font-medium">직접 입력</span>
+                      <span className="ml-auto truncate font-mono text-xs text-muted-foreground">
+                        {customModel.trim() || "모델 ID 입력"}
                       </span>
                     </span>
                   )
                 }
                 const info = models.find((m) => m.id === value) ?? null
                 return (
-                  <span className="flex w-full items-center gap-2 text-left">
-                    <span className="flex min-w-0 flex-col gap-0.5">
-                      <span className="flex items-center gap-1.5 text-sm font-semibold">
-                        <span className="truncate">{info?.name ?? value}</span>
-                        {value === defaultModel && (
-                          <Badge variant="outline" className="shrink-0 px-1 text-[9px]">
-                            기본
-                          </Badge>
-                        )}
-                      </span>
-                      <span className="truncate font-mono text-xs text-muted-foreground">
-                        {priceDetail(info)}
-                      </span>
-                    </span>
-                    <span className="ml-auto shrink-0 rounded-md bg-primary/10 px-2 py-1 font-mono text-sm font-semibold text-primary">
+                  <span className="flex w-full items-center gap-2">
+                    <span className="truncate font-medium">{info?.name ?? value}</span>
+                    {value === defaultModel && (
+                      <Badge variant="outline" className="shrink-0 px-1 text-[9px]">
+                        기본
+                      </Badge>
+                    )}
+                    <span className="ml-auto shrink-0 font-mono text-sm font-semibold">
                       {priceLabel(info)}
                     </span>
                   </span>
