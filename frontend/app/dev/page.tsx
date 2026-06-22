@@ -34,6 +34,15 @@ const DEV_TOOLS: DevTool[] = [
     status: "active",
   },
   {
+    title: "사진 → 인물 생성",
+    description:
+      "얼굴 사진을 올리고 AI 모델을 골라 인물 이미지 한 장을 생성합니다. 모델별 결과를 비교할 때 사용하세요.",
+    href: "/dev/photo-portrait",
+    tag: "이미지",
+    icon: ImageIcon,
+    status: "active",
+  },
+  {
     title: "페르소나 해석 테스트",
     description: "학생 답변을 AI가 해석해 페르소나 결과로 변환하는 흐름을 점검합니다.",
     tag: "AI",
