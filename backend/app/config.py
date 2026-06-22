@@ -49,9 +49,11 @@ class Settings(BaseSettings):
     operator_token_ttl_hours: int = 12
     share_link_ttl_hours: int = 24
 
-    # AI — Chat 계열 (OpenAI 호환: OpenRouter/OpenAI 직접)
+    # AI — OpenRouter 키 하나로 chat·image 통합.
+    ai_api_key: str = ""
+
+    # AI — Chat 계열 (OpenAI 호환: OpenRouter)
     ai_chat_base_url: str = "https://openrouter.ai/api/v1"
-    ai_chat_api_key: str = ""
     ai_model_analyze: str = "openai/gpt-5-mini"
     ai_model_adaptive_questions: str = "openai/gpt-5-mini"
     ai_model_final_question: str = "openai/gpt-5.2"
@@ -62,7 +64,6 @@ class Settings(BaseSettings):
     # OpenRouter는 /chat/completions 한 엔드포인트로 생성·편집을 처리(modalities + image_config).
     # 응답: choices[0].message.images[0].image_url.url (data URI). httpx 직접 호출.
     ai_image_api_url: str = "https://openrouter.ai/api/v1/chat/completions"
-    ai_image_api_key: str = ""
     ai_image_model: str = "google/gemini-3.1-flash-image-preview"
     # size는 aspect_ratio 변환용 기본값 (예: 1024x1536 → 2:3). 파이프라인이 보통 명시 전달.
     ai_image_size: str = "1024x1024"

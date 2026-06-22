@@ -99,7 +99,7 @@ class AIClient:
     def _get_chat(self) -> AsyncOpenAI:
         if self._chat_client is None:
             if not self._chat_api_key:
-                raise ExternalServiceError("AI_CHAT_API_KEY가 설정되지 않았습니다.")
+                raise ExternalServiceError("AI_API_KEY가 설정되지 않았습니다.")
             self._chat_client = AsyncOpenAI(
                 base_url=self._chat_base_url, api_key=self._chat_api_key
             )
@@ -109,7 +109,7 @@ class AIClient:
     def from_settings(cls, settings: Settings) -> AIClient:
         return cls(
             chat_base_url=settings.ai_chat_base_url,
-            chat_api_key=settings.ai_chat_api_key,
+            chat_api_key=settings.ai_api_key,
             chat_model_map={
                 AIPurpose.ANALYZE: settings.ai_model_analyze,
                 AIPurpose.ADAPTIVE_QUESTIONS: settings.ai_model_adaptive_questions,
@@ -118,7 +118,7 @@ class AIClient:
                 AIPurpose.IMAGE_PROMPT: settings.ai_model_image_prompt,
             },
             image_api_url=settings.ai_image_api_url,
-            image_api_key=settings.ai_image_api_key,
+            image_api_key=settings.ai_api_key,
             image_model=settings.ai_image_model,
             image_size=settings.ai_image_size,
             image_strength=settings.ai_image_strength,
@@ -161,7 +161,7 @@ class AIClient:
         4xx(429 제외)·키 미설정 등 영구 오류는 즉시 ExternalServiceError.
         """
         if not self._image_api_key:
-            raise ExternalServiceError("AI_IMAGE_API_KEY가 설정되지 않았습니다.")
+            raise ExternalServiceError("AI_API_KEY가 설정되지 않았습니다.")
 
         payload = self._image_payload(
             messages=[{"role": "user", "content": prompt}],
@@ -187,7 +187,7 @@ class AIClient:
         입력 이미지 보존 정도를 조절한다(낮을수록 원본에 가까움).
         """
         if not self._image_api_key:
-            raise ExternalServiceError("AI_IMAGE_API_KEY가 설정되지 않았습니다.")
+            raise ExternalServiceError("AI_API_KEY가 설정되지 않았습니다.")
 
         inspect_image(image)  # 입력 이미지(얼굴)가 유효한지 사전 검증
 
