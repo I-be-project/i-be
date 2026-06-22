@@ -63,12 +63,12 @@ class Settings(BaseSettings):
     # 응답: choices[0].message.images[0].image_url.url (data URI). httpx 직접 호출.
     ai_image_api_url: str = "https://openrouter.ai/api/v1/chat/completions"
     ai_image_api_key: str = ""
-    ai_image_model: str = "google/gemini-2.5-flash-image"
+    ai_image_model: str = "google/gemini-3.1-flash-image-preview"
     # size는 aspect_ratio 변환용 기본값 (예: 1024x1536 → 2:3). 파이프라인이 보통 명시 전달.
     ai_image_size: str = "1024x1024"
     # 출력 해상도 image_config.image_size: "" (모델 기본) | "0.5K" | "1K" | "2K" | "4K".
     # 확실 지원: google/gemini-3.1-flash-image-preview. 2.5-flash-image는 ~1K 고정(무시될 수 있음).
-    ai_image_quality: str = ""
+    ai_image_quality: str = "2K"
     # 얼굴 입력(image-to-image) 보존 강도: 낮을수록 원본에 가까움 (0.0~1.0).
     ai_image_strength: float = 0.5
     ai_image_timeout_seconds: float = 60.0
