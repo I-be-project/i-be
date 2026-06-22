@@ -46,6 +46,43 @@ class _RetryableImageError(Exception):
     """이미지 생성 중 재시도로 회복 가능한 일시적 실패."""
 
 
+# /models 목록엔 없지만 호출 가능한 이미지 모델(가격은 endpoints API에서 보강).
+_EXTRA_IMAGE_MODELS: tuple[str, ...] = ("x-ai/grok-imagine-image-quality",)
+
+
+def _to_float(v: Any) -> float | None:
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if f > 0 else None
+
+
+def _model_info(model_id: str, name: Any, pricing: Any) -> dict[str, Any]:
+    """모델 가격을 UI 친화 형태로 정규화.
+
+    토큰 과금 모델(prompt/completion 보유) → 입력/출력 $ per 1M tokens.
+    그 외 per-image 과금(image 보유) → per_image $/장.
+    """
+    p = pricing if isinstance(pricing, dict) else {}
+    prompt = _to_float(p.get("prompt"))
+    completion = _to_float(p.get("completion"))
+    image = _to_float(p.get("image"))
+    input_per_m = output_per_m = per_image = None
+    if completion is not None:
+        output_per_m = round(completion * 1_000_000, 4)
+        input_per_m = round(prompt * 1_000_000, 4) if prompt is not None else None
+    elif image is not None:
+        per_image = round(image, 4)
+    return {
+        "id": model_id,
+        "name": name if isinstance(name, str) and name else model_id,
+        "input_per_m": input_per_m,
+        "output_per_m": output_per_m,
+        "per_image": per_image,
+    }
+
+
 def _size_to_aspect_ratio(size: str) -> str:
     """"1024x1536" → "2:3" 처럼 픽셀 크기를 OpenRouter aspect_ratio로 변환."""
     try:
@@ -145,6 +182,67 @@ class AIClient:
             messages=messages,
             **kwargs,
         )
+
+    # ─── Models 카탈로그 (가격 표시용) ─────────────────────────────
+    async def list_image_models(self) -> list[dict[str, Any]]:
+        """OpenRouter 카탈로그에서 이미지 출력 모델 + 가격을 조회.
+
+        /models에 노출되는 모델 + _EXTRA_IMAGE_MODELS(목록엔 없지만 사용 가능)를 합친다.
+        실패는 빈 목록/누락 가격으로 흡수해 dev UI가 멈추지 않게 한다.
+        """
+        catalog = await self._get_json(f"{self._chat_base_url}/models")
+        data = catalog.get("data") if isinstance(catalog, dict) else None
+        out: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for m in data or []:
+            if not isinstance(m, dict):
+                continue
+            mid = m.get("id")
+            arch = m.get("architecture") or {}
+            if mid == "openrouter/auto":
+                continue  # 라우터는 제외
+            if not isinstance(mid, str) or "image" not in (arch.get("output_modalities") or []):
+                continue
+            out.append(_model_info(mid, m.get("name"), m.get("pricing")))
+            seen.add(mid)
+
+        for ex in _EXTRA_IMAGE_MODELS:
+            if ex in seen:
+                continue
+            info = await self._extra_model_info(ex)
+            if info is not None:
+                out.append(info)
+        return out
+
+    async def _extra_model_info(self, model_id: str) -> dict[str, Any] | None:
+        """/models에 없는 모델의 가격을 endpoints API에서 best-effort로 가져온다."""
+        try:
+            body = await self._get_json(f"{self._chat_base_url}/models/{model_id}/endpoints")
+        except ExternalServiceError:
+            return _model_info(model_id, None, None)
+        d = body.get("data") if isinstance(body, dict) else None
+        if not isinstance(d, dict):
+            return _model_info(model_id, None, None)
+        endpoints = d.get("endpoints")
+        pricing = None
+        if isinstance(endpoints, list) and endpoints and isinstance(endpoints[0], dict):
+            pricing = endpoints[0].get("pricing")
+        return _model_info(model_id, d.get("name"), pricing)
+
+    async def _get_json(self, url: str) -> Any:
+        headers = {"Authorization": f"Bearer {self._image_api_key}"}
+        try:
+            resp = await self._http.get(url, headers=headers)
+        except httpx.HTTPError as exc:
+            raise ExternalServiceError("모델 카탈로그 조회 실패.", details={"reason": str(exc)}) from exc
+        if resp.status_code >= 400:
+            raise ExternalServiceError(
+                "모델 카탈로그 API 오류.", details={"status": resp.status_code}
+            )
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise ExternalServiceError("모델 카탈로그 응답 파싱 실패.") from exc
 
     # ─── Image (OpenRouter /chat/completions + modalities) ──────────────
     async def generate_image(

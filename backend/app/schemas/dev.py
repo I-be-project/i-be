@@ -101,3 +101,16 @@ class GeneratePortraitResponse(BaseModel):
     height: int
     elapsed_seconds: float
     model: str = Field(..., description="실제 사용된 이미지 모델 ID")
+
+
+class ImageModelInfo(BaseModel):
+    id: str
+    name: str
+    input_per_m: float | None = Field(None, description="입력 토큰 $ per 1M (토큰 과금 모델)")
+    output_per_m: float | None = Field(None, description="출력 토큰 $ per 1M (토큰 과금 모델)")
+    per_image: float | None = Field(None, description="장당 $ (per-image 과금 모델)")
+
+
+class ImageModelsResponse(BaseModel):
+    models: list[ImageModelInfo]
+    default: str = Field(..., description="서버 기본 이미지 모델 ID")

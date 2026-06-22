@@ -24,6 +24,8 @@ from app.schemas.dev import (
     GeneratePersonaCardResponse,
     GeneratePortraitRequest,
     GeneratePortraitResponse,
+    ImageModelInfo,
+    ImageModelsResponse,
     ImageTarget,
 )
 from app.services.card_image_service import PORTRAIT_SIZE, generate_card_images
@@ -139,4 +141,14 @@ async def generate_portrait(
         height=info.height,
         elapsed_seconds=round(elapsed, 2),
         model=req.model or settings.ai_image_model,
+    )
+
+
+@router.get("/image-models", response_model=ImageModelsResponse)
+async def list_image_models(ai: AIClientDep) -> ImageModelsResponse:
+    """이미지 출력 모델 목록 + 가격(OpenRouter 카탈로그, 무료 메타데이터)."""
+    models = await ai.list_image_models()
+    return ImageModelsResponse(
+        models=[ImageModelInfo(**m) for m in models],
+        default=get_settings().ai_image_model,
     )
