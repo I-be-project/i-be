@@ -82,7 +82,7 @@ async def test_request_has_modalities_and_aspect_ratio() -> None:
     await client.generate_image(AIPurpose.PORTRAIT_IMAGE, "p", size="1024x1536")
     body = seen["body"]
     assert isinstance(body, dict)
-    assert body["modalities"] == ["image", "text"]
+    assert body["modalities"] == ["image"]
     assert body["image_config"]["aspect_ratio"] == "2:3"  # 1024x1536 → 2:3
     assert "strength" not in body["image_config"]  # generate는 strength 없음
     assert "image_size" not in body["image_config"]  # quality 미설정 → 생략

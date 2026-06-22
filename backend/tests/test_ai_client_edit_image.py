@@ -81,7 +81,7 @@ async def test_edit_sends_image_url_and_strength() -> None:
     assert seen["url"] == _URL
     body = seen["body"]
     assert isinstance(body, dict)
-    assert body["modalities"] == ["image", "text"]
+    assert body["modalities"] == ["image"]
     assert body["image_config"]["aspect_ratio"] == "2:3"
     assert body["image_config"]["strength"] == 0.5
     content = body["messages"][0]["content"]

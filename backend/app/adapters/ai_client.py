@@ -2,7 +2,7 @@
 
 - Chat: OpenAI 호환 SDK (OpenRouter). purpose → model 매핑.
 - Image: OpenRouter는 이미지 생성·편집을 **/chat/completions** 한 엔드포인트로 처리한다.
-        요청에 `modalities: ["image","text"]`와 `image_config`(aspect_ratio·strength)를 싣고,
+        요청에 `modalities: ["image"]`와 `image_config`(aspect_ratio·strength)를 싣고,
         응답 `choices[0].message.images[0].image_url.url`(data URI)에서 bytes를 추출한다.
         편집(얼굴 입력)은 message content에 image_url(data URI)을 함께 넣는다.
 
@@ -231,7 +231,9 @@ class AIClient:
         return {
             "model": model or self._image_model,
             "messages": messages,
-            "modalities": ["image", "text"],
+            # 이미지만 추출하므로 출력은 image 단독. text를 함께 요구하면
+            # image-only 모델(예: x-ai/grok-imagine-*)이 404("No endpoints ...")를 낸다.
+            "modalities": ["image"],
             "image_config": image_config,
         }
 
