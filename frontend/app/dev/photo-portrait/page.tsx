@@ -3,7 +3,16 @@
 import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
-import { ArrowLeft, Download, ImageUp, Sparkles } from "lucide-react"
+import {
+  ArrowLeft,
+  Clock,
+  Cpu,
+  Download,
+  HardDrive,
+  ImageUp,
+  type LucideIcon,
+  Sparkles,
+} from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -403,12 +412,20 @@ export default function PhotoPortraitPage() {
 
             {result && (
               <div className="w-full flex-1 space-y-3">
-                <div className="grid grid-cols-3 gap-2">
-                  <Meta label="모델" value={result.model} />
-                  <Meta label="시간" value={`${result.elapsed_seconds}s`} />
-                  <Meta label="크기" value={`${(result.size_bytes / 1024).toFixed(0)} KB`} />
+                <div className="divide-y rounded-xl border">
+                  <InfoRow icon={Cpu} label="모델" value={result.model} mono />
+                  <InfoRow icon={Clock} label="생성 시간" value={`${result.elapsed_seconds}초`} />
+                  <InfoRow
+                    icon={HardDrive}
+                    label="파일 크기"
+                    value={`${(result.size_bytes / 1024).toFixed(0)} KB · ${result.width}×${result.height}`}
+                  />
                 </div>
-                <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Button
+                  variant="outline"
+                  onClick={handleDownload}
+                  className="w-full sm:w-auto"
+                >
                   <Download className="size-4" /> PNG 다운로드
                 </Button>
               </div>
@@ -456,11 +473,29 @@ function Section({
   )
 }
 
-function Meta({ label, value }: { label: string; value: string }) {
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+  mono,
+}: {
+  icon: LucideIcon
+  label: string
+  value: string
+  mono?: boolean
+}) {
   return (
-    <div className="rounded-lg border bg-muted/30 px-2.5 py-2 text-xs">
-      <div className="text-muted-foreground">{label}</div>
-      <div className="mt-0.5 font-mono break-all">{value}</div>
+    <div className="flex items-center gap-3 px-3.5 py-3">
+      <Icon className="size-4 shrink-0 text-muted-foreground" />
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span
+        className={cn(
+          "ml-auto break-all text-right text-sm font-medium",
+          mono && "font-mono text-xs",
+        )}
+      >
+        {value}
+      </span>
     </div>
   )
 }
