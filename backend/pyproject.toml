@@ -9,6 +9,9 @@ dependencies = [
     "httpx>=0.28.1",
     "openai>=2.38.0",
     "passlib[bcrypt]>=1.7.4",
+    # passlib 1.7.4는 bcrypt 5.0의 변경(>72바이트 비밀번호에서 truncate 대신 예외)과
+    # 호환되지 않아 백엔드 초기화 자체가 실패한다. 4.x 계열로 고정.
+    "bcrypt>=4.0.1,<5",
     "pillow>=12.2.0",
     "pydantic-settings>=2.14.1",
     "pyjwt>=2.13.0",
