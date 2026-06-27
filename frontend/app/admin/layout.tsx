@@ -16,25 +16,18 @@ export default function AdminLayout({
   const isLoginPage = pathname === "/admin/login";
 
   useEffect(() => {
-    let cancelled = false;
     if (isLoginPage) {
-      Promise.resolve().then(() => {
-        if (!cancelled) setReady(true);
-      });
-      return () => {
-        cancelled = true;
-      };
+      // 토큰은 localStorage에만 있어 마운트 후에만 인증 여부를 알 수 있다.
+      // 이 effect 내 setState는 의도된 것 — 규칙을 해당 라인에서만 끈다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setReady(true);
+      return;
     }
     if (!getAdminToken()) {
       router.replace("/admin/login");
       return;
     }
-    Promise.resolve().then(() => {
-      if (!cancelled) setReady(true);
-    });
-    return () => {
-      cancelled = true;
-    };
+    setReady(true);
   }, [isLoginPage, router]);
 
   if (!ready) return null;
