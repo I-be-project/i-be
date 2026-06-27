@@ -141,6 +141,7 @@ export default function AdminStudentsPage() {
                 <TableCell onClick={(e) => e.stopPropagation()}>
                   <button
                     type="button"
+                    aria-label={revealed.has(s.id) ? "비밀번호 숨기기" : "비밀번호 보기"}
                     className="flex items-center gap-1 font-mono"
                     onClick={() => toggleReveal(s.id)}
                   >
@@ -155,7 +156,7 @@ export default function AdminStudentsPage() {
                     )}
                   </button>
                 </TableCell>
-                <TableCell>{s.consent_privacy ? "O" : "X"}</TableCell>
+                <TableCell>{s.consent_privacy ? "동의" : "미동의"}</TableCell>
               </TableRow>
             ))
           )}
