@@ -150,6 +150,50 @@ class StudentRepository(BaseRepository):
         async with self._pool.acquire() as conn:
             await conn.execute(query, student_id, photo_key)
 
+    async def list_students(
+        self,
+        *,
+        q: str | None,
+        school: str | None,
+        grade: int | None,
+        class_no: int | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[int, list[StudentRecord]]:
+        """관리자용 목록 — soft-delete 제외, 필터 AND 결합, (학교,학년,반,번호) 정렬.
+
+        반환: (조건에 맞는 전체 개수, 현재 페이지 레코드 목록).
+        """
+        conditions = ["deleted_at is null"]
+        params: list[object] = []
+
+        def _add(expr: str, value: object) -> None:
+            params.append(value)
+            conditions.append(expr.format(n=len(params)))
+
+        if q:
+            _add("name ilike '%' || ${n} || '%'", q)
+        if school:
+            _add("school = ${n}", school)
+        if grade is not None:
+            _add("grade = ${n}", grade)
+        if class_no is not None:
+            _add("class_no = ${n}", class_no)
+
+        where = " and ".join(conditions)
+        count_query = f"select count(*) from pii.students where {where}"
+        list_query = f"""
+            select {_COLUMNS}
+            from pii.students
+            where {where}
+            order by school, grade, class_no, student_no
+            limit ${len(params) + 1} offset ${len(params) + 2}
+        """
+        async with self._pool.acquire() as conn:
+            total = await conn.fetchval(count_query, *params)
+            rows = await conn.fetch(list_query, *params, limit, offset)
+        return int(total), [_to_record(row) for row in rows]
+
     # 데이터 삭제(soft delete + 사진 폐기)는 다른 작업 영역 — 인터페이스만 유지.
     async def soft_delete(self, *args: object, **kwargs: object) -> object:
         raise NotImplementedError

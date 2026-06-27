@@ -77,6 +77,28 @@ class FakeStudentRepo:
             updated
         )
 
+    async def list_students(
+        self,
+        *,
+        q: str | None,
+        school: str | None,
+        grade: int | None,
+        class_no: int | None,
+        limit: int,
+        offset: int,
+    ) -> tuple[int, list[StudentRecord]]:
+        records = [r for r in self._by_id.values() if r.deleted_at is None]
+        if q:
+            records = [r for r in records if q in r.name]
+        if school:
+            records = [r for r in records if r.school == school]
+        if grade is not None:
+            records = [r for r in records if r.grade == grade]
+        if class_no is not None:
+            records = [r for r in records if r.class_no == class_no]
+        records.sort(key=lambda r: (r.school, r.grade, r.class_no, r.student_no))
+        return len(records), records[offset : offset + limit]
+
 
 class FakeStorage:
     """업로드 호출을 기록하는 fake — PhotoStorage Protocol 충족."""
@@ -87,6 +109,9 @@ class FakeStorage:
     async def upload_photo(self, path: str, data: bytes, *, content_type: str) -> str:
         self.uploads.append((path, data, content_type))
         return f"photos/{path}"
+
+    async def create_signed_url(self, key: str, *, ttl_seconds: int) -> str:
+        return f"https://signed.example/{key}?ttl={ttl_seconds}"
 
 
 def _service() -> tuple[AuthService, FakeStudentRepo, FakeStorage]:
