@@ -56,6 +56,11 @@ class Settings(BaseSettings):
     operator_token_ttl_hours: int = 12
     share_link_ttl_hours: int = 24
 
+    # 관리자(단일 계정) — 운영 배포 시 .env로 주입.
+    admin_username: str = "admin"
+    admin_password: str = "change-me-admin"
+    admin_token_ttl_hours: int = 12
+
     # AI — OpenRouter 키 하나로 chat·image 통합.
     ai_api_key: str = ""
 

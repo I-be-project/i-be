@@ -20,6 +20,7 @@ from app.config import Settings, get_settings
 from app.core.errors import UnauthorizedError
 from app.core.security import TokenKind, decode_token
 from app.repositories.student_repo import StudentRepository
+from app.services.admin_service import AdminService
 from app.services.auth_service import AuthService
 
 
@@ -97,3 +98,39 @@ def current_student(
 
 
 CurrentStudentDep = Annotated[UUID, Depends(current_student)]
+
+
+def get_admin_service(
+    students: StudentRepoDep,
+    storage: StorageClientDep,
+    settings: SettingsDep,
+) -> AdminService:
+    return AdminService(students=students, storage=storage, settings=settings)
+
+
+AdminServiceDep = Annotated[AdminService, Depends(get_admin_service)]
+
+
+def current_admin(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    settings: SettingsDep,
+) -> str:
+    """Authorization: Bearer <token>를 관리자 토큰으로 검증하고 username 반환."""
+    if credentials is None:
+        raise UnauthorizedError("인증 토큰이 필요합니다.")
+    try:
+        payload = decode_token(
+            credentials.credentials,
+            expected_kind=TokenKind.ADMIN,
+            settings=settings,
+        )
+    except jwt.PyJWTError as exc:
+        raise UnauthorizedError("유효하지 않은 토큰입니다.") from exc
+
+    subject = payload.get("sub")
+    if not isinstance(subject, str):
+        raise UnauthorizedError("토큰에 관리자 식별자가 없습니다.")
+    return subject
+
+
+CurrentAdminDep = Annotated[str, Depends(current_admin)]

@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.deps import AdminServiceDep
+from app.schemas.admin import AdminLoginRequest, AdminLoginResponse
+
 router = APIRouter(prefix="/api/admin", tags=["admin"])
+
+
+@router.post("/login", response_model=AdminLoginResponse)
+async def login(req: AdminLoginRequest, admin: AdminServiceDep) -> AdminLoginResponse:
+    """관리자 단일 계정 로그인 → admin 세션 토큰 발급."""
+    return AdminLoginResponse(admin_token=admin.authenticate(req.username, req.password))
 
 
 @router.get("/dashboard")
