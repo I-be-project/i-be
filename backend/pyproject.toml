@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "진로 내비게이터 백엔드 — FastAPI + Supabase"
 requires-python = ">=3.12"
 dependencies = [
+    "aioboto3>=15.0.0",
     "asyncpg>=0.31.0",
     "fastapi[standard]>=0.136.3",
     "httpx>=0.28.1",
