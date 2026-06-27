@@ -37,14 +37,14 @@
 
 ```
 s3://<S3_BUCKET>/
-  ├─ photos/      ① 원본 사진   (학생 업로드 원본, PII)            — 영구 보관
-  ├─ generated/   ② 생성된 사진 (AI 산출 인물/페르소나 이미지, 합성 전) — 영구 보관
+  ├─ uploads/     ① 원본 사진   (학생 업로드 원본, PII)            — 영구 보관
+  ├─ ai-images/   ② 생성된 사진 (AI 산출 인물 이미지, 합성 전)      — 영구 보관
   └─ cards/       ③ 카드 사진   (텍스트·QR 합성된 최종 카드)         — 영구 보관
 ```
 
 - 버킷은 **"모든 퍼블릭 액세스 차단" 활성화**. 백엔드는 IAM 키로 인증 접근, 사용자는 Presigned URL로 접근(둘 다 퍼블릭 차단과 무관하게 동작).
 - **DB에는 S3 객체 키(경로)만** 저장. 바이너리는 전부 S3.
-- 객체 키 규칙(예): `photos/{student_id}/{uuid}.jpg`, `generated/{card_id}/{uuid}.png`, `cards/{card_id}/{uuid}.png`. (구현 시 확정)
+- 객체 키 규칙(예): `uploads/{student_id}/{uuid}.jpg`, `ai-images/{card_id}/{uuid}.png`, `cards/{card_id}/{uuid}.png`. (구현 시 확정)
 
 ---
 
@@ -52,13 +52,13 @@ s3://<S3_BUCKET>/
 
 ### 4.1 받기 (사용자 → 백엔드 → S3)
 1. 학생이 `/login`에서 닉네임 + 사진 업로드 → `POST /api/auth/register` (multipart/form-data).
-2. 백엔드: `app/core/images.py:inspect_image`로 **유효 이미지 검증** → `StorageClient.upload_photo(bytes)` → `photos/`에 `put_object`.
+2. 백엔드: `app/core/images.py:inspect_image`로 **유효 이미지 검증** → `StorageClient.upload_photo(bytes)` → `uploads/`에 `put_object`.
 3. DB(`pii.students.photo_path`)에 **S3 키만** 저장. 업로드 동의 플래그는 그대로 수집(PII).
 
 ### 4.2 생성 (워커 → AI → S3)
 1. 카드 생성 잡을 `card_worker`가 클레임.
-2. `photos/`에서 원본 사진 로드 → OpenRouter 이미지 생성(얼굴 유지 image-to-image).
-3. **`StorageClient.upload_generated_image(bytes)`** → `generated/`에 put, 경로 DB 보관.
+2. `uploads/`에서 원본 사진 로드 → OpenRouter 이미지 생성(얼굴 유지 image-to-image).
+3. **`StorageClient.upload_generated_image(bytes)`** → `ai-images/`에 put, 경로 DB 보관.
 4. `app/services/card_renderer.py:render_card`로 페르소나 텍스트 + QR 합성 → 최종 카드 PNG.
 5. `StorageClient.upload_card_image(bytes)` → `cards/`에 put, `cards.image_path`에 경로 저장.
 
@@ -80,8 +80,8 @@ s3://<S3_BUCKET>/
 ### 5.1 `app/adapters/storage_client.py` — S3 어댑터로 재구현
 - 의존: `aioboto3` 세션/클라이언트. 생성자는 `region`, `bucket`, 키 자격증명, 프리픽스 3종을 받음.
 - 메서드:
-  - `upload_photo(path, data, *, content_type) -> str` → `put_object`(SSE 적용, `ContentType` 지정). 객체 키 반환.
-  - `upload_generated_image(path, data, *, content_type) -> str` **(신규 메서드)** → `generated/`.
+  - `upload_photo(path, data, *, content_type) -> str` → `uploads/`에 `put_object`(SSE 적용, `ContentType` 지정). 객체 키 반환.
+  - `upload_generated_image(path, data, *, content_type) -> str` **(신규 메서드)** → `ai-images/`.
   - `upload_card_image(path, data, *, content_type) -> str` → `cards/`.
   - `create_signed_url(key, *, ttl_seconds) -> str` → `generate_presigned_url('get_object', ...)`.
   - `delete(key) -> None` → `delete_object` (명시적 삭제 요청 경로 전용).
@@ -90,7 +90,7 @@ s3://<S3_BUCKET>/
 
 ### 5.2 `app/config.py` `Settings`
 - 추가: `aws_access_key_id: str`, `aws_secret_access_key: str`, `s3_region: str = "ap-northeast-2"`, `s3_bucket: str`.
-- 프리픽스: `storage_prefix_photos="photos"`, `storage_prefix_generated="generated"`, `storage_prefix_cards="cards"` (기존 `storage_bucket_photos/cards`는 프리픽스 의미로 정리/대체).
+- 프리픽스: `storage_prefix_uploads="uploads"`, `storage_prefix_ai_images="ai-images"`, `storage_prefix_cards="cards"` (기존 `storage_bucket_photos/cards`는 프리픽스 의미로 정리/대체).
 - `supabase_url`/`supabase_service_key`는 **유지**하되 스토리지 용도 주석 제거(DB·Auth 맥락만).
 
 ### 5.3 `app/deps.py`
