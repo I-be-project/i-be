@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "진로 내비게이터 백엔드 — FastAPI + Supabase"
 requires-python = ">=3.12"
 dependencies = [
+    "aioboto3>=15.0.0",
     "asyncpg>=0.31.0",
     "fastapi[standard]>=0.136.3",
     "httpx>=0.28.1",
@@ -53,6 +54,11 @@ strict = true
 plugins = ["pydantic.mypy"]
 warn_unused_ignores = true
 disallow_untyped_decorators = false
+
+# aioboto3는 타입 스텁(py.typed)을 제공하지 않음 → import 분석 건너뜀
+[[tool.mypy.overrides]]
+module = ["aioboto3.*"]
+ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
