@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 import httpx
 
 from app.config import get_settings
+from app.core.security import TokenKind, create_token
 from app.deps import get_admin_service
 from app.main import create_app
 from app.services.admin_service import AdminService
@@ -54,5 +55,68 @@ async def test_login_wrong_credentials_unauthorized() -> None:
             json={"username": "admin", "password": "definitely-wrong"},
         )
         assert res.status_code == 401
+    finally:
+        await gen.aclose()
+
+
+def _admin_token() -> str:
+    settings = get_settings()
+    from datetime import timedelta
+
+    return create_token(
+        kind=TokenKind.ADMIN, subject="admin",
+        ttl=timedelta(hours=1), settings=settings,
+    )
+
+
+async def test_students_requires_admin_token() -> None:
+    app, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get("/api/admin/students")
+        assert res.status_code == 401
+    finally:
+        await gen.aclose()
+
+
+async def test_students_rejects_student_token() -> None:
+    from datetime import timedelta
+
+    app, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        student_tok = create_token(
+            kind=TokenKind.STUDENT, subject="00000000-0000-0000-0000-000000000000",
+            ttl=timedelta(hours=1), settings=get_settings(),
+        )
+        res = await client.get(
+            "/api/admin/students",
+            headers={"Authorization": f"Bearer {student_tok}"},
+        )
+        assert res.status_code == 401
+    finally:
+        await gen.aclose()
+
+
+async def test_students_lists_with_admin_token() -> None:
+    app, repo, _ = _build()
+    await repo.create(
+        school="한마당고", grade=2, class_no=3, student_no=11,
+        name="홍길동", password="20100101", consent_privacy=True,
+    )
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            "/api/admin/students",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert body["total"] == 1
+        assert body["items"][0]["name"] == "홍길동"
+        assert body["items"][0]["password"] == "20100101"
     finally:
         await gen.aclose()

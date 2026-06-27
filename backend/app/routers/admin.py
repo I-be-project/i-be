@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from app.deps import AdminServiceDep
-from app.schemas.admin import AdminLoginRequest, AdminLoginResponse
+from app.deps import AdminServiceDep, CurrentAdminDep
+from app.schemas.admin import AdminLoginRequest, AdminLoginResponse, AdminStudentList
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -14,6 +14,23 @@ router = APIRouter(prefix="/api/admin", tags=["admin"])
 async def login(req: AdminLoginRequest, admin: AdminServiceDep) -> AdminLoginResponse:
     """관리자 단일 계정 로그인 → admin 세션 토큰 발급."""
     return AdminLoginResponse(admin_token=admin.authenticate(req.username, req.password))
+
+
+@router.get("/students", response_model=AdminStudentList)
+async def list_students(
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+    q: str | None = None,
+    school: str | None = None,
+    grade: int | None = None,
+    class_no: int | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> AdminStudentList:
+    """가입한 모든 학생 목록 — 검색/필터/페이지네이션, 사진 presigned URL 포함."""
+    return await admin.list_students(
+        q=q, school=school, grade=grade, class_no=class_no, limit=limit, offset=offset
+    )
 
 
 @router.get("/dashboard")
