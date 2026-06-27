@@ -60,7 +60,12 @@ class StorageClient:
             aws_secret_access_key=self._secret_access_key,
             region_name=self._region,
         )
-        return cast(AbstractAsyncContextManager[Any], session.client("s3"))
+        # 리전 엔드포인트를 명시. 생략하면 글로벌(s3.amazonaws.com)로 서명돼
+        # ap-northeast-2 같은 비-us-east-1 버킷의 Presigned URL이 403이 난다.
+        return cast(
+            AbstractAsyncContextManager[Any],
+            session.client("s3", endpoint_url=f"https://s3.{self._region}.amazonaws.com"),
+        )
 
     async def _put(self, key: str, data: bytes, *, content_type: str) -> str:
         async with self._client_factory() as s3:
