@@ -7,8 +7,9 @@ from typing import Annotated
 from fastapi import APIRouter, File, UploadFile
 
 from app.core.errors import DomainError
-from app.deps import AuthServiceDep, CurrentStudentDep
+from app.deps import AuthServiceDep, CurrentStudentDep, SessionServiceDep
 from app.schemas.auth import PhotoUploadResponse
+from app.schemas.students import ProfileSummary
 
 router = APIRouter(prefix="/api/students", tags=["students"])
 
@@ -48,10 +49,13 @@ async def upload_my_photo(
     return PhotoUploadResponse(photo_key=photo_key)
 
 
-@router.get("/me")
-async def get_my_profile() -> dict[str, object]:
-    """본인 페이지 데이터 — 카드, 부스 이력, 배지, 추천."""
-    raise NotImplementedError
+@router.get("/me", response_model=ProfileSummary)
+async def get_my_profile(
+    student_id: CurrentStudentDep,
+    sessions: SessionServiceDep,
+) -> ProfileSummary:
+    """본인 프로필 상태 — 설문 완료 여부, 페르소나·카드, 다시 하기 스위치."""
+    return await sessions.get_profile_summary(student_id)
 
 
 @router.delete("/me")
