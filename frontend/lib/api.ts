@@ -36,6 +36,39 @@ export interface PhotoUploadResponse {
   photo_key: string;
 }
 
+// GET /api/students/me 응답.
+// 주의: store의 PersonaResult와 다르다(recommendedBooths 없음). 별도 타입으로 둔다.
+export interface ProfilePersona {
+  name: string;
+  tagline: string;
+  keywords: string[];
+  fields: string[];
+}
+
+export interface ProfileCard {
+  card_image_url: string | null;
+}
+
+// 백엔드가 내려주는 학생 식별 정보(snake_case). 소프트 삭제 등이면 null.
+export interface ProfileStudent {
+  school: string;
+  grade: number;
+  class_no: number;
+  student_no: number;
+  name: string;
+  // 학생 사진 Presigned GET URL (만료 있음). 사진이 없으면 null.
+  photo_url: string | null;
+}
+
+export interface ProfileSummary {
+  has_completed: boolean;
+  retry_enabled: boolean;
+  student: ProfileStudent | null;
+  // has_completed가 false면 persona/card 둘 다 null. true여도 card는 null일 수 있다(카드 미생성).
+  persona: ProfilePersona | null;
+  card: ProfileCard | null;
+}
+
 // API 호출 실패를 status/code와 함께 던진다. 화면에서 분기(409/403/401 등)에 사용.
 export class ApiError extends Error {
   readonly status: number;
@@ -141,6 +174,13 @@ export function loginStudent(payload: LoginPayload): Promise<AuthResponse> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
+  });
+}
+
+export function getMyProfile(token: string): Promise<ProfileSummary> {
+  return request<ProfileSummary>("/api/students/me", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 

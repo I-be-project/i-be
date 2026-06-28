@@ -57,9 +57,8 @@ export default function LoginPage() {
         password,
       });
       setAuth(res.student_token, res.student_id);
-      // TODO: 백엔드 GET /api/students/me 가 준비되면, 카드 발급 여부에 따라
-      //       /profile/[id] 등으로 분기. 지금은 항상 탐색 플로우로 보낸다.
-      router.push("/explore");
+      // 로그인 후엔 프로필 화면으로. 설문 완료 여부 분기는 프로필에서 처리한다.
+      router.push(`/profile/${res.student_id}`);
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         // 백엔드가 학번/비밀번호 중 무엇이 틀렸는지 구분해주지 않으므로 묶어서 안내.

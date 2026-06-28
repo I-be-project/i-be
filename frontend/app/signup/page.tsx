@@ -17,6 +17,7 @@ const inputClass =
 export default function SignupPage() {
   const router = useRouter();
   const setAuth = useSessionStore((state) => state.setAuth);
+  const setStudentInfo = useSessionStore((state) => state.setStudentInfo);
 
   const [identity, setIdentity] = useState<IdentityValues>({
     school: "",
@@ -90,6 +91,14 @@ export default function SignupPage() {
         consent_privacy: consent,
       });
       setAuth(res.student_token, res.student_id);
+      // 백엔드가 학교/학년/반/번호/이름을 돌려주지 않으므로, 입력값을 프로필용으로 보관.
+      setStudentInfo({
+        school: identity.school.trim(),
+        grade,
+        classNo,
+        studentNo,
+        name: name.trim(),
+      });
       router.push("/signup/photo");
     } catch (err) {
       if (err instanceof ApiError) {
