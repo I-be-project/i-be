@@ -35,11 +35,18 @@ class Settings(BaseSettings):
         description="asyncpg 호환 Postgres DSN",
     )
 
-    # Storage (Supabase)
+    # Supabase (DB·Auth 맥락에서만 사용; 스토리지는 S3로 이전)
     supabase_url: str = ""
     supabase_service_key: str = ""
-    storage_bucket_photos: str = "photos"
-    storage_bucket_cards: str = "cards"
+
+    # Storage (S3 단일 비공개 버킷 + 프리픽스)
+    s3_region: str = "ap-northeast-2"
+    s3_bucket: str = ""
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    storage_prefix_uploads: str = "uploads"
+    storage_prefix_ai_images: str = "ai-images"
+    storage_prefix_cards: str = "cards"
 
     # Auth
     jwt_secret: str = "change-me-in-production"
@@ -48,6 +55,11 @@ class Settings(BaseSettings):
     student_token_ttl_hours: int = 6
     operator_token_ttl_hours: int = 12
     share_link_ttl_hours: int = 24
+
+    # 관리자(단일 계정) — 운영 배포 시 .env로 주입.
+    admin_username: str = "admin"
+    admin_password: str = "change-me-admin"
+    admin_token_ttl_hours: int = 12
 
     # AI — OpenRouter 키 하나로 chat·image 통합.
     ai_api_key: str = ""

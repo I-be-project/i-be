@@ -7,13 +7,26 @@
 from __future__ import annotations
 
 from typing import Annotated
+from uuid import UUID
 
+import jwt
 from fastapi import Depends, Request
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.adapters.ai_client import AIClient
 from app.adapters.db_pool import DBPool
 from app.adapters.storage_client import StorageClient
 from app.config import Settings, get_settings
+from app.core.errors import UnauthorizedError
+from app.core.security import TokenKind, decode_token
+from app.repositories.card_repo import CardRepository
+from app.repositories.persona_repo import PersonaRepository
+from app.repositories.session_repo import SessionRepository
+from app.repositories.settings_repo import SettingsRepository
+from app.repositories.student_repo import StudentRepository
+from app.services.admin_service import AdminService
+from app.services.auth_service import AuthService
+from app.services.session_service import SessionService
 
 
 def get_db_pool(request: Request) -> DBPool:
@@ -38,3 +51,130 @@ def get_storage_client(settings: SettingsDep) -> StorageClient:
 
 
 StorageClientDep = Annotated[StorageClient, Depends(get_storage_client)]
+
+
+def get_student_repo(pool: DBPoolDep) -> StudentRepository:
+    return StudentRepository(pool)
+
+
+StudentRepoDep = Annotated[StudentRepository, Depends(get_student_repo)]
+
+
+def get_auth_service(
+    students: StudentRepoDep,
+    storage: StorageClientDep,
+    settings: SettingsDep,
+) -> AuthService:
+    return AuthService(students=students, storage=storage, settings=settings)
+
+
+AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
+def get_session_repo(pool: DBPoolDep) -> SessionRepository:
+    return SessionRepository(pool)
+
+
+def get_persona_repo(pool: DBPoolDep) -> PersonaRepository:
+    return PersonaRepository(pool)
+
+
+def get_card_repo(pool: DBPoolDep) -> CardRepository:
+    return CardRepository(pool)
+
+
+def get_settings_repo(pool: DBPoolDep) -> SettingsRepository:
+    return SettingsRepository(pool)
+
+
+def get_session_service(
+    students: StudentRepoDep,
+    sessions: Annotated[SessionRepository, Depends(get_session_repo)],
+    personas: Annotated[PersonaRepository, Depends(get_persona_repo)],
+    cards: Annotated[CardRepository, Depends(get_card_repo)],
+    settings_repo: Annotated[SettingsRepository, Depends(get_settings_repo)],
+    storage: StorageClientDep,
+    settings: SettingsDep,
+) -> SessionService:
+    return SessionService(
+        students=students,
+        sessions=sessions,
+        personas=personas,
+        cards=cards,
+        settings_repo=settings_repo,
+        storage=storage,
+        settings=settings,
+    )
+
+
+SessionServiceDep = Annotated[SessionService, Depends(get_session_service)]
+
+
+_bearer = HTTPBearer(auto_error=False)
+
+
+def current_student(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    settings: SettingsDep,
+) -> UUID:
+    """Authorization: Bearer <token>를 학생 토큰으로 검증하고 student_id 반환.
+
+    토큰이 없거나 검증 실패(잘못된 종류·만료·서명 등) 시 UnauthorizedError.
+    """
+    if credentials is None:
+        raise UnauthorizedError("인증 토큰이 필요합니다.")
+    try:
+        payload = decode_token(
+            credentials.credentials,
+            expected_kind=TokenKind.STUDENT,
+            settings=settings,
+        )
+    except jwt.PyJWTError as exc:
+        raise UnauthorizedError("유효하지 않은 토큰입니다.") from exc
+
+    subject = payload.get("sub")
+    if not isinstance(subject, str):
+        raise UnauthorizedError("토큰에 학생 식별자가 없습니다.")
+    try:
+        return UUID(subject)
+    except ValueError as exc:
+        raise UnauthorizedError("토큰 학생 식별자가 올바르지 않습니다.") from exc
+
+
+CurrentStudentDep = Annotated[UUID, Depends(current_student)]
+
+
+def get_admin_service(
+    students: StudentRepoDep,
+    storage: StorageClientDep,
+    settings: SettingsDep,
+) -> AdminService:
+    return AdminService(students=students, storage=storage, settings=settings)
+
+
+AdminServiceDep = Annotated[AdminService, Depends(get_admin_service)]
+
+
+def current_admin(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    settings: SettingsDep,
+) -> str:
+    """Authorization: Bearer <token>를 관리자 토큰으로 검증하고 username 반환."""
+    if credentials is None:
+        raise UnauthorizedError("인증 토큰이 필요합니다.")
+    try:
+        payload = decode_token(
+            credentials.credentials,
+            expected_kind=TokenKind.ADMIN,
+            settings=settings,
+        )
+    except jwt.PyJWTError as exc:
+        raise UnauthorizedError("유효하지 않은 토큰입니다.") from exc
+
+    subject = payload.get("sub")
+    if not isinstance(subject, str):
+        raise UnauthorizedError("토큰에 관리자 식별자가 없습니다.")
+    return subject
+
+
+CurrentAdminDep = Annotated[str, Depends(current_admin)]
