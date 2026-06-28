@@ -19,8 +19,13 @@ from app.adapters.storage_client import StorageClient
 from app.config import Settings, get_settings
 from app.core.errors import UnauthorizedError
 from app.core.security import TokenKind, decode_token
+from app.repositories.card_repo import CardRepository
+from app.repositories.persona_repo import PersonaRepository
+from app.repositories.session_repo import SessionRepository
+from app.repositories.settings_repo import SettingsRepository
 from app.repositories.student_repo import StudentRepository
 from app.services.auth_service import AuthService
+from app.services.session_service import SessionService
 
 
 def get_db_pool(request: Request) -> DBPool:
@@ -63,6 +68,45 @@ def get_auth_service(
 
 
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+
+
+def get_session_repo(pool: DBPoolDep) -> SessionRepository:
+    return SessionRepository(pool)
+
+
+def get_persona_repo(pool: DBPoolDep) -> PersonaRepository:
+    return PersonaRepository(pool)
+
+
+def get_card_repo(pool: DBPoolDep) -> CardRepository:
+    return CardRepository(pool)
+
+
+def get_settings_repo(pool: DBPoolDep) -> SettingsRepository:
+    return SettingsRepository(pool)
+
+
+def get_session_service(
+    students: StudentRepoDep,
+    sessions: Annotated[SessionRepository, Depends(get_session_repo)],
+    personas: Annotated[PersonaRepository, Depends(get_persona_repo)],
+    cards: Annotated[CardRepository, Depends(get_card_repo)],
+    settings_repo: Annotated[SettingsRepository, Depends(get_settings_repo)],
+    storage: StorageClientDep,
+    settings: SettingsDep,
+) -> SessionService:
+    return SessionService(
+        students=students,
+        sessions=sessions,
+        personas=personas,
+        cards=cards,
+        settings_repo=settings_repo,
+        storage=storage,
+        settings=settings,
+    )
+
+
+SessionServiceDep = Annotated[SessionService, Depends(get_session_service)]
 
 
 _bearer = HTTPBearer(auto_error=False)
