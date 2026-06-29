@@ -17,10 +17,10 @@ export default function WelcomePage() {
         <Image
           src="/welcome-bg.png"
           alt=""
-          width={1672}
-          height={941}
+          width={1915}
+          height={821}
           priority
-          sizes="1672px"
+          sizes="1915px"
           className="absolute left-1/2 top-0 h-full w-auto max-w-none -translate-x-1/2"
         />
         {/* 상단 스크림 — 헤드라인 가독성 */}
