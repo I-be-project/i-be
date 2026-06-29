@@ -3,15 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IdentityFields, type IdentityValues } from "@/components/auth/IdentityFields";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, loginStudent } from "@/lib/api";
+import { CelestialBackground } from "@/components/celestial/CelestialBackground";
 
-const labelClass = "mb-1.5 block text-sm font-bold text-zinc-700";
+const labelClass = "mb-1.5 block text-sm font-bold text-zinc-600";
 const inputClass =
-  "h-12 rounded-xl border-zinc-300 bg-white px-4 text-base focus-visible:border-indigo-500";
+  "h-13 rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none focus-visible:border-indigo-400 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-indigo-100";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -74,79 +76,99 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-white px-4 py-10 font-sans">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="z-10 flex w-full max-w-md flex-col rounded-3xl border-2 border-solid border-zinc-300 bg-white p-8 shadow-sm"
-      >
-        <div className="mb-6 self-start rounded-full border border-solid border-zinc-300 bg-zinc-100 px-3 py-1 text-xs font-bold tracking-wider text-zinc-700">
-          로그인
-        </div>
+    <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
+      <CelestialBackground variant="soft" />
 
-        <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-zinc-900 md:text-4xl">
-          다시 <span className="text-indigo-600">만나서</span> 반가워
+      {/* 앱 상단 바 */}
+      <div className="relative z-10 flex items-center px-5 pt-5">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="뒤로"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/60 text-[#2a2550] backdrop-blur transition-colors hover:bg-white/80"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* 헤더 */}
+      <div className="relative z-10 px-7 pb-8 pt-6">
+        <p className="mb-2 text-sm font-bold tracking-wide text-indigo-500">로그인</p>
+        <h1 className="text-[2rem] font-black leading-[1.2] tracking-tight text-[#2a2550]">
+          다시 만나서<br />반가워
         </h1>
-        <p className="mb-8 text-sm font-medium leading-relaxed text-zinc-500 md:text-base">
+        <p className="mt-3 text-sm font-medium leading-relaxed text-[#5b5685]">
           가입할 때 입력한 학교 정보와 비밀번호로 들어와줘.
         </p>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          <IdentityFields
-            values={identity}
-            onChange={handleIdentityChange}
-            disabled={loading}
-          />
-
-          <div>
-            <label htmlFor="password" className={labelClass}>
-              비밀번호
-            </label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="생년월일 8자리 (예: 20100101)"
+      {/* 바텀 시트 — 앱처럼 아래에서 올라오는 흰 면 */}
+      <motion.section
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative z-10 mt-auto flex flex-1 flex-col rounded-t-[2rem] bg-white px-6 pb-8 pt-7 shadow-[0_-12px_40px_rgba(80,70,140,0.12)]"
+      >
+        <form onSubmit={handleSubmit} className="flex flex-1 flex-col" noValidate>
+          <div className="space-y-5">
+            <IdentityFields
+              values={identity}
+              onChange={handleIdentityChange}
               disabled={loading}
-              autoComplete="current-password"
-              className={inputClass}
             />
+
+            <div>
+              <label htmlFor="password" className={labelClass}>
+                비밀번호
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="생년월일 8자리 (예: 20100101)"
+                disabled={loading}
+                autoComplete="current-password"
+                className={inputClass}
+              />
+            </div>
+
+            {error && (
+              <motion.div
+                role="alert"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl border border-solid border-red-200 bg-red-50 px-4 py-3"
+              >
+                <p className="text-sm font-medium text-red-600">{error}</p>
+              </motion.div>
+            )}
           </div>
 
-          {error && (
-            <motion.div
-              role="alert"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-xl border border-solid border-red-200 bg-red-50 px-4 py-3"
+          {/* 하단 고정 액션 */}
+          <div className="mt-auto pt-8">
+            <Button
+              type="submit"
+              size="lg"
+              disabled={loading}
+              className="h-14 w-full rounded-2xl border border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-base font-bold text-white shadow-[0_10px_24px_rgba(124,77,229,0.3)] transition-all hover:shadow-[0_14px_30px_rgba(124,77,229,0.4)] active:scale-[0.99]"
             >
-              <p className="text-sm font-medium text-red-600">{error}</p>
-            </motion.div>
-          )}
+              {loading ? "들어가는 중..." : "로그인"}
+            </Button>
 
-          <Button
-            type="submit"
-            size="lg"
-            disabled={loading}
-            className="w-full h-14 rounded-xl border border-transparent bg-indigo-600 text-base font-bold text-white shadow-none transition-all hover:scale-[1.02] hover:bg-indigo-700 active:scale-[0.98]"
-          >
-            {loading ? "들어가는 중..." : "로그인"}
-          </Button>
+            <p className="mt-5 text-center text-sm font-medium text-zinc-500">
+              아직 등록하지 않았다면{" "}
+              <button
+                type="button"
+                onClick={() => router.push("/signup")}
+                className="font-bold text-indigo-600 hover:underline"
+              >
+                회원가입
+              </button>
+            </p>
+          </div>
         </form>
-
-        <p className="mt-6 text-center text-sm font-medium text-zinc-500">
-          아직 등록하지 않았다면{" "}
-          <button
-            type="button"
-            onClick={() => router.push("/signup")}
-            className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
-          >
-            회원가입
-          </button>
-        </p>
-      </motion.div>
+      </motion.section>
     </main>
   );
 }

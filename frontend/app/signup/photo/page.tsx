@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Toast, type ToastVariant } from "@/components/Toast";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, uploadPhoto } from "@/lib/api";
+import { CelestialBackground } from "@/components/celestial/CelestialBackground";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -92,21 +93,22 @@ export default function SignupPhotoPage() {
   if (!studentToken) return null;
 
   return (
-    <main className="flex min-h-[100dvh] flex-col items-center justify-center bg-white px-4 py-10 font-sans">
+    <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-4 py-10 font-sans">
+      <CelestialBackground variant="soft" />
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="z-10 flex w-full max-w-md flex-col items-center rounded-3xl border-2 border-solid border-zinc-300 bg-white p-8 shadow-sm"
+        className="relative z-10 flex w-full max-w-md flex-col items-center rounded-3xl border border-solid border-white/70 bg-white/80 p-8 shadow-[0_18px_45px_rgba(123,97,240,0.12)] backdrop-blur-xl"
       >
-        <div className="mb-6 self-start rounded-full border border-solid border-zinc-300 bg-zinc-100 px-3 py-1 text-xs font-bold tracking-wider text-zinc-700">
+        <div className="mb-6 self-start rounded-full border border-solid border-white/70 bg-white/70 px-3 py-1 text-xs font-bold tracking-wider text-indigo-700">
           사진 등록
         </div>
 
-        <h1 className="mb-3 self-start text-3xl font-extrabold tracking-tight text-zinc-900 md:text-4xl">
-          마지막으로, <span className="text-indigo-600">네 사진</span>을 담아줘
+        <h1 className="mb-3 self-start text-3xl font-extrabold tracking-tight text-[#2a2550] md:text-4xl">
+          마지막으로, <span className="text-aurora">네 사진</span>을 담아줘
         </h1>
-        <p className="mb-8 self-start text-sm font-medium leading-relaxed text-zinc-500 md:text-base">
+        <p className="mb-8 self-start text-sm font-medium leading-relaxed text-[#5b5685] md:text-base">
           페르소나 카드에 들어갈 사진이야. 잘 나온 사진으로 골라봐!
         </p>
 
@@ -174,7 +176,7 @@ export default function SignupPhotoPage() {
           size="lg"
           onClick={handleUpload}
           disabled={!file || uploading}
-          className="mt-8 h-14 w-full rounded-xl border border-transparent bg-indigo-600 text-base font-bold text-white shadow-none transition-all hover:scale-[1.02] hover:bg-indigo-700 active:scale-[0.98]"
+          className="mt-8 h-14 w-full rounded-xl border border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-base font-bold text-white shadow-[0_10px_24px_rgba(124,77,229,0.3)] transition-all hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(124,77,229,0.4)] active:scale-[0.98]"
         >
           {uploading ? "올리는 중..." : "다음"}
         </Button>

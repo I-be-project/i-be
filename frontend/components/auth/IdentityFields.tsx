@@ -18,9 +18,9 @@ interface IdentityFieldsProps {
   disabled?: boolean;
 }
 
-const labelClass = "mb-1.5 block text-sm font-bold text-zinc-700";
+const labelClass = "mb-1.5 block text-sm font-bold text-zinc-600";
 const inputClass =
-  "h-12 rounded-xl border-zinc-300 bg-white px-4 text-base focus-visible:border-indigo-500";
+  "h-13 rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none focus-visible:border-indigo-400 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-indigo-100";
 
 // 숫자 입력란은 숫자만 허용 (식별 키 학년/반/번호).
 function digitsOnly(value: string): string {

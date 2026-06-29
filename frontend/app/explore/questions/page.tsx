@@ -8,6 +8,7 @@ import { mockQuestions } from "@/lib/mock/questions";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
+import { CelestialBackground } from "@/components/celestial/CelestialBackground";
 
 export default function QuestionsPage() {
   const router = useRouter();
@@ -42,18 +43,22 @@ export default function QuestionsPage() {
       value={currentAnswer}
       onChange={(e) => setCurrentAnswer(e.target.value)}
       placeholder="자유롭게 입력해주세요..."
-      className="min-h-[150px] text-lg p-4 bg-zinc-50 border-2 border-solid border-zinc-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus-visible:ring-indigo-500 shadow-sm"
+      className="min-h-[150px] rounded-xl border border-solid border-white/70 bg-white/80 p-4 text-lg shadow-[0_10px_30px_rgba(123,97,240,0.1)] backdrop-blur-xl focus:ring-2 focus:ring-indigo-500 focus-visible:ring-indigo-500"
     />
   );
 
   const isNextDisabled = currentAnswer.trim().length === 0;
 
   return (
-    <main className="min-h-[100dvh] flex flex-col bg-white overflow-x-hidden font-sans">
-      <div className="w-full max-w-2xl mx-auto px-6 py-8 flex-grow flex flex-col pt-12">
+    <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
+      <CelestialBackground variant="soft" />
+      <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-grow flex-col px-6 py-8 pt-12">
         <div className="mb-10">
-          <Progress value={progress} className="h-2 mb-3 bg-zinc-100 border border-solid border-zinc-300 [&>div]:bg-indigo-500 rounded-full overflow-hidden" />
-          <div className="text-zinc-500 font-bold text-sm flex justify-between tracking-widest uppercase">
+          <Progress
+            value={progress}
+            className="mb-3 h-2 overflow-hidden rounded-full border border-solid border-white/70 bg-white/50 [&>div]:bg-gradient-to-r [&>div]:from-indigo-500 [&>div]:to-purple-500"
+          />
+          <div className="flex justify-between text-sm font-bold uppercase tracking-widest text-[#5b5685]">
             <span>질문 탐색</span>
             <span>{currentIndex + 1} / {questions.length}</span>
           </div>
@@ -66,22 +71,22 @@ export default function QuestionsPage() {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
             transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="flex flex-col flex-grow"
+            className="flex flex-grow flex-col"
           >
-            <h2 className="text-2xl md:text-3xl font-extrabold text-zinc-900 mb-10 leading-tight">
+            <h2 className="mb-10 text-2xl font-extrabold leading-tight text-[#2a2550] md:text-3xl">
               {currentQuestion.text}
             </h2>
 
             <div className="flex-grow pb-32">
               {renderQuestionUI()}
             </div>
-            
-            <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent z-10 flex justify-center pb-8 border-t border-solid border-white">
+
+            <div className="sticky bottom-0 z-10 -mx-6 flex justify-center bg-gradient-to-t from-[#fdefe3] via-[#fdefe3]/80 to-transparent p-6 pb-8">
               <Button
                 size="lg"
                 onClick={handleNext}
                 disabled={isNextDisabled}
-                className="w-full max-w-2xl h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-base font-bold shadow-none border border-transparent transition-all"
+                className="h-14 w-full max-w-2xl rounded-2xl border border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-base font-bold text-white shadow-[0_10px_24px_rgba(124,77,229,0.3)] transition-all hover:scale-[1.01] hover:shadow-[0_14px_30px_rgba(124,77,229,0.4)] active:scale-[0.99]"
               >
                 {currentIndex === questions.length - 1 ? "결과 확인하기" : "다음 질문"}
               </Button>
