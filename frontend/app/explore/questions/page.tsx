@@ -1,45 +1,28 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useSessionStore, Answer } from "@/store/useSessionStore";
-import { mockQuestions, Question } from "@/lib/mock/questions";
+import { useSessionStore } from "@/store/useSessionStore";
+import { mockQuestions } from "@/lib/mock/questions";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 
 export default function QuestionsPage() {
   const router = useRouter();
-  const inputMode = useSessionStore((state) => state.inputMode);
   const addAnswer = useSessionStore((state) => state.addAnswer);
 
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const questions = mockQuestions;
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [currentAnswer, setCurrentAnswer] = useState<string | string[]>([]);
-
-  useEffect(() => {
-    if (!inputMode) {
-      router.replace("/explore");
-      return;
-    }
-    setQuestions(mockQuestions[inputMode] || []);
-  }, [inputMode, router]);
-
-  if (!questions.length) {
-    return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-white">
-        <div className="w-8 h-8 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
-      </div>
-    );
-  }
+  const [currentAnswer, setCurrentAnswer] = useState<string>("");
 
   const currentQuestion = questions[currentIndex];
   // Calculate raw progress (e.g. 0 to 1) then convert to percentage.
   const progress = ((currentIndex + 1) / questions.length) * 100;
 
   const handleNext = () => {
-    if (currentAnswer.length > 0) {
+    if (currentAnswer.trim().length > 0) {
       addAnswer({
         questionId: currentQuestion.id,
         value: currentAnswer,
@@ -48,121 +31,22 @@ export default function QuestionsPage() {
 
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
-      setCurrentAnswer([]); // reset for next
+      setCurrentAnswer(""); // reset for next
     } else {
       router.push("/explore/interpreting");
     }
   };
 
-  const handleToggleAnswer = (opt: string, isMulti: boolean = false) => {
-    if (isMulti) {
-      const arr = Array.isArray(currentAnswer) ? currentAnswer : [];
-      if (arr.includes(opt)) {
-        setCurrentAnswer(arr.filter((item) => item !== opt));
-      } else {
-        setCurrentAnswer([...arr, opt]);
-      }
-    } else {
-      setCurrentAnswer([opt]);
-    }
-  };
+  const renderQuestionUI = () => (
+    <Textarea
+      value={currentAnswer}
+      onChange={(e) => setCurrentAnswer(e.target.value)}
+      placeholder="자유롭게 입력해주세요..."
+      className="min-h-[150px] text-lg p-4 bg-zinc-50 border-2 border-solid border-zinc-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus-visible:ring-indigo-500 shadow-sm"
+    />
+  );
 
-  const renderQuestionUI = () => {
-    switch (currentQuestion.type) {
-      case "text":
-        return (
-          <Textarea
-            value={Array.isArray(currentAnswer) ? currentAnswer.join("") : currentAnswer}
-            onChange={(e) => setCurrentAnswer(e.target.value)}
-            placeholder="자유롭게 입력해주세요..."
-            className="min-h-[150px] text-lg p-4 bg-zinc-50 border-2 border-solid border-zinc-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus-visible:ring-indigo-500 shadow-sm"
-          />
-        );
-
-      case "image-select":
-        return (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {currentQuestion.options?.map((opt, i) => {
-              const isSelected = Array.isArray(currentAnswer) && currentAnswer.includes(opt);
-              const imageUrl = currentQuestion.imageUrls?.[i] || "";
-              
-              return (
-                <div
-                  key={opt}
-                  onClick={() => handleToggleAnswer(opt, true)}
-                  className={`relative cursor-pointer rounded-2xl overflow-hidden aspect-square border-2 border-solid transition-all ${
-                    isSelected
-                      ? "border-indigo-500 shadow-[0_4px_15px_rgba(99,102,241,0.2)] scale-[1.03]"
-                      : "border-zinc-300 hover:border-zinc-400 hover:scale-[1.02]"
-                  }`}
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={imageUrl} alt={opt} className="w-full h-full object-cover p-1 rounded-[14px]" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/60 via-transparent to-transparent pointer-events-none rounded-[14px]" />
-                  <div className="absolute bottom-3 left-3 right-3 text-white font-bold text-sm md:text-base pointer-events-none">
-                    {opt}
-                  </div>
-                  {isSelected && (
-                    <div className="absolute top-3 right-3 w-6 h-6 bg-indigo-500 rounded-md flex items-center justify-center text-white font-bold text-sm">
-                      ✓
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        );
-
-      case "word-select":
-        return (
-          <div className="flex flex-wrap gap-3">
-            {currentQuestion.options?.map((opt) => {
-              const isSelected = Array.isArray(currentAnswer) && currentAnswer.includes(opt);
-              return (
-                <button
-                  key={opt}
-                  onClick={() => handleToggleAnswer(opt, true)}
-                  className={`px-5 py-3 rounded-full text-base font-semibold transition-all border-2 border-solid ${
-                    isSelected
-                      ? "bg-indigo-50 border-indigo-400 text-indigo-700 shadow-sm scale-105"
-                      : "bg-white border-zinc-300 text-zinc-600 hover:bg-zinc-50"
-                  }`}
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
-        );
-
-      case "game":
-        return (
-          <div className="flex flex-col gap-4 mt-6">
-            {currentQuestion.options?.map((opt) => {
-              const isSelected = Array.isArray(currentAnswer) && currentAnswer.includes(opt);
-              return (
-                <button
-                  key={opt}
-                  onClick={() => handleToggleAnswer(opt, false)}
-                  className={`w-full p-6 text-left rounded-2xl text-lg font-bold transition-all border-2 border-solid ${
-                    isSelected
-                      ? "bg-indigo-50 border-indigo-400 text-indigo-700 shadow-[0_4px_15px_rgba(99,102,241,0.2)] scale-[1.02]"
-                      : "bg-white border-zinc-300 text-zinc-800 hover:border-zinc-400"
-                  }`}
-                >
-                  {opt}
-                </button>
-              );
-            })}
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
-
-  const isNextDisabled = currentAnswer.length === 0;
+  const isNextDisabled = currentAnswer.trim().length === 0;
 
   return (
     <main className="min-h-[100dvh] flex flex-col bg-white overflow-x-hidden font-sans">
