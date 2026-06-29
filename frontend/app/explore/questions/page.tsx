@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { CelestialBackground } from "@/components/celestial/CelestialBackground";
+import { cn } from "@/lib/utils";
 
 export default function QuestionsPage() {
   const router = useRouter();
@@ -26,6 +27,7 @@ export default function QuestionsPage() {
     if (currentAnswer.trim().length > 0) {
       addAnswer({
         questionId: currentQuestion.id,
+        // 선택형은 선택지 고유 ID, 자유형은 입력 텍스트를 저장한다.
         value: currentAnswer,
       });
     }
@@ -38,14 +40,54 @@ export default function QuestionsPage() {
     }
   };
 
-  const renderQuestionUI = () => (
-    <Textarea
-      value={currentAnswer}
-      onChange={(e) => setCurrentAnswer(e.target.value)}
-      placeholder="자유롭게 입력해주세요..."
-      className="min-h-[150px] rounded-xl border border-solid border-white/70 bg-white/80 p-4 text-lg shadow-[0_10px_30px_rgba(123,97,240,0.1)] backdrop-blur-xl focus:ring-2 focus:ring-indigo-500 focus-visible:ring-indigo-500"
-    />
-  );
+  const renderQuestionUI = () => {
+    if (currentQuestion.type === "choice" && currentQuestion.options) {
+      return (
+        <div className="flex flex-col gap-3">
+          {currentQuestion.options.map((option) => {
+            const selected = currentAnswer === option.id;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setCurrentAnswer(option.id)}
+                className={cn(
+                  "flex w-full items-center gap-4 rounded-2xl border border-solid p-4 text-left text-base font-medium backdrop-blur-xl transition-all",
+                  selected
+                    ? "border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_12px_28px_rgba(124,77,229,0.35)]"
+                    : "border-white/70 bg-white/80 text-[#2a2550] shadow-[0_10px_30px_rgba(123,97,240,0.1)] hover:scale-[1.01] hover:border-indigo-300",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-solid transition-colors",
+                    selected
+                      ? "border-white bg-white/30"
+                      : "border-indigo-300 bg-white/60",
+                  )}
+                  aria-hidden
+                >
+                  {selected && (
+                    <span className="h-2.5 w-2.5 rounded-full bg-white" />
+                  )}
+                </span>
+                <span className="leading-snug">{option.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      );
+    }
+
+    return (
+      <Textarea
+        value={currentAnswer}
+        onChange={(e) => setCurrentAnswer(e.target.value)}
+        placeholder="자유롭게 입력해주세요..."
+        className="min-h-[150px] rounded-xl border border-solid border-white/70 bg-white/80 p-4 text-lg shadow-[0_10px_30px_rgba(123,97,240,0.1)] backdrop-blur-xl focus:ring-2 focus:ring-indigo-500 focus-visible:ring-indigo-500"
+      />
+    );
+  };
 
   const isNextDisabled = currentAnswer.trim().length === 0;
 

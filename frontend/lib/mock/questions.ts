@@ -1,39 +1,108 @@
+// 나비섬 탐험 미션 — 선택형 질문지 (Q1~Q6).
+// 출처: "나비한마당 Q1-6 소스" (직관형 Q1~Q2, 상황형 Q3~Q6).
+// 운영 주의: 학생용 화면에는 유형명/점수를 노출하지 않는다.
+// 채점은 선택지 번호가 아니라 고유 ID(option.id) 기준으로 매핑한다.
+
+export type RiasecType = "R" | "I" | "A" | "S" | "E" | "C";
+
+export interface QuestionOption {
+  id: string; // 채점용 고유 코드 (선택지 순서를 섞어도 안전)
+  label: string;
+  primary: RiasecType; // +2점
+  secondary?: RiasecType; // +1점 (상황형 문항에만 존재)
+}
+
 export interface Question {
   id: number;
   text: string;
-  type: string; // 현재는 "text"(자유 응답)만 사용
+  type: "choice" | "text";
+  options?: QuestionOption[];
 }
 
-// 1~6번 자유 응답형 설문 (mock). 진짜 문항은 추후 교체 예정.
+// 응답 안내문 (질문 시작 전 노출용)
+export const explorationIntro =
+  "친구들과 함께 나비섬 탐험 캠프에 참여했습니다. " +
+  "탐험을 하다 보면 여러 장면에서 선택을 해야 합니다. " +
+  "각 상황에서 내가 가장 자연스럽게 할 것 같은 행동을 하나씩 골라주세요. " +
+  "정답은 없습니다. 가장 “나답다”고 느껴지는 선택을 고르면 됩니다.";
+
 export const mockQuestions: Question[] = [
   {
     id: 1,
-    text: "요즘 가장 흥미를 느끼는 활동이나 주제는 무엇인가요?",
-    type: "text",
+    text: "나비섬 선착장에 도착했다. 가장 먼저 눈이 가는 일은?",
+    type: "choice",
+    options: [
+      { id: "q1-s", label: "친구들이 멀미는 없는지, 다들 괜찮은지 살핀다.", primary: "S" },
+      { id: "q1-i", label: "지도와 주변 풍경을 비교해 지금 위치를 짐작한다.", primary: "I" },
+      { id: "q1-a", label: "깃발이나 표식으로 우리 팀만의 출발 표시를 만든다.", primary: "A" },
+      { id: "q1-c", label: "가방과 장비를 한곳에 모아 빠진 것이 없는지 본다.", primary: "C" },
+      { id: "q1-r", label: "돗자리나 끈을 꺼내 임시로 머물 자리를 만들어본다.", primary: "R" },
+      { id: "q1-e", label: "먼저 어디를 둘러볼지 말하고 친구들을 모은다.", primary: "E" },
+    ],
   },
   {
     id: 2,
-    text: "시간 가는 줄 모르고 몰입했던 경험을 떠올려보세요. 무엇을 하고 있었나요?",
-    type: "text",
+    text: "탐험대가 나뉘었다. 내가 자연스럽게 맡고 싶은 역할은?",
+    type: "choice",
+    options: [
+      { id: "q2-c", label: "탐험 시간과 준비물을 체크하는 기록 담당", primary: "C" },
+      { id: "q2-a", label: "길 표시와 팀 깃발을 보기 좋게 만드는 표시 담당", primary: "A" },
+      { id: "q2-s", label: "친구들의 컨디션과 분위기를 살피는 케어 담당", primary: "S" },
+      { id: "q2-r", label: "짐을 옮기고 현장에서 필요한 것을 만드는 준비 담당", primary: "R" },
+      { id: "q2-e", label: "다음 이동 방향을 제안하고 팀을 모으는 진행 담당", primary: "E" },
+      { id: "q2-i", label: "지형과 단서를 살펴 안전한 길을 찾는 탐색 담당", primary: "I" },
+    ],
   },
   {
     id: 3,
-    text: "친구들이 너에게 자주 부탁하거나 의지하는 일은 무엇인가요?",
-    type: "text",
+    text: "오후가 되자 날씨가 바뀌기 시작했다. 해가 지기 전 팀이 해야 할 일을 정해야 한다. 나는?",
+    type: "choice",
+    options: [
+      { id: "q3-c", label: "남은 물품과 시간을 살피고, 빠진 위험요소를 표시한다.", primary: "C", secondary: "I" },
+      { id: "q3-a", label: "눈에 잘 띄는 표식을 그리고, 돌과 나뭇가지로 완성한다.", primary: "A", secondary: "R" },
+      { id: "q3-s", label: "친구들 의견을 먼저 듣고, 다 같이 할 수 있는 방식으로 맞춘다.", primary: "S", secondary: "E" },
+      { id: "q3-r", label: "머물 자리를 직접 만들면서 필요한 순서도 함께 잡는다.", primary: "R", secondary: "C" },
+      { id: "q3-e", label: "본부에 잘 보일 신호 아이디어를 내고 팀에 제안한다.", primary: "E", secondary: "A" },
+      { id: "q3-i", label: "어느 길이 안전한지 살피고, 친구들이 걱정하는 점도 확인한다.", primary: "I", secondary: "S" },
+    ],
   },
   {
     id: 4,
-    text: "어떤 문제를 해결할 때 가장 보람을 느끼나요?",
-    type: "text",
+    text: "탐험 키트에 생각보다 물건이 부족하다. 나는?",
+    type: "choice",
+    options: [
+      { id: "q4-e", label: "사람을 모아 역할을 다시 나누고, 같이 움직이게 한다.", primary: "E", secondary: "S" },
+      { id: "q4-r", label: "주변 재료를 직접 써보며 어디에 쓸 수 있을지 확인한다.", primary: "R", secondary: "I" },
+      { id: "q4-c", label: "가진 물건에 표시를 붙이고, 한눈에 보이게 배열한다.", primary: "C", secondary: "A" },
+      { id: "q4-s", label: "지친 친구와 함께 움직이며 필요한 재료를 모은다.", primary: "S", secondary: "R" },
+      { id: "q4-i", label: "지금 꼭 필요한 것과 나중에 필요한 것을 구분한다.", primary: "I", secondary: "C" },
+      { id: "q4-a", label: "천, 돌, 나뭇잎으로 멀리서도 보이는 신호물을 구상한다.", primary: "A", secondary: "E" },
+    ],
   },
   {
     id: 5,
-    text: "10년 뒤, 어떤 모습으로 일하고 있으면 좋겠나요?",
-    type: "text",
+    text: "탐험 경로를 두고 의견이 갈렸다. 나는?",
+    type: "choice",
+    options: [
+      { id: "q5-a", label: "서로 다른 생각을 그림이나 말로 풀어 보여주고 차이를 짚는다.", primary: "A", secondary: "I" },
+      { id: "q5-e", label: "선택지를 두세 개로 줄이고, 바로 시도할 방법을 제안한다.", primary: "E", secondary: "R" },
+      { id: "q5-s", label: "감정이 상한 친구 이야기를 듣고, 말할 순서를 차분히 잡는다.", primary: "S", secondary: "C" },
+      { id: "q5-i", label: "각 의견의 이유를 따져보고, 걱정되는 점도 함께 확인한다.", primary: "I", secondary: "S" },
+      { id: "q5-c", label: "나온 의견을 표나 그림으로 정리해 모두가 볼 수 있게 한다.", primary: "C", secondary: "A" },
+      { id: "q5-r", label: "계속 말로만 정하기보다, 가능한 방법을 먼저 시험해본다.", primary: "R", secondary: "E" },
+    ],
   },
   {
     id: 6,
-    text: "새로운 것을 배울 때 어떤 방식이 가장 잘 맞나요?",
-    type: "text",
+    text: "마지막으로 탐험 본부에 위치를 알려야 한다. 나는?",
+    type: "choice",
+    options: [
+      { id: "q6-i", label: "바람, 지형, 이동 방향을 보고 성공 가능성이 높은 방법을 고른다.", primary: "I", secondary: "E" },
+      { id: "q6-s", label: "친구들 상태를 확인하고, 안전하게 기다릴 위치를 정한다.", primary: "S", secondary: "I" },
+      { id: "q6-r", label: "돌과 천으로 멀리서도 보이는 큰 안내 표식을 만든다.", primary: "R", secondary: "A" },
+      { id: "q6-c", label: "인원과 물품, 본부에 전달할 내용을 확인해 빠짐없이 정리한다.", primary: "C", secondary: "S" },
+      { id: "q6-a", label: "색과 모양을 활용해 한눈에 들어오는 신호를 만든다.", primary: "A", secondary: "R" },
+      { id: "q6-e", label: "누가 무엇을 할지 나누고, 본부 연락 행동을 시작하게 한다.", primary: "E", secondary: "C" },
+    ],
   },
 ];
