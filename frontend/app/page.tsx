@@ -10,15 +10,16 @@ export default function WelcomePage() {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
-      {/* 배경 이미지 (히어로) */}
-      <div className="absolute inset-0">
+      {/* 배경 이미지 (히어로) — 16:9. 세로는 화면 높이에 고정, 가로는 중앙 기준 크롭 */}
+      <div className="absolute inset-0 overflow-hidden">
         <Image
           src="/welcome-bg.png"
           alt=""
-          fill
+          width={1672}
+          height={941}
           priority
-          sizes="100vw"
-          className="object-cover"
+          sizes="1672px"
+          className="absolute left-1/2 top-0 h-full w-auto max-w-none -translate-x-1/2"
         />
         {/* 상단 스크림 — 헤드라인 가독성 */}
         <div className="absolute inset-x-0 top-0 h-[55%] bg-gradient-to-b from-white/70 via-white/25 to-transparent" />
