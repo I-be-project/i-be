@@ -4,6 +4,7 @@
 // 백엔드 식별 키 = (school, grade, class_no, student_no).
 
 import { Input } from "@/components/ui/input";
+import { SchoolSelect } from "@/components/auth/SchoolSelect";
 
 export interface IdentityValues {
   school: string;
@@ -34,20 +35,11 @@ export function IdentityFields({
 }: IdentityFieldsProps) {
   return (
     <div className="space-y-4">
-      <div>
-        <label htmlFor="school" className={labelClass}>
-          학교
-        </label>
-        <Input
-          id="school"
-          value={values.school}
-          onChange={(e) => onChange("school", e.target.value)}
-          placeholder="예: 나Be중학교"
-          disabled={disabled}
-          autoComplete="off"
-          className={inputClass}
-        />
-      </div>
+      <SchoolSelect
+        value={values.school}
+        onChange={(school) => onChange("school", school)}
+        disabled={disabled}
+      />
 
       <div className="grid grid-cols-3 gap-3">
         <div>
