@@ -197,3 +197,63 @@ export function uploadPhoto(
     body: form,
   });
 }
+
+export interface AdminLoginResponse {
+  admin_token: string;
+}
+
+export interface AdminStudentItem {
+  id: string;
+  school: string;
+  grade: number;
+  class_no: number;
+  student_no: number;
+  name: string;
+  password: string;
+  photo_url: string | null;
+  consent_privacy: boolean;
+  created_at: string;
+}
+
+export interface AdminStudentList {
+  total: number;
+  items: AdminStudentItem[];
+}
+
+export interface AdminStudentQuery {
+  q?: string;
+  school?: string;
+  grade?: number;
+  class_no?: number;
+  limit?: number;
+  offset?: number;
+}
+
+export function adminLogin(
+  username: string,
+  password: string
+): Promise<AdminLoginResponse> {
+  return request<AdminLoginResponse>("/api/admin/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+}
+
+export function fetchAdminStudents(
+  token: string,
+  params: AdminStudentQuery = {}
+): Promise<AdminStudentList> {
+  const sp = new URLSearchParams();
+  if (params.q) sp.set("q", params.q);
+  if (params.school) sp.set("school", params.school);
+  if (params.grade != null) sp.set("grade", String(params.grade));
+  if (params.class_no != null) sp.set("class_no", String(params.class_no));
+  if (params.limit != null) sp.set("limit", String(params.limit));
+  if (params.offset != null) sp.set("offset", String(params.offset));
+  const qs = sp.toString();
+  return request<AdminStudentList>(
+    `/api/admin/students${qs ? `?${qs}` : ""}`,
+    { method: "GET", headers: { Authorization: `Bearer ${token}` } }
+  );
+}
