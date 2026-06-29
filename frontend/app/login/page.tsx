@@ -13,7 +13,7 @@ import { CelestialBackground } from "@/components/celestial/CelestialBackground"
 
 const labelClass = "mb-1.5 block text-sm font-bold text-zinc-600";
 const inputClass =
-  "h-13 rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none focus-visible:border-indigo-400 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-indigo-100";
+  "h-13 rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none focus-visible:border-sky-400 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-sky-100";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -77,7 +77,7 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
-      <CelestialBackground variant="soft" />
+      <CelestialBackground variant="ocean" />
 
       {/* 앱 상단 바 */}
       <div className="relative z-10 flex items-center px-5 pt-5">
@@ -85,7 +85,7 @@ export default function LoginPage() {
           type="button"
           onClick={() => router.back()}
           aria-label="뒤로"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/60 text-[#2a2550] backdrop-blur transition-colors hover:bg-white/80"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/60 text-[#0d3047] backdrop-blur transition-colors hover:bg-white/80"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -93,11 +93,11 @@ export default function LoginPage() {
 
       {/* 헤더 */}
       <div className="relative z-10 px-7 pb-8 pt-6">
-        <p className="mb-2 text-sm font-bold tracking-wide text-indigo-500">로그인</p>
-        <h1 className="text-[2rem] font-black leading-[1.2] tracking-tight text-[#2a2550]">
+        <p className="mb-2 text-sm font-bold tracking-wide text-sky-600">로그인</p>
+        <h1 className="text-[2rem] font-black leading-[1.2] tracking-tight text-[#0d3047]">
           다시 만나서<br />반가워
         </h1>
-        <p className="mt-3 text-sm font-medium leading-relaxed text-[#5b5685]">
+        <p className="mt-3 text-sm font-medium leading-relaxed text-[#4c6a82]">
           가입할 때 입력한 학교 정보와 비밀번호로 들어와줘.
         </p>
       </div>
@@ -151,7 +151,7 @@ export default function LoginPage() {
               type="submit"
               size="lg"
               disabled={loading}
-              className="h-14 w-full rounded-2xl border border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-base font-bold text-white shadow-[0_10px_24px_rgba(124,77,229,0.3)] transition-all hover:shadow-[0_14px_30px_rgba(124,77,229,0.4)] active:scale-[0.99]"
+              className="h-14 w-full rounded-2xl border border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-base font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.3)] transition-all hover:shadow-[0_14px_30px_rgba(37,99,235,0.4)] active:scale-[0.99]"
             >
               {loading ? "들어가는 중..." : "로그인"}
             </Button>
@@ -161,7 +161,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => router.push("/signup")}
-                className="font-bold text-indigo-600 hover:underline"
+                className="font-bold text-sky-600 hover:underline"
               >
                 회원가입
               </button>

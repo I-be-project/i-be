@@ -158,9 +158,20 @@
   );
 }
 
-/* 강조 텍스트(예: "미래")용 파랑→보라 그라데이션 */
+/* 오션 버전 — 로그인/회원가입 등 인증 화면용. 하늘→바다 톤의 차가운 블루. */
+.bg-ocean-soft {
+  background: linear-gradient(
+    170deg,
+    #dbeafe 0%,
+    #cfe9fb 34%,
+    #d2f0f4 64%,
+    #ddf3ec 100%
+  );
+}
+
+/* 강조 텍스트(예: "미래")용 하늘→바다 블루 그라데이션 */
 .text-aurora {
-  background: linear-gradient(100deg, #5e8bf7 0%, #9b5de5 55%, #c65dd6 100%);
+  background: linear-gradient(100deg, #0ea5e9 0%, #2563eb 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

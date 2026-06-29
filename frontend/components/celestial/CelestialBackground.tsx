@@ -62,23 +62,30 @@ export function CelestialBackground({
   variant = "hero",
 }: {
   className?: string;
-  variant?: "hero" | "soft";
+  variant?: "hero" | "soft" | "ocean";
 }) {
-  // soft: 폼/설문 화면용. 옅은 배경 + 별 적게 + 별자리 생략으로 차분하게.
-  const soft = variant === "soft";
-  const stars = soft ? STARS.slice(0, 8) : STARS;
+  // dim: 폼 화면용(별 적게·별자리 생략). soft=라벤더/핑크, ocean=차가운 블루.
+  const dim = variant === "soft" || variant === "ocean";
+  const ocean = variant === "ocean";
+  const stars = dim ? STARS.slice(0, 8) : STARS;
+  const bgClass =
+    variant === "ocean"
+      ? "bg-ocean-soft"
+      : variant === "soft"
+        ? "bg-celestial-soft"
+        : "bg-celestial";
 
   return (
     <div
       aria-hidden
       className={cn(
         "pointer-events-none absolute inset-0 overflow-hidden",
-        soft ? "bg-celestial-soft" : "bg-celestial",
+        bgClass,
         className,
       )}
     >
       {/* 별자리 — hero에서만. 각각 고정 비율의 작은 SVG (찌그러짐 방지) */}
-      {!soft &&
+      {!dim &&
         CONSTELLATIONS.map((c, ci) => (
           <svg
             key={ci}
@@ -99,7 +106,7 @@ export function CelestialBackground({
         ))}
 
       {/* 반짝이는 별 */}
-      <div className={cn(soft && "opacity-70")}>
+      <div className={cn(dim && "opacity-70")}>
         {stars.map((s, i) => (
           <span
             key={i}
@@ -110,28 +117,44 @@ export function CelestialBackground({
               width: `${s.r * 2}px`,
               height: `${s.r * 2}px`,
               animationDelay: `${s.delay}s`,
-              boxShadow: soft ? "0 0 4px rgba(255,255,255,0.7)" : "0 0 6px rgba(255,255,255,0.9)",
+              boxShadow: dim ? "0 0 4px rgba(255,255,255,0.7)" : "0 0 6px rgba(255,255,255,0.9)",
             }}
           />
         ))}
       </div>
 
-      {/* 떠다니는 파스텔 오브 + 하단 글로우 (soft에선 더 옅게) */}
-      <div className={cn("absolute inset-0", soft && "opacity-50")}>
+      {/* 떠다니는 파스텔 오브 + 하단 글로우 (form 화면에선 더 옅게) */}
+      <div className={cn("absolute inset-0", dim && "opacity-50")}>
         <div className="animate-drift absolute left-[6%] top-[16%] h-16 w-16 rounded-full bg-white/30 blur-2xl" />
         <div
-          className="animate-drift absolute right-[8%] top-[40%] h-24 w-24 rounded-full bg-pink-200/30 blur-2xl"
+          className={cn(
+            "animate-drift absolute right-[8%] top-[40%] h-24 w-24 rounded-full blur-2xl",
+            ocean ? "bg-sky-200/35" : "bg-pink-200/30",
+          )}
           style={{ animationDelay: "2s" }}
         />
         <div
-          className="animate-drift absolute left-[12%] bottom-[28%] h-20 w-20 rounded-full bg-indigo-200/30 blur-2xl"
+          className={cn(
+            "animate-drift absolute left-[12%] bottom-[28%] h-20 w-20 rounded-full blur-2xl",
+            ocean ? "bg-cyan-200/35" : "bg-indigo-200/30",
+          )}
           style={{ animationDelay: "4s" }}
         />
 
         <div className="absolute inset-x-0 bottom-0 h-1/3">
-          <div className="absolute -bottom-12 left-1/2 h-48 w-[150%] -translate-x-1/2 rounded-[100%] bg-[#fcdcc6]/60 blur-3xl" />
-          <div className="absolute bottom-0 left-[6%] h-28 w-72 rounded-[100%] bg-[#f6c9da]/55 blur-3xl" />
-          <div className="absolute -bottom-4 right-[4%] h-24 w-64 rounded-[100%] bg-white/45 blur-3xl" />
+          {ocean ? (
+            <>
+              <div className="absolute -bottom-12 left-1/2 h-48 w-[150%] -translate-x-1/2 rounded-[100%] bg-[#bfe3fb]/60 blur-3xl" />
+              <div className="absolute bottom-0 left-[6%] h-28 w-72 rounded-[100%] bg-[#c8eef0]/55 blur-3xl" />
+              <div className="absolute -bottom-4 right-[4%] h-24 w-64 rounded-[100%] bg-white/45 blur-3xl" />
+            </>
+          ) : (
+            <>
+              <div className="absolute -bottom-12 left-1/2 h-48 w-[150%] -translate-x-1/2 rounded-[100%] bg-[#fcdcc6]/60 blur-3xl" />
+              <div className="absolute bottom-0 left-[6%] h-28 w-72 rounded-[100%] bg-[#f6c9da]/55 blur-3xl" />
+              <div className="absolute -bottom-4 right-[4%] h-24 w-64 rounded-[100%] bg-white/45 blur-3xl" />
+            </>
+          )}
         </div>
       </div>
     </div>

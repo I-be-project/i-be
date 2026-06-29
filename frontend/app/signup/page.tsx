@@ -13,7 +13,7 @@ import { CelestialBackground } from "@/components/celestial/CelestialBackground"
 
 const labelClass = "mb-1.5 block text-sm font-bold text-zinc-700";
 const inputClass =
-  "h-12 rounded-xl border-zinc-300 bg-white px-4 text-base focus-visible:border-indigo-500";
+  "h-12 rounded-xl border-zinc-300 bg-white px-4 text-base focus-visible:border-sky-500";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -124,21 +124,21 @@ export default function SignupPage() {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-4 py-10 font-sans">
-      <CelestialBackground variant="soft" />
+      <CelestialBackground variant="ocean" />
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-10 flex w-full max-w-md flex-col rounded-3xl border border-solid border-white/70 bg-white/80 p-8 shadow-[0_18px_45px_rgba(123,97,240,0.12)] backdrop-blur-xl"
+        className="relative z-10 flex w-full max-w-md flex-col rounded-3xl border border-solid border-white/70 bg-white/80 p-8 shadow-[0_18px_45px_rgba(37,99,235,0.12)] backdrop-blur-xl"
       >
-        <div className="mb-6 self-start rounded-full border border-solid border-white/70 bg-white/70 px-3 py-1 text-xs font-bold tracking-wider text-indigo-700">
+        <div className="mb-6 self-start rounded-full border border-solid border-white/70 bg-white/70 px-3 py-1 text-xs font-bold tracking-wider text-sky-700">
           회원가입
         </div>
 
-        <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-[#2a2550] md:text-4xl">
+        <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-[#0d3047] md:text-4xl">
           먼저 <span className="text-aurora">너</span>를 알려줘
         </h1>
-        <p className="mb-8 text-sm font-medium leading-relaxed text-[#5b5685] md:text-base">
+        <p className="mb-8 text-sm font-medium leading-relaxed text-[#4c6a82] md:text-base">
           행사 기록을 위해 학교 정보와 비밀번호가 필요해.
         </p>
 
@@ -231,7 +231,7 @@ export default function SignupPage() {
             type="submit"
             size="lg"
             disabled={loading}
-            className="h-14 w-full rounded-xl border border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-base font-bold text-white shadow-[0_10px_24px_rgba(124,77,229,0.3)] transition-all hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(124,77,229,0.4)] active:scale-[0.98]"
+            className="h-14 w-full rounded-xl border border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-base font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(37,99,235,0.4)] active:scale-[0.98]"
           >
             {loading ? "가입하는 중..." : "다음"}
           </Button>
@@ -242,7 +242,7 @@ export default function SignupPage() {
           <button
             type="button"
             onClick={() => router.push("/login")}
-            className="font-bold text-indigo-600 hover:text-indigo-700 hover:underline"
+            className="font-bold text-sky-600 hover:text-sky-700 hover:underline"
           >
             로그인
           </button>

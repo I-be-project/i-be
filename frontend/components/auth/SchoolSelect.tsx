@@ -25,7 +25,7 @@ function deriveLevel(name: string): Level {
 }
 
 const inputClass =
-  "h-13 w-full rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none outline-hidden transition-colors focus:border-indigo-400 focus:bg-white focus:ring-4 focus:ring-indigo-100 disabled:cursor-not-allowed disabled:opacity-50";
+  "h-13 w-full rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none outline-hidden transition-colors focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-50";
 
 export function SchoolSelect({ value, onChange, disabled }: SchoolSelectProps) {
   const [level, setLevel] = useState<Level>(() =>
@@ -96,7 +96,7 @@ export function SchoolSelect({ value, onChange, disabled }: SchoolSelectProps) {
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                 level === lv
-                  ? "bg-indigo-500 text-white shadow-sm shadow-indigo-200"
+                  ? "bg-sky-500 text-white shadow-sm shadow-sky-200"
                   : "text-zinc-500 hover:text-zinc-700",
               )}
             >
@@ -144,7 +144,7 @@ export function SchoolSelect({ value, onChange, disabled }: SchoolSelectProps) {
                     className={cn(
                       "block w-full truncate rounded-xl px-3 py-2.5 text-left text-sm transition-colors hover:bg-zinc-100",
                       value === s.name
-                        ? "font-bold text-indigo-600"
+                        ? "font-bold text-sky-600"
                         : "text-zinc-700",
                     )}
                   >

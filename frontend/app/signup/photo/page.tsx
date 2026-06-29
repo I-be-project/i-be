@@ -94,21 +94,21 @@ export default function SignupPhotoPage() {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-4 py-10 font-sans">
-      <CelestialBackground variant="soft" />
+      <CelestialBackground variant="ocean" />
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-10 flex w-full max-w-md flex-col items-center rounded-3xl border border-solid border-white/70 bg-white/80 p-8 shadow-[0_18px_45px_rgba(123,97,240,0.12)] backdrop-blur-xl"
+        className="relative z-10 flex w-full max-w-md flex-col items-center rounded-3xl border border-solid border-white/70 bg-white/80 p-8 shadow-[0_18px_45px_rgba(37,99,235,0.12)] backdrop-blur-xl"
       >
-        <div className="mb-6 self-start rounded-full border border-solid border-white/70 bg-white/70 px-3 py-1 text-xs font-bold tracking-wider text-indigo-700">
+        <div className="mb-6 self-start rounded-full border border-solid border-white/70 bg-white/70 px-3 py-1 text-xs font-bold tracking-wider text-sky-700">
           사진 등록
         </div>
 
-        <h1 className="mb-3 self-start text-3xl font-extrabold tracking-tight text-[#2a2550] md:text-4xl">
+        <h1 className="mb-3 self-start text-3xl font-extrabold tracking-tight text-[#0d3047] md:text-4xl">
           마지막으로, <span className="text-aurora">네 사진</span>을 담아줘
         </h1>
-        <p className="mb-8 self-start text-sm font-medium leading-relaxed text-[#5b5685] md:text-base">
+        <p className="mb-8 self-start text-sm font-medium leading-relaxed text-[#4c6a82] md:text-base">
           페르소나 카드에 들어갈 사진이야. 잘 나온 사진으로 골라봐!
         </p>
 
@@ -154,18 +154,18 @@ export default function SignupPhotoPage() {
               type="button"
               variant="outline"
               onClick={() => cameraInputRef.current?.click()}
-              className="h-14 justify-center gap-2 rounded-xl border-2 border-zinc-300 text-base font-bold text-zinc-700 transition-all hover:scale-[1.02] hover:border-indigo-400 hover:bg-zinc-50 active:scale-[0.98]"
+              className="h-14 justify-center gap-2 rounded-xl border-2 border-zinc-300 text-base font-bold text-zinc-700 transition-all hover:scale-[1.02] hover:border-sky-400 hover:bg-zinc-50 active:scale-[0.98]"
             >
-              <Camera className="h-5 w-5 text-indigo-600" />
+              <Camera className="h-5 w-5 text-sky-600" />
               사진 촬영
             </Button>
             <Button
               type="button"
               variant="outline"
               onClick={() => galleryInputRef.current?.click()}
-              className="h-14 justify-center gap-2 rounded-xl border-2 border-zinc-300 text-base font-bold text-zinc-700 transition-all hover:scale-[1.02] hover:border-indigo-400 hover:bg-zinc-50 active:scale-[0.98]"
+              className="h-14 justify-center gap-2 rounded-xl border-2 border-zinc-300 text-base font-bold text-zinc-700 transition-all hover:scale-[1.02] hover:border-sky-400 hover:bg-zinc-50 active:scale-[0.98]"
             >
-              <ImageIcon className="h-5 w-5 text-indigo-600" />
+              <ImageIcon className="h-5 w-5 text-sky-600" />
               갤러리에서 선택
             </Button>
           </div>
@@ -176,7 +176,7 @@ export default function SignupPhotoPage() {
           size="lg"
           onClick={handleUpload}
           disabled={!file || uploading}
-          className="mt-8 h-14 w-full rounded-xl border border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-base font-bold text-white shadow-[0_10px_24px_rgba(124,77,229,0.3)] transition-all hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(124,77,229,0.4)] active:scale-[0.98]"
+          className="mt-8 h-14 w-full rounded-xl border border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-base font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(37,99,235,0.4)] active:scale-[0.98]"
         >
           {uploading ? "올리는 중..." : "다음"}
         </Button>
