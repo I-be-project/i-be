@@ -148,11 +148,14 @@ class AIClient:
             chat_base_url=settings.ai_chat_base_url,
             chat_api_key=settings.openrouter_api_key,
             chat_model_map={
-                AIPurpose.ANALYZE: settings.ai_model_analyze,
-                AIPurpose.ADAPTIVE_QUESTIONS: settings.ai_model_adaptive_questions,
-                AIPurpose.FINAL_QUESTION: settings.ai_model_final_question,
-                AIPurpose.PERSONA: settings.ai_model_persona,
-                AIPurpose.IMAGE_PROMPT: settings.ai_model_image_prompt,
+                AIPurpose.ANALYZE: settings.ai_model_analyze or settings.ai_model,
+                AIPurpose.ADAPTIVE_QUESTIONS: settings.ai_model_adaptive_questions
+                or settings.ai_model,
+                AIPurpose.FINAL_QUESTION: settings.ai_model_final_question
+                or settings.ai_model,
+                AIPurpose.PERSONA: settings.ai_model_persona or settings.ai_model,
+                AIPurpose.IMAGE_PROMPT: settings.ai_model_image_prompt
+                or settings.ai_model,
             },
             image_api_url=settings.ai_image_api_url,
             image_api_key=settings.openrouter_api_key,

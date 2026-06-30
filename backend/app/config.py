@@ -66,11 +66,14 @@ class Settings(BaseSettings):
 
     # AI — Chat 계열 (OpenAI 호환: OpenRouter)
     ai_chat_base_url: str = "https://openrouter.ai/api/v1"
-    ai_model_analyze: str = "openai/gpt-5-mini"
-    ai_model_adaptive_questions: str = "openai/gpt-5-mini"
-    ai_model_final_question: str = "openai/gpt-5.2"
-    ai_model_persona: str = "openai/gpt-5.2"
-    ai_model_image_prompt: str = "openai/gpt-5-mini"
+    # 모든 chat 단계가 기본으로 이 모델 하나를 쓴다. AI_MODEL로 한 번에 변경.
+    ai_model: str = "openai/gpt-5-mini"
+    # (선택) 특정 단계만 다른 모델을 쓰고 싶을 때만 채운다. 빈 값이면 ai_model로 폴백.
+    ai_model_analyze: str = ""
+    ai_model_adaptive_questions: str = ""
+    ai_model_final_question: str = ""
+    ai_model_persona: str = ""
+    ai_model_image_prompt: str = ""
 
     # AI — 이미지 생성·편집 (OpenRouter)
     # OpenRouter는 /chat/completions 한 엔드포인트로 생성·편집을 처리(modalities + image_config).
