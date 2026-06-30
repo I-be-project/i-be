@@ -10,10 +10,13 @@ import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
 import { CelestialBackground } from "@/components/celestial/CelestialBackground";
 import { cn } from "@/lib/utils";
+import { computeScores, derivePairCode } from "@/lib/scoring";
 
 export default function QuestionsPage() {
   const router = useRouter();
   const addAnswer = useSessionStore((state) => state.addAnswer);
+  const setRiasec = useSessionStore((state) => state.setRiasec);
+  const answers = useSessionStore((state) => state.answers);
 
   const questions = mockQuestions;
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -24,19 +27,24 @@ export default function QuestionsPage() {
   const progress = ((currentIndex + 1) / questions.length) * 100;
 
   const handleNext = () => {
+    let nextAnswers = answers;
     if (currentAnswer.trim().length > 0) {
-      addAnswer({
-        questionId: currentQuestion.id,
-        // 선택형은 선택지 고유 ID, 자유형은 입력 텍스트를 저장한다.
-        value: currentAnswer,
-      });
+      const answer = { questionId: currentQuestion.id, value: currentAnswer };
+      addAnswer(answer);
+      nextAnswers = [...answers, answer];
     }
 
     if (currentIndex < questions.length - 1) {
       setCurrentIndex((prev) => prev + 1);
-      setCurrentAnswer(""); // reset for next
+      setCurrentAnswer("");
     } else {
-      router.push("/explore/interpreting");
+      // Q1~6 선택 ID로 RIASEC 점수·Pair Code 산출 후 생성형 단계로 이동
+      const optionIds = nextAnswers
+        .map((a) => a.value)
+        .filter((v): v is string => typeof v === "string");
+      const scores = computeScores(optionIds);
+      setRiasec(scores, derivePairCode(scores));
+      router.push("/explore/path");
     }
   };
 
