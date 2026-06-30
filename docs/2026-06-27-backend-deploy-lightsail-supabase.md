@@ -104,7 +104,7 @@ JWT_ISSUER=ibe
 
 # AI (OpenRouter)
 AI_CHAT_BASE_URL=https://openrouter.ai/api/v1
-AI_API_KEY=<openrouter-key>
+OPENROUTER_API_KEY=<openrouter-key>
 AI_IMAGE_API_URL=https://openrouter.ai/api/v1/chat/completions
 AI_IMAGE_MODEL=google/gemini-3.1-flash-image-preview
 

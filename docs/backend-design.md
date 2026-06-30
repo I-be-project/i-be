@@ -360,7 +360,7 @@ class AIClient:
 환경변수 예시:
 ```
 AI_PROVIDER_BASE_URL=https://openrouter.ai/api/v1
-AI_API_KEY=sk-or-...
+OPENROUTER_API_KEY=sk-or-...
 
 AI_MODEL_ANALYZE=openai/gpt-5-mini
 AI_MODEL_ADAPTIVE_QUESTIONS=openai/gpt-5-mini
@@ -560,7 +560,7 @@ JWT_ISSUER=ibe
 
 # AI
 AI_PROVIDER_BASE_URL=https://openrouter.ai/api/v1
-AI_API_KEY=...
+OPENROUTER_API_KEY=...
 AI_MODEL_ANALYZE=openai/gpt-5-mini
 AI_MODEL_PERSONA=openai/gpt-5.2
 AI_MODEL_PORTRAIT_IMAGE=openai/gpt-image-1.5
