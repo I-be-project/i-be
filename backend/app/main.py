@@ -18,7 +18,7 @@ from app.adapters.db_pool import DBPool
 from app.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
-from app.routers import admin, auth, cards, dev, operator, sessions, students
+from app.routers import admin, auth, cards, dev, operator, questions, sessions, students
 from app.workers.card_worker import card_worker_loop
 
 logger = get_logger(__name__)
@@ -101,6 +101,7 @@ def create_app() -> FastAPI:
     app.include_router(operator.router)
     app.include_router(admin.router)
     app.include_router(dev.router)
+    app.include_router(questions.router)
 
     @app.get("/healthz", tags=["meta"])
     async def healthz() -> dict[str, str]:
