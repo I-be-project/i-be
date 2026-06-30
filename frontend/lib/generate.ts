@@ -1,4 +1,4 @@
-import { chatJSON } from "@/lib/openrouter";
+import { chatJSON, OpenRouterError } from "@/lib/openrouter";
 import { buildQ7BMessages } from "@/lib/prompts/q7b";
 import { buildQ8Messages } from "@/lib/prompts/q8";
 import { buildQ9Messages } from "@/lib/prompts/q9";
@@ -27,7 +27,7 @@ const BUILDERS = {
 } as const;
 
 export function isStage(v: string): v is Stage {
-  return v in BUILDERS;
+  return Object.hasOwn(BUILDERS, v);
 }
 
 export async function runStage(stage: Stage, input: GenerateInput): Promise<unknown> {
@@ -39,7 +39,6 @@ export async function runStage(stage: Stage, input: GenerateInput): Promise<unkn
     result === null ||
     !(stage in (result as Record<string, unknown>))
   ) {
-    const { OpenRouterError } = await import("@/lib/openrouter");
     throw new OpenRouterError("GENERATION_FAILED", `${stage} 키 누락`);
   }
   return result;
