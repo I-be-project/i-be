@@ -62,7 +62,7 @@ class Settings(BaseSettings):
     admin_token_ttl_hours: int = 12
 
     # AI — OpenRouter 키 하나로 chat·image 통합.
-    ai_api_key: str = ""
+    openrouter_api_key: str = ""
 
     # AI — Chat 계열 (OpenAI 호환: OpenRouter)
     ai_chat_base_url: str = "https://openrouter.ai/api/v1"
