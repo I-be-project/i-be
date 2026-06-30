@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
+import { generateStage } from "@/lib/api";
 import { getQ7AOptions } from "@/lib/mock/q7a";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -103,23 +104,10 @@ export default function PathPage() {
       setGenerating(true);
       setError(null);
       try {
-        const res = await fetch(`/api/generate/${apiStage}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(body),
-        });
-        const json = await res.json();
-        if (!res.ok) {
-          setError(
-            json.code === "MISSING_KEY"
-              ? "AI 연결 설정이 필요해요. 잠시 후 다시 시도해주세요."
-              : "생성에 실패했어요. 다시 시도해주세요.",
-          );
-          return;
-        }
+        const json = await generateStage(apiStage, body as Record<string, unknown>);
         onOk(json);
       } catch {
-        setError("네트워크 오류예요. 다시 시도해주세요.");
+        setError("생성에 실패했어요. 다시 시도해주세요.");
       } finally {
         setGenerating(false);
       }

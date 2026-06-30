@@ -257,3 +257,17 @@ export function fetchAdminStudents(
     { method: "GET", headers: { Authorization: `Bearer ${token}` } }
   );
 }
+
+// LLM 생성 단계(q7b/q8/q9/q10)를 백엔드에 위임한다.
+// 반환값은 단계명을 키로 갖는 파싱된 JSON (예: { q7b: {...} }).
+// 호출 측에서 (json as { q7b: Q7BData }).q7b 형태로 캐스팅한다.
+export function generateStage(
+  stage: "q7b" | "q8" | "q9" | "q10",
+  input: Record<string, unknown>
+): Promise<unknown> {
+  return request<unknown>(`/api/generate/${stage}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+}
