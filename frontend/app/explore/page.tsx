@@ -1,13 +1,21 @@
 "use client";
 
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Sparkles } from "lucide-react";
 import { CelestialBackground } from "@/components/celestial/CelestialBackground";
+import { useSessionStore } from "@/store/useSessionStore";
 
 export default function ExplorePage() {
   const router = useRouter();
+  // 완료 저장은 인증이 필요하므로 설문 시작 전에 로그인 토큰이 있어야 한다.
+  const studentToken = useSessionStore((s) => s.studentToken);
+  useEffect(() => {
+    if (!studentToken) router.replace("/login");
+  }, [studentToken, router]);
+  if (!studentToken) return null;
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden p-6 font-sans">

@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
-import { mockPersonas } from "@/lib/mock/personas";
 
 const floatingKeywords = [
   "호기심", "창의성", "논리", "자연", "미래",
@@ -13,13 +12,16 @@ const floatingKeywords = [
 
 export default function InterpretingPage() {
   const router = useRouter();
-  const setPersona = useSessionStore((state) => state.setPersona);
+  // 실제 페르소나는 Q10 확정 단계(explore/path)에서 이미 스토어에 저장돼 있다.
+  // 여기서는 덮어쓰지 않고, 없으면 처음으로 돌려보낸다.
+  const persona = useSessionStore((state) => state.persona);
   const [currentKeyword, setCurrentKeyword] = useState<string>("");
 
   useEffect(() => {
-    // Determine persona based on mock data (for prototype, pick randomly or based on answers)
-    const randomPersona = mockPersonas[Math.floor(Math.random() * mockPersonas.length)];
-    setPersona(randomPersona);
+    if (!persona) {
+      router.replace("/explore");
+      return;
+    }
 
     // Floating keywords animation loop
     let idx = 0;
@@ -38,7 +40,7 @@ export default function InterpretingPage() {
       clearInterval(interval);
       clearTimeout(timeout);
     };
-  }, [router, setPersona]);
+  }, [router, persona]);
 
   return (
     <main className="min-h-[100dvh] flex flex-col items-center justify-center bg-white px-4 overflow-hidden relative font-sans">
