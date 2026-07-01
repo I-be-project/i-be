@@ -1,0 +1,12 @@
+# 로컬 개발용. DB는 로컬/운영 모두 Supabase 직접 사용(별도 postgres 컨테이너 없음).
+# DATABASE_URL은 .env에서 주입 (Supabase 연결 문자열).
+services:
+  app:
+    build:
+      context: .
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app:/app/app
