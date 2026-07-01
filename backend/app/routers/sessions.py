@@ -1,4 +1,4 @@
-"""/api/sessions — 질문 진행, 답변 저장, 다음 질문(짧은 AI 동기)."""
+"""/api/sessions — 세션 완료 저장, (미구현) 질문 진행·답변."""
 
 from __future__ import annotations
 
@@ -6,7 +6,24 @@ from uuid import UUID
 
 from fastapi import APIRouter
 
+from app.deps import CurrentStudentDep, SessionServiceDep
+from app.schemas.persona import Persona
+from app.schemas.students import ProfileSummary
+
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+
+
+@router.post("/complete", response_model=ProfileSummary)
+async def complete_survey(
+    student_id: CurrentStudentDep,
+    sessions: SessionServiceDep,
+    persona: Persona,
+) -> ProfileSummary:
+    """페르소나 선택 확정 → 완료 세션 + 페르소나 저장 후 프로필 요약 반환.
+
+    이미 완료 + retry off → 409.
+    """
+    return await sessions.complete_survey(student_id, persona)
 
 
 @router.post("")

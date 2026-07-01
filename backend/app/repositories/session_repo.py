@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from app.repositories.base import BaseRepository
@@ -25,15 +26,27 @@ class SessionRecord:
 
 
 class SessionRepository(BaseRepository):
-    async def create(self, student_id: UUID) -> SessionRecord:
-        """status='in_progress'로 새 세션 행 생성."""
+    async def create(
+        self,
+        student_id: UUID,
+        *,
+        status: str = "in_progress",
+        conn: Any = None,
+    ) -> SessionRecord:
+        """새 세션 행 생성. status='completed'이면 completed_at=now().
+
+        conn이 주어지면 그 커넥션(트랜잭션)으로 실행, 없으면 자체 풀에서 acquire.
+        """
         query = f"""
-            insert into generated.sessions (student_id, status)
-            values ($1, 'in_progress')
+            insert into generated.sessions (student_id, status, completed_at)
+            values ($1, $2, case when $2 = 'completed' then now() else null end)
             returning {_COLUMNS}
         """
-        async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(query, student_id)
+        if conn is not None:
+            row = await conn.fetchrow(query, student_id, status)
+        else:
+            async with self._pool.acquire() as c:
+                row = await c.fetchrow(query, student_id, status)
         assert row is not None  # RETURNING 이므로 항상 한 행
         return SessionRecord(
             id=row["id"],

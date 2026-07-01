@@ -15,6 +15,7 @@ from app.repositories.card_repo import CardRecord
 from app.services.session_service import SessionService
 from tests.test_session_service import (
     FakeCardRepo,
+    FakeDBPool,
     FakePersonaRepo,
     FakeSessionRepo,
     FakeSettingsRepo,
@@ -35,6 +36,7 @@ def _service(*, latest=None, persona=None, card=None, retry: object = False) -> 
         settings_repo=FakeSettingsRepo(retry),
         storage=FakeStorage(),
         settings=get_settings(),
+        db_pool=FakeDBPool(),
     )
 
 
