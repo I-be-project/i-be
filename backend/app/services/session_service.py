@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+from contextlib import AbstractAsyncContextManager
+from typing import Any, Protocol
 from uuid import UUID
 
 from app.config import Settings
+from app.core.errors import ConflictError
 from app.repositories.card_repo import CardRecord
 from app.repositories.persona_repo import PersonaRecord
 from app.repositories.session_repo import SessionRecord
 from app.repositories.student_repo import StudentRecord
+from app.schemas.persona import Persona
 from app.schemas.students import CardSummary, PersonaSummary, ProfileSummary, StudentInfo
 
 # 행사 전역 '다시 하기' 스위치 키.
@@ -22,10 +25,20 @@ class StudentRepo(Protocol):
 
 class SessionRepo(Protocol):
     async def get_latest_for_student(self, student_id: UUID) -> SessionRecord | None: ...
+    async def create(
+        self, student_id: UUID, *, status: str = ..., conn: Any = ...
+    ) -> SessionRecord: ...
 
 
 class PersonaRepo(Protocol):
     async def get_by_session(self, session_id: UUID) -> PersonaRecord | None: ...
+    async def create(
+        self, session_id: UUID, persona: Persona, *, conn: Any = ...
+    ) -> PersonaRecord: ...
+
+
+class TxPool(Protocol):
+    def transaction(self) -> AbstractAsyncContextManager[Any]: ...
 
 
 class CardRepo(Protocol):
@@ -53,6 +66,7 @@ class SessionService:
         settings_repo: SettingsRepo,
         storage: CardImageStorage,
         settings: Settings,
+        db_pool: TxPool,
     ) -> None:
         self._students = students
         self._sessions = sessions
@@ -61,6 +75,7 @@ class SessionService:
         self._settings_repo = settings_repo
         self._storage = storage
         self._settings = settings
+        self._db_pool = db_pool
 
     async def get_profile_summary(self, student_id: UUID) -> ProfileSummary:
         """프로필 화면 상태를 조립한다.
@@ -104,6 +119,25 @@ class SessionService:
             ),
             card=await self._build_card_summary(persona.id),
         )
+
+    async def complete_survey(self, student_id: UUID, persona: Persona) -> ProfileSummary:
+        """페르소나 선택 확정 → 완료 세션 + 페르소나를 원자적으로 저장.
+
+        최근 세션이 completed이고 retry_enabled가 false면 409(ConflictError).
+        session INSERT와 persona INSERT는 하나의 트랜잭션으로 묶는다.
+        """
+        latest = await self._sessions.get_latest_for_student(student_id)
+        retry_enabled = bool(await self._settings_repo.get(RETRY_ENABLED_KEY))
+        if latest is not None and latest.status == "completed" and not retry_enabled:
+            raise ConflictError("이미 설문을 완료했습니다.")
+
+        async with self._db_pool.transaction() as conn:
+            session = await self._sessions.create(
+                student_id, status="completed", conn=conn
+            )
+            await self._personas.create(session.id, persona, conn=conn)
+
+        return await self.get_profile_summary(student_id)
 
     async def _fetch_student_info(self, student_id: UUID) -> StudentInfo | None:
         """학생 식별 정보 조회. 소프트 삭제/없음이면 None(비밀번호는 노출하지 않음)."""

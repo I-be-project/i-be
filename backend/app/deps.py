@@ -95,6 +95,7 @@ def get_session_service(
     settings_repo: Annotated[SettingsRepository, Depends(get_settings_repo)],
     storage: StorageClientDep,
     settings: SettingsDep,
+    db_pool: DBPoolDep,
 ) -> SessionService:
     return SessionService(
         students=students,
@@ -104,6 +105,7 @@ def get_session_service(
         settings_repo=settings_repo,
         storage=storage,
         settings=settings,
+        db_pool=db_pool,
     )
 
 
