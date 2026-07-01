@@ -271,3 +271,25 @@ export function generateStage(
     body: JSON.stringify(input),
   });
 }
+
+// 페르소나 선택 확정 → 완료 세션 + 페르소나 저장. 인증 필요.
+export interface PersonaInput {
+  name: string;
+  tagline: string;
+  keywords: string[];
+  fields: string[];
+}
+
+export function completeSurvey(
+  token: string,
+  persona: PersonaInput
+): Promise<ProfileSummary> {
+  return request<ProfileSummary>("/api/sessions/complete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(persona),
+  });
+}

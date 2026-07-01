@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
-import { generateStage } from "@/lib/api";
+import { generateStage, completeSurvey } from "@/lib/api";
 import { getQ7AOptions } from "@/lib/mock/q7a";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -94,6 +94,8 @@ export default function PathPage() {
 
   // 공통: 생성 호출. 마지막 호출 입력을 보관해 "다시 시도"에 재사용.
   const lastReq = useRef<{ stage: string; body: unknown } | null>(null);
+  // 생성이 아닌 단계(완료 저장 등)의 "다시 시도" 핸들러. 설정돼 있으면 retry가 이걸 우선 실행.
+  const pendingRetry = useRef<(() => void) | null>(null);
   const callGenerate = useCallback(
     async (
       apiStage: "q7b" | "q8" | "q9" | "q10",
@@ -101,6 +103,7 @@ export default function PathPage() {
       onOk: (data: unknown) => void,
     ) => {
       lastReq.current = { stage: apiStage, body };
+      pendingRetry.current = null; // 생성 흐름으로 진입하면 저장 재시도는 무효화
       setGenerating(true);
       setError(null);
       try {
@@ -226,30 +229,59 @@ export default function PathPage() {
     );
   };
 
-  // Q10 확정 → persona 매핑 후 결과로
-  const submitQ10 = () => {
+  // Q10 확정 → persona 매핑 → 백엔드 완료 저장 → 결과로
+  const submitQ10 = async () => {
     if (!q10Data || !nameId) return;
     const card = q10Data.name_cards.find((c) => c.name_id === nameId)!;
     setQ10Selection(card);
     const b = store.q7bSelection;
+    const keywords = [
+      ...(store.q8Selection?.chips.map((c) => c.text) ?? []),
+      ...(store.q9Selection?.chips.map((c) => c.text) ?? []),
+    ].slice(0, 5);
+    const fields = [card.materials_used_backend?.field ?? pairCode ?? ""].filter(Boolean);
     setPersona({
       name: card.persona_name,
       tagline: card.short_description,
-      keywords: [
-        ...(store.q8Selection?.chips.map((c) => c.text) ?? []),
-        ...(store.q9Selection?.chips.map((c) => c.text) ?? []),
-      ].slice(0, 5),
-      fields: [card.materials_used_backend?.field ?? pairCode ?? ""].filter(Boolean),
+      keywords,
+      fields,
       recommendedBooths: [
         ...(b?.first.career_pool ?? []),
         ...(b?.second.career_pool ?? []),
       ].slice(0, 3),
     });
-    router.push("/explore/interpreting");
+
+    // 완료 저장은 인증 필요. 토큰 없으면 로그인으로.
+    if (!store.studentToken) {
+      router.push("/login");
+      return;
+    }
+    setGenerating(true);
+    setError(null);
+    try {
+      await completeSurvey(store.studentToken, {
+        name: card.persona_name,
+        tagline: card.short_description,
+        keywords,
+        fields,
+      });
+      router.push("/explore/interpreting");
+    } catch {
+      pendingRetry.current = submitQ10; // "다시 시도" 시 저장을 재실행
+      setError("결과 저장에 실패했어요. 다시 시도해주세요.");
+    } finally {
+      setGenerating(false);
+    }
   };
 
-  // "다시 시도" — 마지막 생성 요청 재실행
+  // "다시 시도" — 저장 재시도 핸들러가 있으면 우선, 없으면 마지막 생성 요청 재실행
   const retry = () => {
+    if (pendingRetry.current) {
+      const fn = pendingRetry.current;
+      pendingRetry.current = null;
+      fn();
+      return;
+    }
     const req = lastReq.current;
     if (!req) return;
     const apiStage = req.stage as "q7b" | "q8" | "q9" | "q10";
