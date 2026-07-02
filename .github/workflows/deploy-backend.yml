@@ -1,0 +1,54 @@
+name: Deploy Backend
+
+# production 브랜치의 backend 변경을 서버에 자동 재배포한다.
+# 서버는 이 저장소를 클론해 두고 production 브랜치를 체크아웃한 상태여야 하며,
+# backend/.env(운영값)는 서버에만 존재한다(git 미추적).
+on:
+  push:
+    branches: [production]
+    paths:
+      - "backend/**"
+      - ".github/workflows/deploy-backend.yml"
+  workflow_dispatch: {}   # 수동 재배포 허용
+
+# 동시 배포 방지 — 앞선 배포가 끝난 뒤에 다음 배포가 돌도록 큐잉한다.
+concurrency:
+  group: deploy-backend
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Redeploy over SSH
+        uses: appleboy/ssh-action@v1.2.2
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_KEY }}
+          port: ${{ secrets.SSH_PORT || 22 }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd "${{ secrets.DEPLOY_PATH }}"
+
+            # production 최신 코드로 강제 동기화 (.env 등 gitignore 파일은 보존됨)
+            git fetch origin production
+            git reset --hard origin/production
+
+            cd backend
+            docker compose -f docker-compose.yml -f compose.prod.yml up -d --build app
+            docker image prune -f
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 12); do
+            if curl -fsS https://api.cnu-likelion.kr/healthz; then
+              echo "✅ backend healthy"
+              exit 0
+            fi
+            echo "⏳ waiting for backend... ($i/12)"
+            sleep 5
+          done
+          echo "❌ health check failed"
+          exit 1
