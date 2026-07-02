@@ -58,9 +58,17 @@
 
 ## 공용 컴포넌트 (`components/voyage/`)
 
-- **`VoyageBackground`** — 공통 배경. `bright`(장면 화면: 브리핑/해석/결과/카드) / `soft`(폼·설문). 구름·햇살·반짝임·모래 글로우·나비 실루엣. 장식 좌표는 전부 고정값(하이드레이션 안정). 자체적으로 `overflow-hidden` 처리.
+- **`VoyageBackground`** — 공통 배경. `bright`(장면 화면: 브리핑/해석/결과/카드) / `soft`(폼). 구름·햇살·반짝임·모래 글로우. 장식 좌표는 전부 고정값(하이드레이션 안정). 자체적으로 `overflow-hidden` 처리.
 - **`CtaButton`** — 필(pill) CTA. `h-14 rounded-full` + sky→blue 그라데이션. 화면별 버튼 스타일 표류 방지.
 - **`JourneyProgress`** — 탐험 진행 헤더(나침반 + n/10). ui/Progress(base-ui)는 Track/Indicator 구조라 외부에서 색을 덮기 어려워 직접 그린다.
+- **`ExpeditionScene`** — Q1~6 전용 장면 시스템. 질문마다 하루의 시간이 흐른다:
+  아침 선착장 → 한낮 캠프 → 궂은 오후(비) → 오후 키트 점검 → 노을 갈림길 → 해질녘 신호.
+  - `ExpeditionBackdrop`: 화면 전체 배경. 장면별 하늘 무드가 크로스페이드되고,
+    장면 3에선 화면 전체 빗줄기, 장면 6에선 별이 뜬다. 모든 무드 그라데이션의
+    끝색은 모래(#fdf3e0)로 고정 — 하단 CTA 스크림과 항상 맞는다.
+  - `SceneWindow`: 질문 위 일러스트 패널(h-28). 흔들리는 배, 펄럭이는 깃발,
+    내리는 비, 물음표 말풍선, 흔들리는 나무, 모닥불 + 퍼지는 신호 링 등
+    장면별 SVG 애니메이션. `useReducedMotion`이면 반복 모션을 끈다.
 
 ## 주의사항 (하다 발견한 함정)
 

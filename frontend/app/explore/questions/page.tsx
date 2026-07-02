@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin } from "lucide-react";
 import { useSessionStore } from "@/store/useSessionStore";
 import { mockQuestions } from "@/lib/mock/questions";
 import { Textarea } from "@/components/ui/textarea";
-import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import {
+  ExpeditionBackdrop,
+  SceneWindow,
+  type SceneId,
+} from "@/components/voyage/ExpeditionScene";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { JourneyProgress } from "@/components/voyage/JourneyProgress";
 import { cn } from "@/lib/utils";
@@ -101,11 +104,13 @@ export default function QuestionsPage() {
 
   const isNextDisabled = currentAnswer.trim().length === 0;
   const isLast = currentIndex === questions.length - 1;
+  // 장면 무드는 질문 id(1~6) 기준. 범위를 벗어나면 마지막 장면 유지.
+  const sceneId = Math.min(6, Math.max(1, currentQuestion.id)) as SceneId;
 
   return (
     // overflow-hidden은 배경 컴포넌트가 자체 처리 — main에 걸면 sticky CTA가 죽는다
     <main className="relative flex min-h-[100dvh] flex-col font-sans">
-      <VoyageBackground variant="soft" />
+      <ExpeditionBackdrop scene={sceneId} />
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-grow flex-col px-6 py-8 pt-12">
         <JourneyProgress
           label="나비섬 탐험"
@@ -122,12 +127,7 @@ export default function QuestionsPage() {
             transition={{ duration: 0.3, ease: "easeInOut" }}
             className="flex flex-grow flex-col"
           >
-            {currentQuestion.scene && (
-              <div className="glass-card mb-4 inline-flex w-fit items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold text-sky-700">
-                <MapPin className="h-3.5 w-3.5 text-sky-500" />
-                장면 {currentQuestion.id} · {currentQuestion.scene}
-              </div>
-            )}
+            <SceneWindow scene={sceneId} label={currentQuestion.scene} />
 
             <h2 className="mb-8 text-2xl font-extrabold leading-snug text-ink">
               {currentQuestion.text}

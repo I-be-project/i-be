@@ -19,34 +19,6 @@ const SPARKLES: { x: number; y: number; r: number; delay: number }[] = [
   { x: 45, y: 22, r: 1, delay: 1.0 },
 ];
 
-// 나비 실루엣 — 나비섬의 시그니처. 부드럽게 떠다닌다.
-function Butterfly({
-  className,
-  style,
-}: {
-  className?: string;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <svg
-      viewBox="0 0 24 20"
-      fill="currentColor"
-      className={className}
-      style={style}
-      aria-hidden
-    >
-      {/* 왼쪽 날개 (위/아래) */}
-      <path d="M11.2 9.5 C8 2.5, 0.5 2, 2.5 8.5 C3.6 12, 8.5 12.3, 11.2 9.5 Z" opacity="0.95" />
-      <path d="M11.2 10.5 C8.8 13.8, 4.5 15.5, 5.5 11.8 C6.1 9.8, 9 9.6, 11.2 10.5 Z" opacity="0.75" />
-      {/* 오른쪽 날개 (위/아래) */}
-      <path d="M12.8 9.5 C16 2.5, 23.5 2, 21.5 8.5 C20.4 12, 15.5 12.3, 12.8 9.5 Z" opacity="0.85" />
-      <path d="M12.8 10.5 C15.2 13.8, 19.5 15.5, 18.5 11.8 C17.9 9.8, 15 9.6, 12.8 10.5 Z" opacity="0.65" />
-      {/* 몸통 */}
-      <ellipse cx="12" cy="10" rx="0.9" ry="3.4" opacity="0.9" />
-    </svg>
-  );
-}
-
 export function VoyageBackground({
   className,
   variant = "bright",
@@ -101,24 +73,6 @@ export function VoyageBackground({
           }}
         />
       ))}
-
-      {/* 나비 — 시그니처. 본문 텍스트와 겹치지 않게 가장자리/상단 여백에 배치.
-          soft에선 한 마리만 남긴다. */}
-      {soft ? (
-        <Butterfly className="animate-floaty absolute right-[7%] top-[2.5%] w-5 text-sky-400/60" />
-      ) : (
-        <>
-          <Butterfly className="animate-floaty absolute right-[6%] top-[9%] w-6 text-sky-400/70" />
-          <Butterfly
-            className="animate-floaty absolute left-[5%] top-[22%] w-5 text-blue-400/50"
-            style={{ animationDelay: "1.8s" }}
-          />
-          <Butterfly
-            className="animate-floaty absolute right-[9%] top-[42%] w-4 text-white/80"
-            style={{ animationDelay: "3.2s" }}
-          />
-        </>
-      )}
 
       {/* 바다 반짝임 + 모래사장 글로우 — 하단 */}
       <div className={cn("absolute inset-x-0 bottom-0 h-1/3", soft && "opacity-70")}>
