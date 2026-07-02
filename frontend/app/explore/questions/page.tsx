@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
@@ -45,6 +45,11 @@ export default function QuestionsPage() {
 
   const currentQuestion = questions[currentIndex];
 
+  // 다음 장면으로 넘어가면 맨 위(장면 창)부터 다시 보이게
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentIndex]);
+
   const handleNext = () => {
     let nextAnswers = answers;
     if (currentAnswer.trim().length > 0) {
@@ -85,26 +90,37 @@ export default function QuestionsPage() {
                 type="button"
                 onClick={() => setCurrentAnswer(option.id)}
                 className={cn(
-                  "flex w-full items-center gap-3.5 rounded-2xl border border-solid p-4 text-left text-[15px] font-medium backdrop-blur-xl transition-colors",
+                  "flex w-full items-center gap-3 rounded-2xl border border-solid p-3.5 text-left backdrop-blur-xl transition-colors",
                   selected
                     ? "border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_12px_28px_rgba(37,99,235,0.35)]"
                     : "border-white/70 bg-white/80 text-ink shadow-[0_8px_24px_rgba(37,99,235,0.08)] hover:border-sky-300 active:scale-[0.99]",
                 )}
               >
+                {/* 이모지 타일 — 스캔만으로 고를 수 있게 */}
                 <span
                   className={cn(
-                    "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-solid transition-colors",
-                    selected
-                      ? "border-white bg-white/30"
-                      : "border-sky-300 bg-white/60",
+                    "flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl text-xl transition-colors",
+                    selected ? "bg-white/25" : "bg-sky-50",
                   )}
                   aria-hidden
                 >
-                  {selected && (
-                    <span className="h-2.5 w-2.5 rounded-full bg-white" />
+                  {option.emoji ?? "✨"}
+                </span>
+                <span className="flex min-w-0 flex-col gap-0.5">
+                  <span className="break-keep text-[15px] font-bold leading-snug">
+                    {option.short ?? option.label}
+                  </span>
+                  {option.short && (
+                    <span
+                      className={cn(
+                        "break-keep text-[13px] leading-snug",
+                        selected ? "text-white/80" : "text-ink-muted",
+                      )}
+                    >
+                      {option.label}
+                    </span>
                   )}
                 </span>
-                <span className="break-keep leading-relaxed">{option.label}</span>
               </motion.button>
             );
           })}

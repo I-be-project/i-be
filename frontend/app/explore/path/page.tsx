@@ -89,6 +89,11 @@ export default function PathPage() {
     if (!pairCode || !riasecScores) router.replace("/explore");
   }, [pairCode, riasecScores, router]);
 
+  // 다음 단계로 넘어가면 맨 위부터 다시 보이게
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [stage]);
+
   const q1to6 = answers
     .map((a) => a.value)
     .filter((v): v is string => typeof v === "string");

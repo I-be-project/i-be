@@ -171,7 +171,7 @@ export function SceneWindow({
 }) {
   return (
     <div
-      className="relative mb-5 h-28 w-full overflow-hidden rounded-2xl border border-solid border-white/70 shadow-[0_10px_28px_rgba(37,99,235,0.15)]"
+      className="relative mb-5 h-40 w-full overflow-hidden rounded-2xl border border-solid border-white/70 shadow-[0_10px_28px_rgba(37,99,235,0.15)]"
       style={{ background: MOODS[scene].window }}
     >
       {label && (
@@ -195,10 +195,11 @@ function SceneArt({ scene }: { scene: SceneId }) {
   return (
     <svg
       className="absolute inset-0 h-full w-full"
-      viewBox="0 0 360 112"
+      viewBox="0 -36 360 148"
       preserveAspectRatio="xMidYMax slice"
       aria-hidden
     >
+      {scene !== 6 && <SkyClouds reduce={!!reduce} dim={scene === 3} />}
       {scene === 1 && <SceneDock reduce={!!reduce} />}
       {scene === 2 && <SceneCamp reduce={!!reduce} />}
       {scene === 3 && <SceneStorm reduce={!!reduce} />}
@@ -210,6 +211,21 @@ function SceneArt({ scene }: { scene: SceneId }) {
 }
 
 /* ── 공통 파츠 ─────────────────────────────────────────── */
+
+// 넓어진 하늘 위를 천천히 흐르는 구름
+function SkyClouds({ reduce, dim }: { reduce: boolean; dim?: boolean }) {
+  return (
+    <motion.g
+      fill={dim ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.6)"}
+      animate={reduce ? undefined : { x: [0, 14, 0] }}
+      transition={{ duration: 9, repeat: Infinity, ease: "easeInOut" }}
+    >
+      <ellipse cx="150" cy="-14" rx="26" ry="8" />
+      <ellipse cx="172" cy="-19" rx="18" ry="6" />
+      <ellipse cx="248" cy="-2" rx="20" ry="6" opacity="0.7" />
+    </motion.g>
+  );
+}
 
 const CALM_WAVE =
   "M-40 82 Q -28 78, -16 82 T 8 82 T 32 82 T 56 82 T 80 82 T 104 82 T 128 82 T 152 82 T 176 82 T 200 82 T 224 82 T 248 82 T 272 82 T 296 82 T 320 82 T 344 82 T 368 82 T 392 82 T 416 82";
@@ -287,7 +303,7 @@ function SceneDock({ reduce }: { reduce: boolean }) {
       </g>
       {/* 출렁이는 배 */}
       <motion.g
-        animate={reduce ? undefined : { y: [0, -3.5, 0], rotate: [0, -1.5, 0] }}
+        animate={reduce ? undefined : { y: [0, -6, 0], rotate: [0, -2.5, 0] }}
         transition={{ duration: 3.4, repeat: Infinity, ease: "easeInOut" }}
         style={{ originX: 0.5, originY: 1 }}
       >
@@ -322,7 +338,7 @@ function SceneCamp({ reduce }: { reduce: boolean }) {
       <motion.path
         d="M256 40 L298 48 L256 57 Z"
         fill="#ff9f4a"
-        animate={reduce ? undefined : { rotate: [0, 5, 0, -3, 0], scaleX: [1, 0.94, 1] }}
+        animate={reduce ? undefined : { rotate: [0, 7, 0, -5, 0], scaleX: [1, 0.9, 1] }}
         transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
         style={{ originX: 0, originY: 0.5 }}
       />
@@ -344,7 +360,7 @@ function SceneStorm({ reduce }: { reduce: boolean }) {
       <Sea fill="#5b87ad" choppy reduce={reduce} />
       {/* 먹구름 */}
       <motion.g
-        animate={reduce ? undefined : { x: [0, 12, 0] }}
+        animate={reduce ? undefined : { x: [0, 18, 0] }}
         transition={{ duration: 7, repeat: Infinity, ease: "easeInOut" }}
       >
         <g fill="#5f7590">
@@ -370,7 +386,7 @@ function SceneStorm({ reduce }: { reduce: boolean }) {
             strokeWidth="2.2"
             strokeLinecap="round"
             initial={{ y: 0, opacity: 0 }}
-            animate={{ y: [0, 34], opacity: [0, 1, 0] }}
+            animate={{ y: [0, 50], opacity: [0, 1, 0] }}
             transition={{
               duration: 0.9,
               delay: i * 0.14,
@@ -408,7 +424,7 @@ function SceneKit({ reduce }: { reduce: boolean }) {
       </g>
       {/* "뭐가 부족하지?" 말풍선 */}
       <motion.g
-        animate={reduce ? undefined : { y: [0, -4, 0] }}
+        animate={reduce ? undefined : { y: [0, -7, 0] }}
         transition={{ duration: 2.1, repeat: Infinity, ease: "easeInOut" }}
       >
         <circle cx="166" cy="50" r="12" fill="#ffffff" opacity="0.95" />
@@ -464,7 +480,7 @@ function SceneFork({ reduce }: { reduce: boolean }) {
       </g>
       {/* 바람에 흔들리는 나무들 */}
       <motion.g
-        animate={reduce ? undefined : { rotate: [0, 1.6, 0, -1.2, 0] }}
+        animate={reduce ? undefined : { rotate: [0, 2.6, 0, -2, 0] }}
         transition={{ duration: 4.2, repeat: Infinity, ease: "easeInOut" }}
         style={{ originX: 0.5, originY: 1 }}
       >
@@ -473,7 +489,7 @@ function SceneFork({ reduce }: { reduce: boolean }) {
         <path d="M32 66 L48 38 L64 66 Z" fill="#5e9070" />
       </motion.g>
       <motion.g
-        animate={reduce ? undefined : { rotate: [0, -1.4, 0, 1, 0] }}
+        animate={reduce ? undefined : { rotate: [0, -2.2, 0, 1.6, 0] }}
         transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 0.6 }}
         style={{ originX: 0.5, originY: 1 }}
       >
@@ -511,7 +527,7 @@ function SceneSignal({ reduce }: { reduce: boolean }) {
         <rect x="58" y="92" width="24" height="4.5" rx="2" fill="#6e4d3a" transform="rotate(-14 70 94)" />
       </g>
       <motion.g
-        animate={reduce ? undefined : { scaleY: [1, 1.16, 0.94, 1], opacity: [0.92, 1, 0.85, 0.92] }}
+        animate={reduce ? undefined : { scaleY: [1, 1.28, 0.9, 1], scaleX: [1, 1.08, 0.96, 1], opacity: [0.92, 1, 0.85, 0.92] }}
         transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
         style={{ originX: 0.5, originY: 1 }}
       >
@@ -530,7 +546,7 @@ function SceneSignal({ reduce }: { reduce: boolean }) {
             stroke="#ffd98a"
             strokeWidth="1.6"
             initial={{ scale: 0.5, opacity: 0.7 }}
-            animate={{ scale: 2.4, opacity: 0 }}
+            animate={{ scale: 3.2, opacity: 0 }}
             transition={{ duration: 2.4, delay, repeat: Infinity, ease: "easeOut" }}
             style={{ originX: 0.5, originY: 0.5 }}
           />
