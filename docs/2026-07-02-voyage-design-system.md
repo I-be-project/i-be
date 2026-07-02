@@ -80,9 +80,6 @@
 - 질문은 2단 위계: `story`(상황 내레이션, 작게·ink-muted) + `text`(질문, 크게·bold).
   `lib/mock/questions.ts`에 `story` 필드로 분리 — 채점은 option.id 기준이라 무관.
 - 선택지는 stagger로 하나씩 등장 (0.06s 간격).
-- 선택지 피로도: 원문 문장을 그대로 나열하지 않는다. `QuestionOption`의
-  `emoji` + `short`(3~7어절 행동 요약)를 크게, 원문(`label`)은 작은 보조
-  설명으로 — 이모지·헤드라인 스캔만으로 고를 수 있게 한다.
 - 질문/단계 전환 시 `window.scrollTo(top)` — 다음 장면은 항상 장면 창부터.
 
 ## 화면 전환
