@@ -11,7 +11,7 @@ export function TrailBar({ step, total }: { step: number; total: number }) {
       aria-valuemax={total}
       aria-valuenow={step}
       aria-label="탐험 진행도"
-      className="absolute inset-x-0 top-0 z-20 h-1.5 bg-white/40"
+      className="absolute inset-x-0 top-[env(safe-area-inset-top)] z-20 h-1.5 bg-white/40"
     >
       <motion.div
         className="h-full rounded-r-full bg-gradient-to-r from-sky-400 to-blue-500"

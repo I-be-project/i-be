@@ -7,6 +7,7 @@
 
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { MapPin } from "lucide-react";
+import { useEffect } from "react";
 
 export type SceneId = 1 | 2 | 3 | 4 | 5 | 6;
 
@@ -57,6 +58,10 @@ const MOODS: Record<VoyageMood, { page: string; window?: string }> = {
 
 const isNight = (m: VoyageMood) => m === 6 || m === "night" || m === "deepNight";
 
+// page 그라데이션의 첫 색 = 화면 최상단(상태바와 맞닿는) 색.
+const topColor = (m: VoyageMood) =>
+  MOODS[m].page.match(/#[0-9a-fA-F]{6}/)?.[0] ?? "#c9e5fa";
+
 const NIGHT_STARS = [
   { x: 12, y: 6, d: 0 },
   { x: 30, y: 12, d: 0.9 },
@@ -71,6 +76,19 @@ const NIGHT_STARS = [
 // 화면 전체 배경 — 무드가 바뀌면 하늘이 부드럽게 넘어간다.
 export function ExpeditionBackdrop({ mood }: { mood: VoyageMood }) {
   const reduce = useReducedMotion();
+
+  // 다이나믹 아일랜드/상태바 영역이 현재 씬의 하늘색과 어우러지도록
+  // theme-color 메타를 씬별로 갱신한다. 화면을 떠날 때는 이전 값으로 복원.
+  useEffect(() => {
+    const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+    if (!meta) return;
+    const prev = meta.content;
+    meta.content = topColor(mood);
+    return () => {
+      meta.content = prev;
+    };
+  }, [mood]);
+
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       <AnimatePresence initial={false}>
