@@ -38,8 +38,8 @@ export function ChipSelect({
               className={cn(
                 "rounded-full border border-solid px-4 py-2.5 text-sm font-medium backdrop-blur-xl transition-all",
                 selected
-                  ? "border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_8px_20px_rgba(124,77,229,0.3)]"
-                  : "border-white/70 bg-white/80 text-[#2a2550] hover:border-indigo-300",
+                  ? "border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_8px_20px_rgba(37,99,235,0.3)]"
+                  : "border-white/70 bg-white/80 text-ink hover:border-sky-300 active:scale-[0.98]",
               )}
             >
               {chip.text}
@@ -51,7 +51,7 @@ export function ChipSelect({
         value={freeText}
         onChange={(e) => onFreeText(e.target.value)}
         placeholder={placeholder}
-        className="min-h-[90px] rounded-xl border border-solid border-white/70 bg-white/80 p-4 text-base shadow-[0_10px_30px_rgba(123,97,240,0.1)] backdrop-blur-xl focus-visible:ring-indigo-500"
+        className="min-h-[90px] rounded-2xl border border-solid border-white/70 bg-white/80 p-4 text-base shadow-[0_8px_24px_rgba(37,99,235,0.08)] backdrop-blur-xl focus-visible:ring-sky-500"
       />
     </div>
   );

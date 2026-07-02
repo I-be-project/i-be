@@ -7,9 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
 import { generateStage, completeSurvey } from "@/lib/api";
 import { getQ7AOptions } from "@/lib/mock/q7a";
-import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { CelestialBackground } from "@/components/celestial/CelestialBackground";
+import { Moon } from "lucide-react";
+import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
+import { TrailBar } from "@/components/voyage/TrailBar";
+import { CtaButton } from "@/components/voyage/CtaButton";
 import { RankSelect } from "@/components/explore/RankSelect";
 import { ChipSelect } from "@/components/explore/ChipSelect";
 import { NameCardSelect } from "@/components/explore/NameCardSelect";
@@ -87,6 +88,11 @@ export default function PathPage() {
   useEffect(() => {
     if (!pairCode || !riasecScores) router.replace("/explore");
   }, [pairCode, riasecScores, router]);
+
+  // 다음 단계로 넘어가면 맨 위부터 다시 보이게
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [stage]);
 
   const q1to6 = answers
     .map((a) => a.value)
@@ -421,45 +427,48 @@ export default function PathPage() {
   const showGenerating = generating || error !== null;
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
-      <CelestialBackground variant="soft" />
-      <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-grow flex-col px-6 py-8 pt-12">
-        <div className="mb-10">
-          <Progress
-            value={(STAGE_INDEX[stage] / 10) * 100}
-            className="mb-3 h-2 overflow-hidden rounded-full border border-solid border-white/70 bg-white/50 [&>div]:bg-gradient-to-r [&>div]:from-indigo-500 [&>div]:to-purple-500"
-          />
-          <div className="flex justify-between text-sm font-bold uppercase tracking-widest text-[#5b5685]">
-            <span>탐험 심화</span>
-            <span>{STAGE_INDEX[stage]} / 10</span>
-          </div>
-        </div>
+    // overflow-hidden은 배경 컴포넌트가 자체 처리 — main에 걸면 sticky CTA가 죽는다
+    <main className="relative flex min-h-[100dvh] flex-col font-sans">
+      {/* Q6 해질녘 신호 이후 — 밤이 깊어진 섬에서 심화 탐험이 이어진다 */}
+      <ExpeditionBackdrop mood="night" />
+      <TrailBar step={STAGE_INDEX[stage]} total={10} />
 
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-grow flex-col px-6 pb-8 pt-7">
         {showGenerating ? (
           <GeneratingScreen error={error} onRetry={retry} />
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
               key={stage}
-              initial={{ opacity: 0, x: 10 }}
+              initial={{ opacity: 0, x: 32 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+              exit={{ opacity: 0, x: -32 }}
+              transition={{ duration: 0.35, ease: "easeInOut" }}
               className="flex flex-grow flex-col"
             >
-              <h2 className="mb-8 text-2xl font-extrabold leading-tight text-[#2a2550] md:text-3xl">
+              {/* 컴팩트 진행 칩 — 진행 헤더 블록 대신 한 줄로 */}
+              <div className="mb-4 flex items-center justify-between">
+                <div className="glass-card inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
+                  <Moon className="h-3 w-3 text-sky-600" />
+                  밤의 심화 탐험
+                </div>
+                <div className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
+                  {STAGE_INDEX[stage]}/10
+                </div>
+              </div>
+
+              <h2 className="mb-7 break-keep text-2xl font-extrabold leading-snug text-ink">
                 {title}
               </h2>
               <div className="flex-grow pb-32">{body}</div>
-              <div className="sticky bottom-0 z-10 -mx-6 flex justify-center bg-gradient-to-t from-[#fdefe3] via-[#fdefe3]/80 to-transparent p-6 pb-8">
-                <Button
-                  size="lg"
+              <div className="sticky bottom-0 z-10 -mx-6 flex justify-center bg-gradient-to-t from-sand via-sand/80 to-transparent p-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
+                <CtaButton
                   onClick={onCta}
                   disabled={ctaDisabled}
-                  className="h-14 w-full max-w-2xl rounded-2xl border border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-base font-bold text-white shadow-[0_10px_24px_rgba(124,77,229,0.3)] transition-all hover:scale-[1.01] active:scale-[0.99]"
+                  className="max-w-md"
                 >
                   {cta}
-                </Button>
+                </CtaButton>
               </div>
             </motion.div>
           </AnimatePresence>

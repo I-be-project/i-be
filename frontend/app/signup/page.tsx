@@ -3,17 +3,19 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { IdentityFields, type IdentityValues } from "@/components/auth/IdentityFields";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, registerStudent } from "@/lib/api";
-import { CelestialBackground } from "@/components/celestial/CelestialBackground";
+import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { CtaButton } from "@/components/voyage/CtaButton";
 
-const labelClass = "mb-1.5 block text-sm font-bold text-zinc-700";
+const labelClass = "mb-1.5 block text-sm font-bold text-zinc-600";
 const inputClass =
-  "h-12 rounded-xl border-zinc-300 bg-white px-4 text-base focus-visible:border-sky-500";
+  "h-13 rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none focus-visible:border-sky-400 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-sky-100";
 
 export default function SignupPage() {
   const router = useRouter();
@@ -123,131 +125,149 @@ export default function SignupPage() {
   };
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-4 py-10 font-sans">
-      <CelestialBackground variant="ocean" />
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-10 flex w-full max-w-md flex-col rounded-3xl border border-solid border-white/70 bg-white/80 p-8 shadow-[0_18px_45px_rgba(37,99,235,0.12)] backdrop-blur-xl"
-      >
-        <div className="mb-6 self-start rounded-full border border-solid border-white/70 bg-white/70 px-3 py-1 text-xs font-bold tracking-wider text-sky-700">
-          회원가입
-        </div>
+    <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
+      <VoyageBackground variant="soft" />
 
-        <h1 className="mb-3 text-3xl font-extrabold tracking-tight text-[#0d3047] md:text-4xl">
-          먼저 <span className="text-aurora">너</span>를 알려줘
-        </h1>
-        <p className="mb-8 text-sm font-medium leading-relaxed text-[#4c6a82] md:text-base">
-          행사 기록을 위해 학교 정보와 비밀번호가 필요해.
+      {/* 앱 상단 바 */}
+      <div className="relative z-10 flex items-center px-5 pt-5">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="뒤로"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/60 text-ink backdrop-blur transition-colors hover:bg-white/80"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* 헤더 */}
+      <div className="relative z-10 px-7 pb-8 pt-6">
+        <p className="mb-2 text-sm font-bold tracking-wide text-sky-600">
+          탐험대 등록 · 1/2
         </p>
+        <h1 className="text-[2rem] font-black leading-[1.2] tracking-tight text-ink">
+          먼저 너를
+          <br />
+          알려줘
+        </h1>
+        <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
+          나비섬 탐험 기록을 남기려면 탐험대원 정보가 필요해.
+        </p>
+      </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-          <IdentityFields
-            values={identity}
-            onChange={handleIdentityChange}
-            disabled={loading}
-          />
-
-          <div>
-            <label htmlFor="name" className={labelClass}>
-              이름
-            </label>
-            <Input
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="홍길동"
+      {/* 바텀 시트 — 앱처럼 아래에서 올라오는 흰 면 */}
+      <motion.section
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative z-10 mt-auto flex flex-1 flex-col rounded-t-[2rem] bg-white px-6 pb-8 pt-7 shadow-[0_-12px_40px_rgba(37,99,235,0.12)]"
+      >
+        <form onSubmit={handleSubmit} className="flex flex-1 flex-col" noValidate>
+          <div className="space-y-5">
+            <IdentityFields
+              values={identity}
+              onChange={handleIdentityChange}
               disabled={loading}
-              autoComplete="off"
-              className={inputClass}
             />
-          </div>
 
-          <div>
-            <label htmlFor="password" className={labelClass}>
-              비밀번호
-            </label>
-            <Input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="생년월일 8자리 (예: 20100101)"
-              disabled={loading}
-              autoComplete="new-password"
-              className={inputClass}
-            />
-            <p className="mt-1.5 text-xs font-medium text-zinc-500">
-              생년월일 8자리처럼 기억하기 쉬운 숫자로 정해줘.
-            </p>
-          </div>
-
-          <div
-            ref={consentRef}
-            className="flex items-center space-x-3 rounded-xl border border-solid border-zinc-300 bg-zinc-50 p-4"
-          >
-            <Checkbox
-              id="privacy"
-              checked={consent}
-              onCheckedChange={(checked) => setConsent(checked as boolean)}
-              className="border-zinc-400"
-            />
-            <div className="grid gap-1.5 leading-none">
-              <label
-                htmlFor="privacy"
-                className="cursor-pointer text-sm font-bold leading-none text-zinc-700"
-              >
-                개인정보 수집 및 이용 동의
+            <div>
+              <label htmlFor="name" className={labelClass}>
+                이름
               </label>
-              <p className="text-xs text-zinc-500">
-                행사 기록 및 페르소나 분석을 위해 최소한의 정보를 수집합니다.
+              <Input
+                id="name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="홍길동"
+                disabled={loading}
+                autoComplete="off"
+                className={inputClass}
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className={labelClass}>
+                비밀번호
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="생년월일 8자리 (예: 20100101)"
+                disabled={loading}
+                autoComplete="new-password"
+                className={inputClass}
+              />
+              <p className="mt-1.5 text-xs font-medium text-zinc-500">
+                생년월일 8자리처럼 기억하기 쉬운 숫자로 정해줘.
               </p>
             </div>
+
+            <div
+              ref={consentRef}
+              className="flex items-center space-x-3 rounded-2xl border border-solid border-sky-100 bg-sky-50 p-4"
+            >
+              <Checkbox
+                id="privacy"
+                checked={consent}
+                onCheckedChange={(checked) => setConsent(checked as boolean)}
+                className="border-sky-300"
+              />
+              <div className="grid gap-1.5 leading-none">
+                <label
+                  htmlFor="privacy"
+                  className="cursor-pointer text-sm font-bold leading-none text-ink-soft"
+                >
+                  개인정보 수집 및 이용 동의
+                </label>
+                <p className="text-xs text-ink-muted">
+                  행사 기록 및 페르소나 분석을 위해 최소한의 정보를 수집합니다.
+                </p>
+              </div>
+            </div>
+
+            {error && (
+              <motion.div
+                role="alert"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-2xl border border-solid border-red-200 bg-red-50 px-4 py-3"
+              >
+                <p className="text-sm font-medium text-red-600">{error}</p>
+                {isConflict && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push("/login")}
+                    className="mt-3 h-10 rounded-lg border-red-300 text-sm font-bold text-red-600 hover:bg-red-100"
+                  >
+                    로그인하러 가기
+                  </Button>
+                )}
+              </motion.div>
+            )}
           </div>
 
-          {error && (
-            <motion.div
-              role="alert"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="rounded-xl border border-solid border-red-200 bg-red-50 px-4 py-3"
-            >
-              <p className="text-sm font-medium text-red-600">{error}</p>
-              {isConflict && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => router.push("/login")}
-                  className="mt-3 h-10 rounded-lg border-red-300 text-sm font-bold text-red-600 hover:bg-red-100"
-                >
-                  로그인하러 가기
-                </Button>
-              )}
-            </motion.div>
-          )}
+          {/* 하단 고정 액션 */}
+          <div className="mt-auto pt-8">
+            <CtaButton type="submit" disabled={loading}>
+              {loading ? "등록하는 중..." : "다음"}
+            </CtaButton>
 
-          <Button
-            type="submit"
-            size="lg"
-            disabled={loading}
-            className="h-14 w-full rounded-xl border border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-base font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(37,99,235,0.4)] active:scale-[0.98]"
-          >
-            {loading ? "가입하는 중..." : "다음"}
-          </Button>
+            <p className="mt-5 text-center text-sm font-medium text-zinc-500">
+              이미 등록한 탐험대원이라면{" "}
+              <button
+                type="button"
+                onClick={() => router.push("/login")}
+                className="font-bold text-sky-600 hover:underline"
+              >
+                로그인
+              </button>
+            </p>
+          </div>
         </form>
-
-        <p className="mt-6 text-center text-sm font-medium text-zinc-500">
-          이미 계정이 있다면{" "}
-          <button
-            type="button"
-            onClick={() => router.push("/login")}
-            className="font-bold text-sky-600 hover:text-sky-700 hover:underline"
-          >
-            로그인
-          </button>
-        </p>
-      </motion.div>
+      </motion.section>
     </main>
   );
 }
