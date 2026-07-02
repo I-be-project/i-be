@@ -4,20 +4,20 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
-import { Star, LayoutGrid, MapPin } from "lucide-react";
+import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { CtaButton } from "@/components/voyage/CtaButton";
+import { Sparkles, LayoutGrid, MapPin, IdCard } from "lucide-react";
 
-const fadeInVariants: any = {
+const fadeInVariants = {
   hidden: { opacity: 0, y: 30 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
-};
+  visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } },
+} as const;
 
-const staggerVariants: any = {
+const staggerVariants = {
   hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
-};
+  visible: { opacity: 1, transition: { staggerChildren: 0.1 } },
+} as const;
 
 export default function ResultPage() {
   const router = useRouter();
@@ -32,23 +32,29 @@ export default function ResultPage() {
   if (!persona) return null;
 
   return (
-    <main className="min-h-[100dvh] bg-white pb-24 font-sans">
-      <div className="w-full h-[40vh] relative flex flex-col items-center justify-end pb-12 px-6 bg-white border-b-2 border-solid border-zinc-300">
+    <main className="relative min-h-[100dvh] overflow-hidden pb-32 font-sans">
+      <VoyageBackground />
+
+      {/* 히어로 — 탐험의 끝, 페르소나 발견 */}
+      <div className="relative z-10 flex flex-col items-center px-6 pt-16 text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, type: "spring" }}
-          className="relative z-10 flex flex-col items-center text-center w-full max-w-3xl"
+          className="flex w-full max-w-md flex-col items-center"
         >
-          <div className="mb-4 inline-flex items-center space-x-2 bg-zinc-50 px-4 py-1.5 rounded-full border border-solid border-zinc-300">
-            <Star className="w-4 h-4 text-indigo-500" fill="currentColor" />
-            <span className="text-zinc-700 text-sm font-bold tracking-wide">분석 완료</span>
+          <div className="glass-card mb-5 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-ink shadow-[0_4px_20px_rgba(14,58,79,0.15)]">
+            <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
+            나비섬 탐험 완료
           </div>
-          <h1 className="text-4xl md:text-5xl font-extrabold text-zinc-900 mb-4 leading-tight">
+          <p className="mb-2 text-sm font-bold text-ink-muted">
+            탐험이 찾아낸 너의 미래 페르소나
+          </p>
+          <h1 className="mb-3 text-4xl font-black leading-tight tracking-tight text-ink">
             {persona.name}
           </h1>
-          <p className="text-lg md:text-xl text-zinc-600 font-medium max-w-lg mb-4">
-            "{persona.tagline}"
+          <p className="max-w-xs text-base font-medium leading-relaxed text-ink-soft">
+            “{persona.tagline}”
           </p>
         </motion.div>
       </div>
@@ -57,66 +63,70 @@ export default function ResultPage() {
         variants={staggerVariants}
         initial="hidden"
         animate="visible"
-        className="max-w-3xl mx-auto px-6 -mt-8 relative z-20 space-y-6"
+        className="relative z-10 mx-auto mt-8 max-w-md space-y-6 px-6"
       >
-        <Card className="shadow-sm rounded-3xl overflow-hidden bg-white border-2 border-solid border-zinc-300">
-          <CardContent className="p-8">
-            <h3 className="text-sm font-bold text-zinc-400 uppercase tracking-widest mb-4">
-              핵심 키워드
-            </h3>
-            <div className="flex flex-wrap gap-2 mb-8">
-              {persona.keywords.map((kw, i) => (
-                <motion.div variants={fadeInVariants} key={i}>
-                  <Badge variant="secondary" className="px-4 py-1.5 text-sm font-bold bg-zinc-100 text-zinc-700 hover:bg-zinc-200 transition-colors border-none">
-                    #{kw}
-                  </Badge>
-                </motion.div>
-              ))}
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-6">
-              <motion.div variants={fadeInVariants}>
-                <div className="flex items-center space-x-2 mb-3">
-                  <LayoutGrid className="w-5 h-5 text-indigo-500" />
-                  <h4 className="font-bold text-zinc-900">관련 분야</h4>
-                </div>
-                <div className="space-y-2 flex flex-col">
-                  {persona.fields.map((field) => (
-                    <div key={field} className="flex items-center space-x-3 p-3 rounded-xl bg-zinc-50 border border-solid border-zinc-300">
-                      <div className="w-2 h-2 rounded-full bg-indigo-400" />
-                      <span className="text-sm font-bold text-zinc-700">{field}</span>
-                    </div>
-                  ))}
-                </div>
+        <div className="rounded-3xl border border-solid border-white/70 bg-white/85 p-6 shadow-[0_12px_32px_rgba(37,99,235,0.12)] backdrop-blur-xl">
+          <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-ink-muted">
+            핵심 키워드
+          </h3>
+          <div className="mb-8 flex flex-wrap gap-2">
+            {persona.keywords.map((kw, i) => (
+              <motion.div variants={fadeInVariants} key={i}>
+                <Badge className="border-none bg-sky-100 px-4 py-1.5 text-sm font-bold text-sky-700">
+                  #{kw}
+                </Badge>
               </motion.div>
+            ))}
+          </div>
 
-              <motion.div variants={fadeInVariants}>
-                <div className="flex items-center space-x-2 mb-3">
-                  <MapPin className="w-5 h-5 text-rose-500" />
-                  <h4 className="font-bold text-zinc-900">추천 체험 부스</h4>
-                </div>
-                <div className="space-y-2 flex flex-col">
-                  {persona.recommendedBooths.map((booth) => (
-                    <div key={booth} className="flex items-center space-x-3 p-3 rounded-xl bg-zinc-50 border border-solid border-zinc-300">
-                      <div className="w-2 h-2 rounded-full bg-rose-400" />
-                      <span className="text-sm font-bold text-zinc-700">{booth}</span>
-                    </div>
-                  ))}
-                </div>
-              </motion.div>
-            </div>
-          </CardContent>
-        </Card>
+          <div className="space-y-7">
+            <motion.div variants={fadeInVariants}>
+              <div className="mb-3 flex items-center gap-2">
+                <LayoutGrid className="h-5 w-5 text-sky-600" />
+                <h4 className="font-bold text-ink">관련 분야</h4>
+              </div>
+              <div className="flex flex-col space-y-2">
+                {persona.fields.map((field) => (
+                  <div
+                    key={field}
+                    className="flex items-center gap-3 rounded-xl border border-solid border-sky-100 bg-sky-50/80 p-3"
+                  >
+                    <div className="h-2 w-2 rounded-full bg-sky-400" />
+                    <span className="text-sm font-bold text-ink-soft">{field}</span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+
+            <motion.div variants={fadeInVariants}>
+              <div className="mb-3 flex items-center gap-2">
+                <MapPin className="h-5 w-5 text-amber-500" />
+                <h4 className="font-bold text-ink">추천 체험 부스</h4>
+              </div>
+              <div className="flex flex-col space-y-2">
+                {persona.recommendedBooths.map((booth) => (
+                  <div
+                    key={booth}
+                    className="flex items-center gap-3 rounded-xl border border-solid border-amber-100 bg-amber-50/80 p-3"
+                  >
+                    <div className="h-2 w-2 rounded-full bg-amber-400" />
+                    <span className="text-sm font-bold text-ink-soft">{booth}</span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          </div>
+        </div>
       </motion.div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-gradient-to-t from-white via-white to-transparent z-30 flex justify-center pointer-events-none pb-8">
-        <Button
-          size="lg"
+      <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-30 flex justify-center bg-gradient-to-t from-sand via-sand/80 to-transparent p-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
+        <CtaButton
           onClick={() => router.push("/explore/card")}
-          className="w-full max-w-3xl h-14 rounded-2xl text-lg font-bold shadow-none bg-indigo-600 hover:bg-indigo-700 text-white border border-transparent transition-all pointer-events-auto"
+          className="pointer-events-auto max-w-md"
         >
-          내 페르소나 카드 발급하기
-        </Button>
+          <IdCard className="h-5 w-5" />
+          내 탐험대원증 발급하기
+        </CtaButton>
       </div>
     </main>
   );

@@ -29,11 +29,11 @@ export function Toast({ message, variant = "info", onClose }: ToastProps) {
           transition={{ duration: 0.4, ease: "easeOut" }}
           className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4"
         >
-          <div className="flex max-w-md items-start gap-3 rounded-2xl border-2 border-solid border-zinc-300 bg-white px-5 py-4 shadow-sm">
+          <div className="flex max-w-md items-start gap-3 rounded-2xl border border-solid border-white/70 bg-white/95 px-5 py-4 shadow-[0_12px_32px_rgba(13,48,71,0.15)] backdrop-blur-xl">
             {isError ? (
               <Info className="mt-0.5 h-5 w-5 shrink-0 text-red-500" />
             ) : (
-              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-indigo-600" />
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-sky-600" />
             )}
             <p className="whitespace-pre-line text-sm font-medium leading-relaxed text-zinc-700">
               {message}

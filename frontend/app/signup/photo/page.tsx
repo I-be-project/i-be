@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Camera, Image as ImageIcon, RefreshCw } from "lucide-react";
+import { Camera, ChevronLeft, Image as ImageIcon, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toast, type ToastVariant } from "@/components/Toast";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, uploadPhoto } from "@/lib/api";
-import { CelestialBackground } from "@/components/celestial/CelestialBackground";
+import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { CtaButton } from "@/components/voyage/CtaButton";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -93,25 +94,43 @@ export default function SignupPhotoPage() {
   if (!studentToken) return null;
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-4 py-10 font-sans">
-      <CelestialBackground variant="ocean" />
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-10 flex w-full max-w-md flex-col items-center rounded-3xl border border-solid border-white/70 bg-white/80 p-8 shadow-[0_18px_45px_rgba(37,99,235,0.12)] backdrop-blur-xl"
-      >
-        <div className="mb-6 self-start rounded-full border border-solid border-white/70 bg-white/70 px-3 py-1 text-xs font-bold tracking-wider text-sky-700">
-          사진 등록
-        </div>
+    <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
+      <VoyageBackground variant="soft" />
 
-        <h1 className="mb-3 self-start text-3xl font-extrabold tracking-tight text-[#0d3047] md:text-4xl">
-          마지막으로, <span className="text-aurora">네 사진</span>을 담아줘
-        </h1>
-        <p className="mb-8 self-start text-sm font-medium leading-relaxed text-[#4c6a82] md:text-base">
-          페르소나 카드에 들어갈 사진이야. 잘 나온 사진으로 골라봐!
+      {/* 앱 상단 바 */}
+      <div className="relative z-10 flex items-center px-5 pt-5">
+        <button
+          type="button"
+          onClick={() => router.back()}
+          aria-label="뒤로"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/60 text-ink backdrop-blur transition-colors hover:bg-white/80"
+        >
+          <ChevronLeft className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* 헤더 */}
+      <div className="relative z-10 px-7 pb-8 pt-6">
+        <p className="mb-2 text-sm font-bold tracking-wide text-sky-600">
+          탐험대 등록 · 2/2
         </p>
+        <h1 className="text-[2rem] font-black leading-[1.2] tracking-tight text-ink">
+          대원증에 붙일
+          <br />
+          사진을 담아줘
+        </h1>
+        <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
+          탐험이 끝나면 받게 될 탐험대원증(페르소나 카드)에 들어갈 사진이야.
+        </p>
+      </div>
 
+      {/* 바텀 시트 */}
+      <motion.section
+        initial={{ y: 40, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        className="relative z-10 mt-auto flex flex-1 flex-col rounded-t-[2rem] bg-white px-6 pb-8 pt-7 shadow-[0_-12px_40px_rgba(37,99,235,0.12)]"
+      >
         {/* 숨겨진 파일 입력 — 모바일에선 capture가 카메라를 바로 띄운다 */}
         <input
           ref={cameraInputRef}
@@ -132,7 +151,7 @@ export default function SignupPhotoPage() {
         {previewUrl ? (
           <div className="flex w-full flex-col items-center">
             <div
-              className="h-44 w-44 rounded-full border-2 border-solid border-zinc-300 bg-zinc-100 bg-cover bg-center shadow-sm"
+              className="h-44 w-44 rounded-full border-4 border-solid border-sky-100 bg-zinc-100 bg-cover bg-center shadow-[0_10px_28px_rgba(37,99,235,0.15)]"
               style={{ backgroundImage: `url(${previewUrl})` }}
               role="img"
               aria-label="선택한 사진 미리보기"
@@ -142,7 +161,7 @@ export default function SignupPhotoPage() {
               variant="outline"
               onClick={() => galleryInputRef.current?.click()}
               disabled={uploading}
-              className="mt-5 h-11 gap-2 rounded-xl border-zinc-300 px-5 text-sm font-bold text-zinc-700 hover:bg-zinc-50"
+              className="mt-5 h-11 gap-2 rounded-full border-zinc-300 px-5 text-sm font-bold text-zinc-700 hover:bg-zinc-50"
             >
               <RefreshCw className="h-4 w-4" />
               다시 선택
@@ -154,7 +173,7 @@ export default function SignupPhotoPage() {
               type="button"
               variant="outline"
               onClick={() => cameraInputRef.current?.click()}
-              className="h-14 justify-center gap-2 rounded-xl border-2 border-zinc-300 text-base font-bold text-zinc-700 transition-all hover:scale-[1.02] hover:border-sky-400 hover:bg-zinc-50 active:scale-[0.98]"
+              className="h-14 justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 text-base font-bold text-ink-soft shadow-none transition-all hover:border-sky-300 hover:bg-sky-50 active:scale-[0.98]"
             >
               <Camera className="h-5 w-5 text-sky-600" />
               사진 촬영
@@ -163,7 +182,7 @@ export default function SignupPhotoPage() {
               type="button"
               variant="outline"
               onClick={() => galleryInputRef.current?.click()}
-              className="h-14 justify-center gap-2 rounded-xl border-2 border-zinc-300 text-base font-bold text-zinc-700 transition-all hover:scale-[1.02] hover:border-sky-400 hover:bg-zinc-50 active:scale-[0.98]"
+              className="h-14 justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 text-base font-bold text-ink-soft shadow-none transition-all hover:border-sky-300 hover:bg-sky-50 active:scale-[0.98]"
             >
               <ImageIcon className="h-5 w-5 text-sky-600" />
               갤러리에서 선택
@@ -171,25 +190,22 @@ export default function SignupPhotoPage() {
           </div>
         )}
 
-        <Button
-          type="button"
-          size="lg"
-          onClick={handleUpload}
-          disabled={!file || uploading}
-          className="mt-8 h-14 w-full rounded-xl border border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-base font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.3)] transition-all hover:scale-[1.02] hover:shadow-[0_14px_30px_rgba(37,99,235,0.4)] active:scale-[0.98]"
-        >
-          {uploading ? "올리는 중..." : "다음"}
-        </Button>
+        {/* 하단 고정 액션 */}
+        <div className="mt-auto pt-8">
+          <CtaButton onClick={handleUpload} disabled={!file || uploading}>
+            {uploading ? "올리는 중..." : "탐험 준비 완료"}
+          </CtaButton>
 
-        <button
-          type="button"
-          onClick={handleSkip}
-          disabled={uploading}
-          className="mt-4 text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-700 disabled:opacity-50"
-        >
-          사진 건너뛰기
-        </button>
-      </motion.div>
+          <button
+            type="button"
+            onClick={handleSkip}
+            disabled={uploading}
+            className="mt-4 w-full text-center text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-700 disabled:opacity-50"
+          >
+            사진 건너뛰기
+          </button>
+        </div>
+      </motion.section>
 
       <Toast
         message={toast?.message ?? null}

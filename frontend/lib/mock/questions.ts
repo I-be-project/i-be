@@ -16,6 +16,8 @@ export interface Question {
   id: number;
   text: string;
   type: "choice" | "text";
+  /** 스토리 장면 라벨 — 학생 화면에서 "장면 N · {scene}" 칩으로 노출 */
+  scene?: string;
   options?: QuestionOption[];
 }
 
@@ -29,6 +31,7 @@ export const explorationIntro =
 export const mockQuestions: Question[] = [
   {
     id: 1,
+    scene: "선착장 도착",
     text: "나비섬 선착장에 도착했다. 가장 먼저 눈이 가는 일은?",
     type: "choice",
     options: [
@@ -42,6 +45,7 @@ export const mockQuestions: Question[] = [
   },
   {
     id: 2,
+    scene: "역할 정하기",
     text: "탐험대가 나뉘었다. 내가 자연스럽게 맡고 싶은 역할은?",
     type: "choice",
     options: [
@@ -55,6 +59,7 @@ export const mockQuestions: Question[] = [
   },
   {
     id: 3,
+    scene: "날씨가 바뀐다",
     text: "오후가 되자 날씨가 바뀌기 시작했다. 해가 지기 전 팀이 해야 할 일을 정해야 한다. 나는?",
     type: "choice",
     options: [
@@ -68,6 +73,7 @@ export const mockQuestions: Question[] = [
   },
   {
     id: 4,
+    scene: "부족한 탐험 키트",
     text: "탐험 키트에 생각보다 물건이 부족하다. 나는?",
     type: "choice",
     options: [
@@ -81,6 +87,7 @@ export const mockQuestions: Question[] = [
   },
   {
     id: 5,
+    scene: "갈림길에서",
     text: "탐험 경로를 두고 의견이 갈렸다. 나는?",
     type: "choice",
     options: [
@@ -94,6 +101,7 @@ export const mockQuestions: Question[] = [
   },
   {
     id: 6,
+    scene: "본부로 보내는 신호",
     text: "마지막으로 탐험 본부에 위치를 알려야 한다. 나는?",
     type: "choice",
     options: [

@@ -129,52 +129,28 @@
   }
 }
 
-/* ── 천체(Celestial) 테마 토큰 ──────────────────────────────
-   몽환적 그라데이션 + 글래스 + 별/구름 분위기. 웰컴 화면에서 시작해
-   다른 화면으로 확장 예정. CSS/SVG로만 구현(이미지 에셋 없음). */
+/* ── 나비섬 원정(Voyage) 디자인 토큰 ──────────────────────────
+   기준: 웰컴 화면(하늘·바다·나비섬 일러스트). 학생 여정의 모든 화면이
+   같은 세계관을 공유한다 — 위는 하늘, 가운데는 바다, 발 밑은 모래사장.
+   CSS/SVG로만 구현(이미지 에셋 없음). 모바일 퍼스트. */
 
-/* 하늘(파랑) → 라벤더 → 핑크 → 피치 로 떨어지는 배경 */
-.bg-celestial {
-  background: linear-gradient(
-    167deg,
-    #8fbcf7 0%,
-    #9fa6f4 24%,
-    #b89cf0 44%,
-    #d79ce0 64%,
-    #f0a9c6 83%,
-    #fac6ad 100%
-  );
+@theme {
+  --color-ink: #0d3047; /* 제목 — 깊은 바다 남색 */
+  --color-ink-soft: #1d4a5e; /* 본문 */
+  --color-ink-muted: #4c6a82; /* 보조 텍스트 */
+  --color-sand: #fdf3e0; /* 화면 하단 모래사장 — 스크림 색과 동일해야 함 */
 }
 
-/* 연한 버전 — 폼/설문 화면용. 가독성을 위해 훨씬 옅게 깐다. */
-.bg-celestial-soft {
+/* 하늘 → 바다 → 모래사장. 학생 여정 공통 배경.
+   마지막 색은 --color-sand와 일치 (하단 고정 CTA 스크림이 이 색으로 녹는다). */
+.bg-voyage {
   background: linear-gradient(
-    170deg,
-    #dce9fb 0%,
-    #e6e3fa 33%,
-    #f0e4f6 58%,
-    #fbe7ea 82%,
-    #fdefe3 100%
+    175deg,
+    #c9e5fa 0%,
+    #d8eefb 38%,
+    #d5f1f1 66%,
+    #fdf3e0 100%
   );
-}
-
-/* 오션 버전 — 로그인/회원가입 등 인증 화면용. 하늘→바다 톤의 차가운 블루. */
-.bg-ocean-soft {
-  background: linear-gradient(
-    170deg,
-    #dbeafe 0%,
-    #cfe9fb 34%,
-    #d2f0f4 64%,
-    #ddf3ec 100%
-  );
-}
-
-/* 강조 텍스트(예: "미래")용 하늘→바다 블루 그라데이션 */
-.text-aurora {
-  background: linear-gradient(100deg, #0ea5e9 0%, #2563eb 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
 }
 
 /* 글래스 카드 */

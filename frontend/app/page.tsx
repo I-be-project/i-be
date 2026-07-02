@@ -81,7 +81,7 @@ export default function WelcomePage() {
       >
         <div className="mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-[#1d4a5e] drop-shadow-[0_1px_6px_rgba(255,255,255,0.65)]">
           <Compass className="h-4 w-4 text-sky-500" />
-          나를 찾는 여정을 시작해
+          나비섬으로 떠나는 여정을 시작해
         </div>
 
         <button

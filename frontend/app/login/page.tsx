@@ -4,12 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IdentityFields, type IdentityValues } from "@/components/auth/IdentityFields";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, loginStudent } from "@/lib/api";
-import { CelestialBackground } from "@/components/celestial/CelestialBackground";
+import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { CtaButton } from "@/components/voyage/CtaButton";
 
 const labelClass = "mb-1.5 block text-sm font-bold text-zinc-600";
 const inputClass =
@@ -77,7 +77,7 @@ export default function LoginPage() {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
-      <CelestialBackground variant="ocean" />
+      <VoyageBackground variant="soft" />
 
       {/* 앱 상단 바 */}
       <div className="relative z-10 flex items-center px-5 pt-5">
@@ -85,7 +85,7 @@ export default function LoginPage() {
           type="button"
           onClick={() => router.back()}
           aria-label="뒤로"
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/60 text-[#0d3047] backdrop-blur transition-colors hover:bg-white/80"
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-white/60 text-ink backdrop-blur transition-colors hover:bg-white/80"
         >
           <ChevronLeft className="h-5 w-5" />
         </button>
@@ -93,12 +93,12 @@ export default function LoginPage() {
 
       {/* 헤더 */}
       <div className="relative z-10 px-7 pb-8 pt-6">
-        <p className="mb-2 text-sm font-bold tracking-wide text-sky-600">로그인</p>
-        <h1 className="text-[2rem] font-black leading-[1.2] tracking-tight text-[#0d3047]">
+        <p className="mb-2 text-sm font-bold tracking-wide text-sky-600">돌아온 탐험대원</p>
+        <h1 className="text-[2rem] font-black leading-[1.2] tracking-tight text-ink">
           다시 만나서<br />반가워
         </h1>
-        <p className="mt-3 text-sm font-medium leading-relaxed text-[#4c6a82]">
-          가입할 때 입력한 학교 정보와 비밀번호로 들어와줘.
+        <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
+          가입할 때 입력한 학교 정보와 비밀번호로 다시 승선해줘.
         </p>
       </div>
 
@@ -147,14 +147,9 @@ export default function LoginPage() {
 
           {/* 하단 고정 액션 */}
           <div className="mt-auto pt-8">
-            <Button
-              type="submit"
-              size="lg"
-              disabled={loading}
-              className="h-14 w-full rounded-2xl border border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-base font-bold text-white shadow-[0_10px_24px_rgba(37,99,235,0.3)] transition-all hover:shadow-[0_14px_30px_rgba(37,99,235,0.4)] active:scale-[0.99]"
-            >
+            <CtaButton type="submit" disabled={loading}>
               {loading ? "들어가는 중..." : "로그인"}
-            </Button>
+            </CtaButton>
 
             <p className="mt-5 text-center text-sm font-medium text-zinc-500">
               아직 등록하지 않았다면{" "}

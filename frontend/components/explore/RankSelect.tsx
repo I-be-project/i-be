@@ -39,10 +39,10 @@ export function RankSelect({ options, first, second, onChange }: RankSelectProps
             type="button"
             onClick={() => handleClick(opt.id)}
             className={cn(
-              "flex w-full items-center gap-4 rounded-2xl border border-solid p-4 text-left text-base font-medium backdrop-blur-xl transition-all",
+              "flex w-full items-center gap-3.5 rounded-2xl border border-solid p-4 text-left text-[15px] font-medium backdrop-blur-xl transition-all",
               selected
-                ? "border-transparent bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-[0_12px_28px_rgba(124,77,229,0.35)]"
-                : "border-white/70 bg-white/80 text-[#2a2550] shadow-[0_10px_30px_rgba(123,97,240,0.1)] hover:scale-[1.01] hover:border-indigo-300",
+                ? "border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_12px_28px_rgba(37,99,235,0.35)]"
+                : "border-white/70 bg-white/80 text-ink shadow-[0_8px_24px_rgba(37,99,235,0.08)] hover:border-sky-300 active:scale-[0.99]",
             )}
           >
             <span
@@ -50,7 +50,7 @@ export function RankSelect({ options, first, second, onChange }: RankSelectProps
                 "flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-solid text-sm font-bold transition-colors",
                 selected
                   ? "border-white bg-white/30 text-white"
-                  : "border-indigo-300 bg-white/60 text-indigo-400",
+                  : "border-sky-300 bg-white/60 text-sky-500",
               )}
               aria-hidden
             >
@@ -62,7 +62,7 @@ export function RankSelect({ options, first, second, onChange }: RankSelectProps
                 <span
                   className={cn(
                     "mt-1 text-sm",
-                    selected ? "text-white/80" : "text-[#5b5685]",
+                    selected ? "text-white/85" : "text-ink-muted",
                   )}
                 >
                   {opt.description}
