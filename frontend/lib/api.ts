@@ -275,7 +275,7 @@ export function generateStage(
 // 진행 중(Q7~9) 답변을 단계별로 저장. 인증 필요. Q1~6은 저장하지 않는다.
 // - sessionId 없이 처음 저장하면 백엔드가 in_progress 세션을 만들어 session_id를 돌려준다.
 // - 이후 저장과 완료(completeSurvey)에 같은 session_id를 재사용한다.
-export type AnswerStage = "q7a" | "q7b" | "q8" | "q9";
+export type AnswerStage = "q1to6" | "q7a" | "q7b" | "q8" | "q9";
 
 export interface SaveAnswerResponse {
   session_id: string;

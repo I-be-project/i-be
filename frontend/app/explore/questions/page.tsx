@@ -15,6 +15,7 @@ import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { cn } from "@/lib/utils";
 import { computeScores, derivePairCode } from "@/lib/scoring";
+import { saveAnswer } from "@/lib/api";
 
 // 전체 여정은 10걸음(Q1~6 미션 + Q7~10 심화). 진행도는 항상 10 기준.
 const JOURNEY_TOTAL = 10;
@@ -50,7 +51,7 @@ export default function QuestionsPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentIndex]);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     let nextAnswers = answers;
     if (currentAnswer.trim().length > 0) {
       const answer = { questionId: currentQuestion.id, value: currentAnswer };
@@ -67,7 +68,25 @@ export default function QuestionsPage() {
         .map((a) => a.value)
         .filter((v): v is string => typeof v === "string");
       const scores = computeScores(optionIds);
-      setRiasec(scores, derivePairCode(scores));
+      const pairCode = derivePairCode(scores);
+      setRiasec(scores, pairCode);
+
+      // Q1~6 결과를 한 번에 저장(= in_progress 세션 생성). 이후 Q7~9 저장이 이 세션을 재사용한다.
+      // 세션 id를 확보한 뒤 이동하려고 await 하되, 실패해도 설문 진행은 막지 않는다.
+      const { studentToken, sessionId, setSessionId } = useSessionStore.getState();
+      if (studentToken) {
+        try {
+          const res = await saveAnswer(studentToken, {
+            sessionId: sessionId ?? undefined,
+            stage: "q1to6",
+            answer: { answers: nextAnswers, optionIds, riasec: scores, pairCode },
+          });
+          if (!sessionId) setSessionId(res.session_id);
+        } catch (e) {
+          console.error("Q1~6 결과 저장 실패", e);
+        }
+      }
+
       router.push("/explore/path");
     }
   };

@@ -9,8 +9,9 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.persona import Persona
 
-# 진행 중 저장을 허용하는 stage — Q1~6은 저장하지 않고, Q10은 persona로 승격한다.
-ANSWER_STAGES = frozenset({"q7a", "q7b", "q8", "q9"})
+# 저장을 허용하는 stage. q1to6은 Q1~6 결과를 한 번에 담고, q7a~q9는 단계별.
+# Q10은 답변이 아니라 persona로 승격하므로 여기 없다.
+ANSWER_STAGES = frozenset({"q1to6", "q7a", "q7b", "q8", "q9"})
 
 
 class SaveAnswerRequest(BaseModel):
