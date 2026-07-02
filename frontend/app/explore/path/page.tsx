@@ -340,7 +340,7 @@ export default function PathPage() {
   let ctaDisabled = false;
 
   if (stage === "q7a") {
-    title = "탐험을 마친 뒤, 더 가보고 싶은 탐험 구역을 1·2순위로 골라주세요.";
+    title = "섬을 둘러보다 마주친 장소들이에요. 더 가보고 싶은 곳을 1·2순위로 골라주세요.";
     body = (
       <RankSelect
         options={q7aOptions}
@@ -352,7 +352,7 @@ export default function PathPage() {
         }}
       />
     );
-    cta = "이 구역으로 떠나기";
+    cta = "이 곳으로 가보기";
     onCta = submitQ7a;
     ctaDisabled = !rankReady;
   } else if (stage === "q7b" && q7bData) {
