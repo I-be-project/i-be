@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
-import { generateStage, completeSurvey } from "@/lib/api";
+import { generateStage, completeSurvey, saveAnswer } from "@/lib/api";
+import type { AnswerStage } from "@/lib/api";
 import { getQ7AOptions } from "@/lib/mock/q7a";
 import { Moon } from "lucide-react";
 import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
@@ -132,6 +133,18 @@ export default function PathPage() {
     setNameId(null);
   };
 
+  // Q7~9 답변을 백엔드에 단계별 저장(진행 중). 생성 흐름과 독립 — 실패해도 설문은 막지 않는다.
+  // 첫 저장 때 발급받은 sessionId를 스토어에 보관해 다음 저장·완료에서 재사용한다.
+  const persistAnswer = (stage: AnswerStage, answer: Record<string, unknown>) => {
+    const { studentToken, sessionId, setSessionId } = useSessionStore.getState();
+    if (!studentToken) return; // 정상 흐름에선 항상 로그인 상태
+    void saveAnswer(studentToken, { sessionId: sessionId ?? undefined, stage, answer })
+      .then((res) => {
+        if (!sessionId) setSessionId(res.session_id);
+      })
+      .catch((e) => console.error("답변 저장 실패", stage, e));
+  };
+
   const baseInput = {
     riasecScores: riasecScores ?? {},
     pairCode: pairCode ?? "",
@@ -144,6 +157,7 @@ export default function PathPage() {
     const firstOpt = opts.find((o) => o.id === first)!;
     const secondOpt = opts.find((o) => o.id === second)!;
     setQ7aSelection({ first: firstOpt, second: secondOpt });
+    persistAnswer("q7a", { first: firstOpt.label, second: secondOpt.label });
     callGenerate(
       "q7b",
       { ...baseInput, q7aFirst: firstOpt.label, q7aSecond: secondOpt.label },
@@ -161,6 +175,10 @@ export default function PathPage() {
     const firstOpt = q7bData.options.find((o) => o.subfield_id === first)!;
     const secondOpt = q7bData.options.find((o) => o.subfield_id === second)!;
     setQ7bSelection({ first: firstOpt, second: secondOpt });
+    persistAnswer("q7b", {
+      first: { subfield_id: firstOpt.subfield_id, title: firstOpt.student_title },
+      second: { subfield_id: secondOpt.subfield_id, title: secondOpt.student_title },
+    });
     const a = store.q7aSelection;
     callGenerate(
       "q8",
@@ -184,6 +202,7 @@ export default function PathPage() {
     if (!q8Data) return;
     const chips = q8Data.word_chips.filter((c) => chipIds.includes(c.chip_id));
     setQ8Selection({ chips, freeText });
+    persistAnswer("q8", { chips: chips.map((c) => c.text), freeText });
     const a = store.q7aSelection;
     const b = store.q7bSelection;
     callGenerate(
@@ -209,6 +228,7 @@ export default function PathPage() {
     if (!q9Data) return;
     const chips = q9Data.topic_chips.filter((c) => chipIds.includes(c.chip_id));
     setQ9Selection({ chips, freeText });
+    persistAnswer("q9", { chips: chips.map((c) => c.text), freeText });
     const a = store.q7aSelection;
     const b = store.q7bSelection;
     const careerPool = [
@@ -265,12 +285,17 @@ export default function PathPage() {
     setGenerating(true);
     setError(null);
     try {
-      await completeSurvey(store.studentToken, {
-        name: card.persona_name,
-        tagline: card.short_description,
-        keywords,
-        fields,
-      });
+      // sessionId가 있으면 Q7~9 답변이 쌓인 그 세션을 completed로 승격한다.
+      await completeSurvey(
+        store.studentToken,
+        {
+          name: card.persona_name,
+          tagline: card.short_description,
+          keywords,
+          fields,
+        },
+        useSessionStore.getState().sessionId ?? undefined,
+      );
       router.push("/explore/interpreting");
     } catch {
       pendingRetry.current = submitQ10; // "다시 시도" 시 저장을 재실행

@@ -62,6 +62,8 @@ interface SessionStore {
 
   inputMode: InputMode;
   answers: Answer[];
+  // 진행 중 세션 id — Q7 첫 답변 저장 때 백엔드가 발급, 이후 저장·완료에 재사용.
+  sessionId: string | null;
   persona: PersonaResult | null;
   cardId: string | null;
   riasecScores: Record<RiasecType, number> | null;
@@ -76,6 +78,7 @@ interface SessionStore {
   setStudentInfo: (info: StudentInfo) => void;
   setInputMode: (mode: InputMode) => void;
   addAnswer: (answer: Answer) => void;
+  setSessionId: (id: string) => void;
   setPersona: (persona: PersonaResult) => void;
   setCardId: (id: string) => void;
   setRiasec: (scores: Record<RiasecType, number>, pairCode: string) => void;
@@ -94,6 +97,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
 
   inputMode: null,
   answers: [],
+  sessionId: null,
   persona: null,
   cardId: null,
   riasecScores: null,
@@ -109,6 +113,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
   setInputMode: (mode) => set({ inputMode: mode }),
   addAnswer: (answer) =>
     set((state) => ({ answers: [...state.answers, answer] })),
+  setSessionId: (id) => set({ sessionId: id }),
   setPersona: (persona) => set({ persona }),
   setCardId: (id) => set({ cardId: id }),
   setRiasec: (scores, pairCode) => set({ riasecScores: scores, pairCode }),
@@ -124,6 +129,7 @@ export const useSessionStore = create<SessionStore>((set) => ({
       studentInfo: null,
       inputMode: null,
       answers: [],
+      sessionId: null,
       persona: null,
       cardId: null,
       riasecScores: null,
