@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Compass, Map, Sparkles } from "lucide-react";
-import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { useSessionStore } from "@/store/useSessionStore";
 import { explorationIntro } from "@/lib/mock/questions";
@@ -21,7 +21,7 @@ export default function ExplorePage() {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
-      <VoyageBackground />
+      <ExpeditionBackdrop mood="morning" />
 
       <div className="relative z-10 mx-auto flex w-full max-w-md flex-1 flex-col px-6 pb-8 pt-12">
         <motion.div

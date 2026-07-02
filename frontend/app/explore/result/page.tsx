@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
 import { Badge } from "@/components/ui/badge";
-import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { Sparkles, LayoutGrid, MapPin, IdCard } from "lucide-react";
 
@@ -33,7 +33,7 @@ export default function ResultPage() {
 
   return (
     <main className="relative min-h-[100dvh] overflow-hidden pb-32 font-sans">
-      <VoyageBackground />
+      <ExpeditionBackdrop mood="sunrise" />
 
       {/* 히어로 — 탐험의 끝, 페르소나 발견 */}
       <div className="relative z-10 flex flex-col items-center px-6 pt-16 text-center">
@@ -48,12 +48,12 @@ export default function ResultPage() {
             나비섬 탐험 완료
           </div>
           <p className="mb-2 text-sm font-bold text-ink-muted">
-            탐험이 찾아낸 너의 미래 페르소나
+            아침 해가 뜨고, 탐험이 찾아낸 너의 미래 페르소나
           </p>
-          <h1 className="mb-3 text-4xl font-black leading-tight tracking-tight text-ink">
+          <h1 className="mb-3 break-keep text-4xl font-black leading-tight tracking-tight text-ink">
             {persona.name}
           </h1>
-          <p className="max-w-xs text-base font-medium leading-relaxed text-ink-soft">
+          <p className="max-w-xs break-keep text-base font-medium leading-relaxed text-ink-soft">
             “{persona.tagline}”
           </p>
         </motion.div>

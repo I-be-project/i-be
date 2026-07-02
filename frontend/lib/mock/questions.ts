@@ -14,9 +14,12 @@ export interface QuestionOption {
 
 export interface Question {
   id: number;
+  /** 상황 설명(내레이션) — 질문 위에 작은 글씨로 노출 */
+  story?: string;
+  /** 실제 질문 — 크게 강조해서 노출 */
   text: string;
   type: "choice" | "text";
-  /** 스토리 장면 라벨 — 학생 화면에서 "장면 N · {scene}" 칩으로 노출 */
+  /** 스토리 장면 라벨 — 장면 창에 "장면 N · {scene}" 칩으로 노출 */
   scene?: string;
   options?: QuestionOption[];
 }
@@ -32,7 +35,8 @@ export const mockQuestions: Question[] = [
   {
     id: 1,
     scene: "선착장 도착",
-    text: "나비섬 선착장에 도착했다. 가장 먼저 눈이 가는 일은?",
+    story: "나비섬 선착장에 도착했다.",
+    text: "가장 먼저 눈이 가는 일은?",
     type: "choice",
     options: [
       { id: "q1-s", label: "친구들이 멀미는 없는지, 다들 괜찮은지 살핀다.", primary: "S" },
@@ -46,7 +50,8 @@ export const mockQuestions: Question[] = [
   {
     id: 2,
     scene: "역할 정하기",
-    text: "탐험대가 나뉘었다. 내가 자연스럽게 맡고 싶은 역할은?",
+    story: "탐험대가 나뉘었다.",
+    text: "내가 자연스럽게 맡고 싶은 역할은?",
     type: "choice",
     options: [
       { id: "q2-c", label: "탐험 시간과 준비물을 체크하는 기록 담당", primary: "C" },
@@ -60,7 +65,8 @@ export const mockQuestions: Question[] = [
   {
     id: 3,
     scene: "날씨가 바뀐다",
-    text: "오후가 되자 날씨가 바뀌기 시작했다. 해가 지기 전 팀이 해야 할 일을 정해야 한다. 나는?",
+    story: "오후가 되자 날씨가 바뀌기 시작했다. 해가 지기 전 팀이 해야 할 일을 정해야 한다.",
+    text: "나는 어떻게 할까?",
     type: "choice",
     options: [
       { id: "q3-c", label: "남은 물품과 시간을 살피고, 빠진 위험요소를 표시한다.", primary: "C", secondary: "I" },
@@ -74,7 +80,8 @@ export const mockQuestions: Question[] = [
   {
     id: 4,
     scene: "부족한 탐험 키트",
-    text: "탐험 키트에 생각보다 물건이 부족하다. 나는?",
+    story: "탐험 키트에 생각보다 물건이 부족하다.",
+    text: "나는 어떻게 할까?",
     type: "choice",
     options: [
       { id: "q4-e", label: "사람을 모아 역할을 다시 나누고, 같이 움직이게 한다.", primary: "E", secondary: "S" },
@@ -88,7 +95,8 @@ export const mockQuestions: Question[] = [
   {
     id: 5,
     scene: "갈림길에서",
-    text: "탐험 경로를 두고 의견이 갈렸다. 나는?",
+    story: "탐험 경로를 두고 의견이 갈렸다.",
+    text: "나는 어떻게 할까?",
     type: "choice",
     options: [
       { id: "q5-a", label: "서로 다른 생각을 그림이나 말로 풀어 보여주고 차이를 짚는다.", primary: "A", secondary: "I" },
@@ -102,7 +110,8 @@ export const mockQuestions: Question[] = [
   {
     id: 6,
     scene: "본부로 보내는 신호",
-    text: "마지막으로 탐험 본부에 위치를 알려야 한다. 나는?",
+    story: "마지막으로 탐험 본부에 위치를 알려야 한다.",
+    text: "나는 어떻게 할까?",
     type: "choice",
     options: [
       { id: "q6-i", label: "바람, 지형, 이동 방향을 보고 성공 가능성이 높은 방법을 고른다.", primary: "I", secondary: "E" },

@@ -7,9 +7,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
 import { generateStage, completeSurvey } from "@/lib/api";
 import { getQ7AOptions } from "@/lib/mock/q7a";
-import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { Moon } from "lucide-react";
+import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
+import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
-import { JourneyProgress } from "@/components/voyage/JourneyProgress";
 import { RankSelect } from "@/components/explore/RankSelect";
 import { ChipSelect } from "@/components/explore/ChipSelect";
 import { NameCardSelect } from "@/components/explore/NameCardSelect";
@@ -423,27 +424,35 @@ export default function PathPage() {
   return (
     // overflow-hidden은 배경 컴포넌트가 자체 처리 — main에 걸면 sticky CTA가 죽는다
     <main className="relative flex min-h-[100dvh] flex-col font-sans">
-      <VoyageBackground variant="soft" />
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-grow flex-col px-6 py-8 pt-12">
-        <JourneyProgress
-          label="나비섬 심화 탐험"
-          step={STAGE_INDEX[stage]}
-          total={10}
-        />
+      {/* Q6 해질녘 신호 이후 — 밤이 깊어진 섬에서 심화 탐험이 이어진다 */}
+      <ExpeditionBackdrop mood="night" />
+      <TrailBar step={STAGE_INDEX[stage]} total={10} />
 
+      <div className="relative z-10 mx-auto flex w-full max-w-md flex-grow flex-col px-6 pb-8 pt-7">
         {showGenerating ? (
           <GeneratingScreen error={error} onRetry={retry} />
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
               key={stage}
-              initial={{ opacity: 0, x: 10 }}
+              initial={{ opacity: 0, x: 32 }}
               animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+              exit={{ opacity: 0, x: -32 }}
+              transition={{ duration: 0.35, ease: "easeInOut" }}
               className="flex flex-grow flex-col"
             >
-              <h2 className="mb-8 text-2xl font-extrabold leading-snug text-ink">
+              {/* 컴팩트 진행 칩 — 진행 헤더 블록 대신 한 줄로 */}
+              <div className="mb-4 flex items-center justify-between">
+                <div className="glass-card inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
+                  <Moon className="h-3 w-3 text-sky-600" />
+                  밤의 심화 탐험
+                </div>
+                <div className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
+                  {STAGE_INDEX[stage]}/10
+                </div>
+              </div>
+
+              <h2 className="mb-7 break-keep text-2xl font-extrabold leading-snug text-ink">
                 {title}
               </h2>
               <div className="flex-grow pb-32">{body}</div>

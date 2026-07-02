@@ -10,9 +10,16 @@ import { MapPin } from "lucide-react";
 
 export type SceneId = 1 | 2 | 3 | 4 | 5 | 6;
 
-// 장면별 무드. page는 화면 전체 배경(끝색은 모래 #fdf3e0 — 하단 스크림과 일치),
-// window는 장면 창의 하늘.
-const MOODS: Record<SceneId, { page: string; window: string }> = {
+// 여정 전체가 공유하는 하늘 무드. Q1~6은 장면 번호, 그 밖의 화면은 이름으로 쓴다.
+// 브리핑(morning) → Q1~6(하루) → 심화 Q7~10(night) → 해석(deepNight) → 결과·카드(sunrise)
+export type VoyageMood = SceneId | "morning" | "night" | "deepNight" | "sunrise";
+
+// page는 화면 전체 배경 — 끝색은 언제나 모래 #fdf3e0 (하단 CTA 스크림과 일치).
+// window는 장면 창의 하늘 (Q1~6 전용).
+const MOODS: Record<VoyageMood, { page: string; window?: string }> = {
+  morning: {
+    page: "linear-gradient(175deg,#c9e5fa 0%,#d8eefb 45%,#fdf3e0 100%)",
+  },
   1: {
     page: "linear-gradient(175deg,#c9e5fa 0%,#d8eefb 45%,#fdf3e0 100%)",
     window: "linear-gradient(180deg,#9ed1f5 0%,#cfeafc 100%)",
@@ -37,24 +44,51 @@ const MOODS: Record<SceneId, { page: string; window: string }> = {
     page: "linear-gradient(175deg,#7e97ba 0%,#b0a6c2 40%,#eccfa6 100%)",
     window: "linear-gradient(180deg,#41618c 0%,#8d7fa6 70%,#d8a56e 100%)",
   },
+  night: {
+    page: "linear-gradient(175deg,#7a8fb4 0%,#988fb8 40%,#ecd2ab 75%,#fdf3e0 100%)",
+  },
+  deepNight: {
+    page: "linear-gradient(175deg,#71869f 0%,#8d87b0 45%,#e6cda9 80%,#fdf3e0 100%)",
+  },
+  sunrise: {
+    page: "linear-gradient(175deg,#9db4dd 0%,#f0c8a4 55%,#fdf3e0 100%)",
+  },
 };
 
-// 화면 전체 배경 — 장면이 바뀌면 하늘 무드가 부드럽게 넘어간다.
-export function ExpeditionBackdrop({ scene }: { scene: SceneId }) {
+const isNight = (m: VoyageMood) => m === 6 || m === "night" || m === "deepNight";
+
+const NIGHT_STARS = [
+  { x: 12, y: 6, d: 0 },
+  { x: 30, y: 12, d: 0.9 },
+  { x: 55, y: 5, d: 1.6 },
+  { x: 74, y: 10, d: 0.4 },
+  { x: 90, y: 7, d: 2.1 },
+  { x: 44, y: 16, d: 1.2 },
+  { x: 8, y: 20, d: 1.9 },
+  { x: 64, y: 22, d: 0.6 },
+];
+
+// 화면 전체 배경 — 무드가 바뀌면 하늘이 부드럽게 넘어간다.
+export function ExpeditionBackdrop({ mood }: { mood: VoyageMood }) {
   const reduce = useReducedMotion();
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       <AnimatePresence initial={false}>
         <motion.div
-          key={scene}
+          key={String(mood)}
           className="absolute inset-0"
-          style={{ background: MOODS[scene].page }}
+          style={{ background: MOODS[mood].page }}
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.9, ease: "easeInOut" }}
         />
       </AnimatePresence>
+
+      {/* 햇살(낮) — 오른쪽 위 */}
+      {!isNight(mood) && mood !== 3 && (
+        <div className="absolute -right-16 -top-16 h-56 w-56 rounded-full bg-gradient-to-b from-amber-100/80 to-transparent blur-2xl" />
+      )}
 
       {/* 구름 */}
       <div className="animate-drift absolute left-[8%] top-[6%] h-9 w-32 rounded-full bg-white/50 blur-xl" />
@@ -64,32 +98,22 @@ export function ExpeditionBackdrop({ scene }: { scene: SceneId }) {
       />
 
       {/* 궂은 날씨(장면 3): 화면 전체에 옅은 빗줄기 */}
-      {scene === 3 && !reduce && <BackdropRain />}
+      {mood === 3 && !reduce && <BackdropRain />}
 
-      {/* 해질녘(장면 6): 별이 뜬다 */}
-      {scene === 6 && (
-        <>
-          {[
-            { x: 12, y: 6, d: 0 },
-            { x: 30, y: 12, d: 0.9 },
-            { x: 55, y: 5, d: 1.6 },
-            { x: 74, y: 10, d: 0.4 },
-            { x: 90, y: 7, d: 2.1 },
-            { x: 44, y: 16, d: 1.2 },
-          ].map((s, i) => (
-            <span
-              key={i}
-              className="animate-twinkle absolute h-[3px] w-[3px] rounded-full bg-white"
-              style={{
-                left: `${s.x}%`,
-                top: `${s.y}%`,
-                animationDelay: `${s.d}s`,
-                boxShadow: "0 0 5px rgba(255,255,255,0.9)",
-              }}
-            />
-          ))}
-        </>
-      )}
+      {/* 밤 무드: 별이 뜬다 */}
+      {isNight(mood) &&
+        NIGHT_STARS.slice(0, mood === 6 ? 6 : 8).map((s, i) => (
+          <span
+            key={i}
+            className="animate-twinkle absolute h-[3px] w-[3px] rounded-full bg-white"
+            style={{
+              left: `${s.x}%`,
+              top: `${s.y}%`,
+              animationDelay: `${s.d}s`,
+              boxShadow: "0 0 5px rgba(255,255,255,0.9)",
+            }}
+          />
+        ))}
 
       {/* 모래사장 글로우 — 하단 */}
       <div className="absolute inset-x-0 bottom-0 h-1/3 opacity-70">
@@ -133,7 +157,18 @@ function BackdropRain() {
 }
 
 // 장면 창 — 질문 위에 놓이는 일러스트 패널. 스토리의 "지금 장면"을 보여준다.
-export function SceneWindow({ scene, label }: { scene: SceneId; label?: string }) {
+// 진행도(step/total)를 창 안의 작은 칩으로 함께 담아 별도 진행 헤더를 없앤다.
+export function SceneWindow({
+  scene,
+  label,
+  step,
+  total,
+}: {
+  scene: SceneId;
+  label?: string;
+  step?: number;
+  total?: number;
+}) {
   return (
     <div
       className="relative mb-5 h-28 w-full overflow-hidden rounded-2xl border border-solid border-white/70 shadow-[0_10px_28px_rgba(37,99,235,0.15)]"
@@ -143,6 +178,11 @@ export function SceneWindow({ scene, label }: { scene: SceneId; label?: string }
         <div className="glass-card absolute left-3 top-3 z-10 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
           <MapPin className="h-3 w-3 text-sky-600" />
           장면 {scene} · {label}
+        </div>
+      )}
+      {step !== undefined && total !== undefined && (
+        <div className="glass-card absolute right-3 top-3 z-10 rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
+          {step}/{total}
         </div>
       )}
       <SceneArt scene={scene} />
@@ -234,7 +274,7 @@ function Gulls() {
 function SceneDock({ reduce }: { reduce: boolean }) {
   return (
     <g>
-      <Sun cx={316} cy={28} />
+      <Sun cx={294} cy={32} />
       {/* 멀리 보이는 나비섬 */}
       <path d="M236 76 q 20 -16 44 -13 q 24 3 38 13 Z" fill="#9ccab0" />
       <Sea fill="#79c0e8" reduce={reduce} />
@@ -266,7 +306,7 @@ function SceneDock({ reduce }: { reduce: boolean }) {
 function SceneCamp({ reduce }: { reduce: boolean }) {
   return (
     <g>
-      <Sun cx={318} cy={22} />
+      <Sun cx={294} cy={30} />
       {/* 땅 + 풀밭 */}
       <rect x="-10" y="82" width="380" height="32" fill="#edd9a3" />
       <ellipse cx="130" cy="86" rx="120" ry="10" fill="#b9dc9c" />
@@ -349,7 +389,7 @@ function SceneKit({ reduce }: { reduce: boolean }) {
   return (
     <g>
       {/* 옅은 해 (비 갠 뒤) */}
-      <Sun cx={320} cy={26} color="#ffe3ad" />
+      <Sun cx={294} cy={32} color="#ffe3ad" />
       <rect x="-10" y="80" width="380" height="32" fill="#eed9a5" />
       {/* 돗자리 */}
       <rect x="76" y="86" width="168" height="18" rx="6" fill="#e3b877" />
@@ -450,8 +490,8 @@ function SceneSignal({ reduce }: { reduce: boolean }) {
   return (
     <g>
       {/* 달 */}
-      <circle cx="318" cy="24" r="16" fill="#f5ead0" opacity="0.35" />
-      <circle cx="318" cy="24" r="9" fill="#f5ead0" />
+      <circle cx="294" cy="30" r="16" fill="#f5ead0" opacity="0.35" />
+      <circle cx="294" cy="30" r="9" fill="#f5ead0" />
       <Sea fill="#35597e" reduce={reduce} />
       {/* 멀리 본부가 있는 섬 — 깜빡이는 불빛 */}
       <path d="M256 76 q 22 -18 48 -14 q 24 4 36 14 Z" fill="#26415c" />

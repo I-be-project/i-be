@@ -57,11 +57,11 @@ export function RankSelect({ options, first, second, onChange }: RankSelectProps
               {rank ?? ""}
             </span>
             <span className="flex flex-col">
-              <span className="leading-snug">{opt.label}</span>
+              <span className="break-keep leading-relaxed">{opt.label}</span>
               {opt.description && (
                 <span
                   className={cn(
-                    "mt-1 text-sm",
+                    "mt-1 break-keep text-sm leading-relaxed",
                     selected ? "text-white/85" : "text-ink-muted",
                   )}
                 >

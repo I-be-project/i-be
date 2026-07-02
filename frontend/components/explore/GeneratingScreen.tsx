@@ -14,7 +14,7 @@ export function GeneratingScreen({ error, onRetry }: GeneratingScreenProps) {
     return (
       <div className="flex flex-grow flex-col items-center justify-center gap-5 text-center">
         <AlertCircle className="h-12 w-12 text-rose-400" />
-        <p className="max-w-sm text-lg font-bold text-ink">{error}</p>
+        <p className="max-w-sm break-keep text-lg font-bold text-ink">{error}</p>
         <CtaButton onClick={onRetry} className="w-auto px-8">
           다시 시도
         </CtaButton>

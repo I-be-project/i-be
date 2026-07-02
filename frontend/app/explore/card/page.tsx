@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
 import { PersonaCard } from "@/components/card/PersonaCard";
 import { Button } from "@/components/ui/button";
-import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { Download, Share2, Sparkles, UserSquare2 } from "lucide-react";
 
@@ -24,7 +24,7 @@ export default function CardPage() {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 py-12 font-sans">
-      <VoyageBackground />
+      <ExpeditionBackdrop mood="sunrise" />
 
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 30 }}

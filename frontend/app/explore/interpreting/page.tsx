@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Compass } from "lucide-react";
 import { useSessionStore } from "@/store/useSessionStore";
-import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
 
 const floatingKeywords = [
   "호기심", "창의성", "논리", "자연", "미래",
@@ -46,7 +46,7 @@ export default function InterpretingPage() {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 font-sans">
-      <VoyageBackground />
+      <ExpeditionBackdrop mood="deepNight" />
 
       <div className="relative z-10 flex max-w-sm flex-col items-center text-center">
         <div className="relative mb-12 flex h-32 w-32 items-center justify-center">
@@ -89,7 +89,7 @@ export default function InterpretingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          나비섬에서의 탐험 기록을
+          깊은 밤, 오늘의 탐험 기록을
           <br />
           읽고 있어…
         </motion.h2>

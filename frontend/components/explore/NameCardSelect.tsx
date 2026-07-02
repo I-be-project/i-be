@@ -40,8 +40,8 @@ export function NameCardSelect({ cards, selectedId, onSelect }: NameCardSelectPr
             >
               {card.emphasis}
             </span>
-            <span className="text-xl font-extrabold leading-tight">{card.name}</span>
-            <span className={cn("text-sm", selected ? "text-white/85" : "text-ink-muted")}>
+            <span className="break-keep text-xl font-extrabold leading-snug">{card.name}</span>
+            <span className={cn("break-keep text-sm leading-relaxed", selected ? "text-white/85" : "text-ink-muted")}>
               {card.description}
             </span>
           </button>
