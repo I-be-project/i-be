@@ -26,6 +26,7 @@ const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
 export default function ProfilePage() {
   const router = useRouter();
+  const hasHydrated = useSessionStore((state) => state.hasHydrated);
   const studentToken = useSessionStore((state) => state.studentToken);
   const studentInfo = useSessionStore((state) => state.studentInfo);
 
@@ -38,8 +39,10 @@ export default function ProfilePage() {
 
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  // 토큰이 없으면(새로고침 등으로 유실) 로그인으로 — signup/photo와 동일 패턴.
+  // 토큰이 없으면 로그인으로 — signup/photo와 동일 패턴.
+  // 단, localStorage 복원(hasHydrated) 전에는 판단·조회를 보류한다.
   useEffect(() => {
+    if (!hasHydrated) return;
     if (!studentToken) {
       router.replace("/login");
       return;
@@ -70,7 +73,7 @@ export default function ProfilePage() {
     return () => {
       active = false;
     };
-  }, [studentToken, router]);
+  }, [hasHydrated, studentToken, router]);
 
   // 언마운트 시 마지막 미리보기 URL 해제(메모리 누수 방지).
   useEffect(() => {

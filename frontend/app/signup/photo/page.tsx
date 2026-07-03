@@ -16,6 +16,7 @@ const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
 export default function SignupPhotoPage() {
   const router = useRouter();
+  const hasHydrated = useSessionStore((state) => state.hasHydrated);
   const studentToken = useSessionStore((state) => state.studentToken);
 
   const [file, setFile] = useState<File | null>(null);
@@ -26,10 +27,10 @@ export default function SignupPhotoPage() {
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  // 토큰이 없으면(새로고침으로 유실 등) 로그인으로 돌려보낸다.
+  // 토큰이 없으면 로그인으로 돌려보낸다. 단, localStorage 복원(hasHydrated) 전에는 보류.
   useEffect(() => {
-    if (!studentToken) router.replace("/login");
-  }, [studentToken, router]);
+    if (hasHydrated && !studentToken) router.replace("/login");
+  }, [hasHydrated, studentToken, router]);
 
   // 미리보기 URL 정리 (메모리 누수 방지)
   useEffect(() => {
@@ -90,8 +91,8 @@ export default function SignupPhotoPage() {
     router.push("/explore");
   };
 
-  // 토큰 확인 전에는 빈 화면 (리다이렉트 진행 중)
-  if (!studentToken) return null;
+  // 복원 전이거나 토큰이 없으면 빈 화면 (복원 대기 또는 리다이렉트 진행 중)
+  if (!hasHydrated || !studentToken) return null;
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">

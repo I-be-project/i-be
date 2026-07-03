@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SessionHydrator } from "@/components/SessionHydrator";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -23,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full flex flex-col font-sans">
+        <SessionHydrator />
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>

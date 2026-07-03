@@ -13,11 +13,13 @@ import { explorationIntro } from "@/lib/mock/questions";
 export default function ExplorePage() {
   const router = useRouter();
   // 완료 저장은 인증이 필요하므로 설문 시작 전에 로그인 토큰이 있어야 한다.
+  // hasHydrated 전에는 localStorage 복원 중이므로 판단을 보류(성급한 /login 튕김 방지).
+  const hasHydrated = useSessionStore((s) => s.hasHydrated);
   const studentToken = useSessionStore((s) => s.studentToken);
   useEffect(() => {
-    if (!studentToken) router.replace("/login");
-  }, [studentToken, router]);
-  if (!studentToken) return null;
+    if (hasHydrated && !studentToken) router.replace("/login");
+  }, [hasHydrated, studentToken, router]);
+  if (!hasHydrated || !studentToken) return null;
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
