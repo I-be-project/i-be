@@ -153,7 +153,7 @@ export default function ProfilePage() {
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.8, ease: "easeOut" }}
-        className="relative z-10 flex w-full max-w-md flex-col gap-6"
+        className="relative z-10 flex w-full max-w-2xl flex-col gap-6"
       >
         <div className="glass-card self-start rounded-full px-3.5 py-1.5 text-xs font-bold tracking-wider text-sky-700">
           내 탐험 기록
@@ -253,10 +253,10 @@ export default function ProfilePage() {
       return (
         <div className={`${cardClass} flex flex-col items-center text-center`}>
           <h2 className="mb-2 text-xl font-extrabold text-ink">
-            아직 나비섬에 다녀오지 않았구나
+            아직 나로섬에 다녀오지 않았구나
           </h2>
           <p className="mb-6 text-sm font-medium leading-relaxed text-ink-muted">
-            나의 미래 페르소나를 찾으러 떠나볼까?
+            나의 미래 역할을 찾으러 떠나볼까?
           </p>
           <CtaButton onClick={() => router.push("/explore")}>
             탐험하러 가기
@@ -273,7 +273,7 @@ export default function ProfilePage() {
             탐험 완료
           </div>
           <p className="text-sm font-medium text-ink-muted">
-            나비섬 탐험이 끝나고, 너의 탐험대원증이 발급됐어!
+            나로섬 탐험이 끝나고, 너의 탐험대원증이 발급됐어!
           </p>
         </div>
 
@@ -285,7 +285,7 @@ export default function ProfilePage() {
         ) : (
           <div className={cardClass}>
             <p className="text-sm font-medium text-ink-muted">
-              페르소나 정보를 불러오는 중이에요.
+              탐험 결과를 불러오는 중이에요.
             </p>
           </div>
         )}

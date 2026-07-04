@@ -121,7 +121,7 @@ export default function SignupPhotoPage() {
           사진을 담아줘
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
-          탐험이 끝나면 받게 될 탐험대원증(페르소나 카드)에 들어갈 사진이야.
+          탐험이 끝나면 받게 될 탐험대원증에 들어갈 사진이야.
         </p>
       </div>
 
@@ -137,7 +137,7 @@ export default function SignupPhotoPage() {
           ref={cameraInputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp"
-          capture="environment"
+          capture="user"
           hidden
           onChange={handleFileChange}
         />

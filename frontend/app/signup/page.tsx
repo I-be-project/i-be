@@ -151,7 +151,7 @@ export default function SignupPage() {
           알려줘
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
-          나비섬 탐험 기록을 남기려면 탐험대원 정보가 필요해.
+          나로섬 탐험 기록을 남기려면 탐험대원 정보가 필요해.
         </p>
       </div>
 
@@ -222,7 +222,7 @@ export default function SignupPage() {
                   개인정보 수집 및 이용 동의
                 </label>
                 <p className="text-xs text-ink-muted">
-                  행사 기록 및 페르소나 분석을 위해 최소한의 정보를 수집합니다.
+                  행사 기록 및 탐험대원증 발급을 위해 최소한의 정보를 수집합니다.
                 </p>
               </div>
             </div>

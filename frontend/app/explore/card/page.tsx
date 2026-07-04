@@ -30,7 +30,7 @@ export default function CardPage() {
         initial={{ opacity: 0, scale: 0.9, y: 30 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.7, type: "spring", bounce: 0.4 }}
-        className="relative z-10 w-full max-w-md"
+        className="relative z-10 w-full max-w-2xl"
       >
         <div className="mb-8 text-center">
           <motion.div
@@ -46,7 +46,7 @@ export default function CardPage() {
             나의 탐험대원증
           </h1>
           <p className="mt-2 text-sm font-medium text-ink-muted">
-            나비섬 탐험이 만들어 낸 너의 페르소나야.
+            나로섬 탐험이 만들어 낸 너의 탐험대원증이야.
           </p>
         </div>
 

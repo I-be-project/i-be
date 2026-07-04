@@ -45,8 +45,28 @@ export default function InterpretingPage() {
   }, [router, persona]);
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 font-sans">
+    <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden bg-[#0d3047] px-6 font-sans">
       <ExpeditionBackdrop mood="deepNight" />
+
+      {/* 밤하늘 별빛 — 반짝이는 입자 */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        {[...Array(12)].map((_, i) => (
+          <motion.span
+            key={i}
+            className="absolute h-1 w-1 rounded-full bg-amber-200/80"
+            style={{
+              left: `${8 + ((i * 7) % 88)}%`,
+              top: `${10 + ((i * 11) % 70)}%`,
+            }}
+            animate={{ opacity: [0.2, 1, 0.2], scale: [0.8, 1.2, 0.8] }}
+            transition={{
+              duration: 2 + (i % 3),
+              repeat: Infinity,
+              delay: i * 0.15,
+            }}
+          />
+        ))}
+      </div>
 
       <div className="relative z-10 flex max-w-sm flex-col items-center text-center">
         <div className="relative mb-12 flex h-32 w-32 items-center justify-center">
@@ -54,44 +74,36 @@ export default function InterpretingPage() {
           {[...Array(3)].map((_, i) => (
             <motion.div
               key={i}
-              className="absolute inset-0 rounded-full border-2 border-solid border-sky-300/70"
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{
-                scale: 2,
-                opacity: [0, 1, 0],
-              }}
+              className="absolute inset-0 rounded-full border-2 border-solid border-sky-300/50"
+              animate={{ scale: [0.85, 2], opacity: [0.6, 0] }}
               transition={{
-                duration: 2,
+                duration: 2.2,
                 repeat: Infinity,
-                delay: i * 0.6,
+                delay: i * 0.55,
                 ease: "easeOut",
               }}
             />
           ))}
 
+          {/* 밤을 항해하는 나침반 — 천천히 회전 */}
           <motion.div
-            className="glass-card flex h-16 w-16 items-center justify-center rounded-full text-sky-500 shadow-[0_8px_24px_rgba(37,99,235,0.2)]"
-            animate={{ scale: [1, 1.1, 1] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+            className="glass-card flex h-16 w-16 items-center justify-center rounded-full text-sky-400"
+            animate={{ rotate: 360 }}
+            transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
           >
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-            >
-              <Compass className="h-8 w-8" />
-            </motion.div>
+            <Compass className="h-8 w-8" />
           </motion.div>
         </div>
 
         <motion.h2
-          className="mb-6 text-2xl font-extrabold leading-snug text-ink"
+          className="mb-6 text-2xl font-extrabold leading-snug text-white drop-shadow"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          깊은 밤, 오늘의 탐험 기록을
+          오늘 탐험 기록을
           <br />
-          읽고 있어…
+          정리하고 있어…
         </motion.h2>
 
         <div className="flex h-12 items-center justify-center">
@@ -103,7 +115,7 @@ export default function InterpretingPage() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 1.5, y: -20 }}
                 transition={{ duration: 0.5 }}
-                className="glass-card rounded-full px-6 py-2 font-bold tracking-wide text-ink-soft"
+                className="glass-card rounded-full px-6 py-2 font-bold tracking-wide text-white"
               >
                 #{currentKeyword}
               </motion.div>

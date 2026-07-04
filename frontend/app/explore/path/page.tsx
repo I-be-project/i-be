@@ -16,6 +16,7 @@ import { RankSelect } from "@/components/explore/RankSelect";
 import { ChipSelect } from "@/components/explore/ChipSelect";
 import { NameCardSelect } from "@/components/explore/NameCardSelect";
 import { GeneratingScreen } from "@/components/explore/GeneratingScreen";
+import type { GeneratingStage } from "@/lib/assets/sceneManifest";
 import type {
   Q7BOption,
   Q8Chip,
@@ -450,6 +451,9 @@ export default function PathPage() {
   }
 
   const showGenerating = generating || error !== null;
+  // 생성 대기 화면 아트는 지금 생성 중인 단계(마지막 요청) 기준.
+  const generatingStage =
+    (lastReq.current?.stage as GeneratingStage | undefined) ?? "q7b";
 
   return (
     // overflow-hidden은 배경 컴포넌트가 자체 처리 — main에 걸면 sticky CTA가 죽는다
@@ -458,9 +462,9 @@ export default function PathPage() {
       <ExpeditionBackdrop mood="night" />
       <TrailBar step={STAGE_INDEX[stage]} total={10} />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-grow flex-col px-6 pb-8 pt-7">
+      <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-grow flex-col px-6 pb-8 pt-7">
         {showGenerating ? (
-          <GeneratingScreen error={error} onRetry={retry} />
+          <GeneratingScreen error={error} onRetry={retry} stage={generatingStage} />
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
@@ -475,7 +479,7 @@ export default function PathPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="glass-card inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
                   <Moon className="h-3 w-3 text-sky-600" />
-                  밤의 심화 탐험
+                  밤의 별빛 프로그램
                 </div>
                 <div className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
                   {STAGE_INDEX[stage]}/10
@@ -490,7 +494,7 @@ export default function PathPage() {
                 <CtaButton
                   onClick={onCta}
                   disabled={ctaDisabled}
-                  className="max-w-md"
+                  className="max-w-2xl"
                 >
                   {cta}
                 </CtaButton>

@@ -35,20 +35,20 @@ export default function ResultPage() {
     <main className="relative min-h-[100dvh] overflow-hidden pb-32 font-sans">
       <ExpeditionBackdrop mood="sunrise" />
 
-      {/* 히어로 — 탐험의 끝, 페르소나 발견 */}
+      {/* 히어로 — 탐험의 끝, 역할 발견 */}
       <div className="relative z-10 flex flex-col items-center px-6 pt-16 text-center">
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.8, type: "spring" }}
-          className="flex w-full max-w-md flex-col items-center"
+          className="flex w-full max-w-2xl flex-col items-center"
         >
           <div className="glass-card mb-5 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-ink shadow-[0_4px_20px_rgba(14,58,79,0.15)]">
             <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
-            나비섬 탐험 완료
+            나로섬 탐험 완료
           </div>
           <p className="mb-2 text-sm font-bold text-ink-muted">
-            아침 해가 뜨고, 탐험이 찾아낸 너의 미래 페르소나
+            아침 해가 뜨고, 탐험이 찾아낸 너의 미래 역할
           </p>
           <h1 className="mb-3 break-keep text-4xl font-black leading-tight tracking-tight text-ink">
             {persona.name}
@@ -63,7 +63,7 @@ export default function ResultPage() {
         variants={staggerVariants}
         initial="hidden"
         animate="visible"
-        className="relative z-10 mx-auto mt-8 max-w-md space-y-6 px-6"
+        className="relative z-10 mx-auto mt-8 max-w-2xl space-y-6 px-6"
       >
         <div className="rounded-3xl border border-solid border-white/70 bg-white/85 p-6 shadow-[0_12px_32px_rgba(37,99,235,0.12)] backdrop-blur-xl">
           <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-ink-muted">
@@ -122,10 +122,10 @@ export default function ResultPage() {
       <div className="pointer-events-none fixed bottom-0 left-0 right-0 z-30 flex justify-center bg-gradient-to-t from-sand via-sand/80 to-transparent p-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
         <CtaButton
           onClick={() => router.push("/explore/card")}
-          className="pointer-events-auto max-w-md"
+          className="pointer-events-auto max-w-2xl"
         >
           <IdCard className="h-5 w-5" />
-          내 탐험대원증 발급하기
+          내 탐험대원증 받기
         </CtaButton>
       </div>
     </main>

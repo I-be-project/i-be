@@ -5,34 +5,17 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
 import { mockQuestions } from "@/lib/mock/questions";
-import { Textarea } from "@/components/ui/textarea";
-import {
-  ExpeditionBackdrop,
-  SceneWindow,
-  type SceneId,
-} from "@/components/voyage/ExpeditionScene";
+import { ExpeditionBackdrop, type SceneId } from "@/components/voyage/ExpeditionScene";
 import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
-import { cn } from "@/lib/utils";
+import { FullBleedScene } from "@/components/voyage/FullBleedScene";
+import { ChoiceRow } from "@/components/explore/ChoiceRow";
 import { computeScores, derivePairCode } from "@/lib/scoring";
 import { saveAnswer } from "@/lib/api";
+import { sceneAssets } from "@/lib/assets/sceneManifest";
 
 // 전체 여정은 10걸음(Q1~6 미션 + Q7~10 심화). 진행도는 항상 10 기준.
 const JOURNEY_TOTAL = 10;
-
-// 선택지 순차 등장 — 스토리북처럼 하나씩 나타난다.
-const optionListVariants = {
-  hidden: {},
-  visible: { transition: { staggerChildren: 0.06, delayChildren: 0.1 } },
-};
-const optionItemVariants = {
-  hidden: { opacity: 0, y: 14 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.35, ease: "easeOut" as const },
-  },
-};
 
 export default function QuestionsPage() {
   const router = useRouter();
@@ -48,7 +31,7 @@ export default function QuestionsPage() {
 
   // 다음 장면으로 넘어가면 맨 위(장면 창)부터 다시 보이게
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "auto" });
   }, [currentIndex]);
 
   const handleNext = async () => {
@@ -63,7 +46,7 @@ export default function QuestionsPage() {
       setCurrentIndex((prev) => prev + 1);
       setCurrentAnswer("");
     } else {
-      // Q1~6 선택 ID로 RIASEC 점수·Pair Code 산출 후 생성형 단계로 이동
+      // Q1~6 선택 ID로 RIASEC 점수·Pair Code 산출 후 밤 브릿지로 이동
       const optionIds = nextAnswers
         .map((a) => a.value)
         .filter((v): v is string => typeof v === "string");
@@ -87,117 +70,85 @@ export default function QuestionsPage() {
         }
       }
 
-      router.push("/explore/path");
+      router.push("/explore/evening");
     }
-  };
-
-  const renderQuestionUI = () => {
-    if (currentQuestion.type === "choice" && currentQuestion.options) {
-      return (
-        <motion.div
-          variants={optionListVariants}
-          initial="hidden"
-          animate="visible"
-          className="flex flex-col gap-3"
-        >
-          {currentQuestion.options.map((option) => {
-            const selected = currentAnswer === option.id;
-            return (
-              <motion.button
-                key={option.id}
-                variants={optionItemVariants}
-                type="button"
-                onClick={() => setCurrentAnswer(option.id)}
-                className={cn(
-                  "flex w-full items-center gap-3.5 rounded-2xl border border-solid p-4 text-left text-[15px] font-medium backdrop-blur-xl transition-colors",
-                  selected
-                    ? "border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_12px_28px_rgba(37,99,235,0.35)]"
-                    : "border-white/70 bg-white/80 text-ink shadow-[0_8px_24px_rgba(37,99,235,0.08)] hover:border-sky-300 active:scale-[0.99]",
-                )}
-              >
-                <span
-                  className={cn(
-                    "flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-solid transition-colors",
-                    selected
-                      ? "border-white bg-white/30"
-                      : "border-sky-300 bg-white/60",
-                  )}
-                  aria-hidden
-                >
-                  {selected && (
-                    <span className="h-2.5 w-2.5 rounded-full bg-white" />
-                  )}
-                </span>
-                <span className="break-keep leading-relaxed">{option.label}</span>
-              </motion.button>
-            );
-          })}
-        </motion.div>
-      );
-    }
-
-    return (
-      <Textarea
-        value={currentAnswer}
-        onChange={(e) => setCurrentAnswer(e.target.value)}
-        placeholder="자유롭게 입력해주세요..."
-        className="min-h-[150px] rounded-2xl border border-solid border-white/70 bg-white/80 p-4 text-base shadow-[0_8px_24px_rgba(37,99,235,0.08)] backdrop-blur-xl focus-visible:ring-sky-500"
-      />
-    );
   };
 
   const isNextDisabled = currentAnswer.trim().length === 0;
   const isLast = currentIndex === questions.length - 1;
   // 장면 무드는 질문 id(1~6) 기준. 범위를 벗어나면 마지막 장면 유지.
   const sceneId = Math.min(6, Math.max(1, currentQuestion.id)) as SceneId;
+  const sceneAsset = sceneAssets[sceneId];
+
+  const choiceOptions =
+    currentQuestion.options?.map((o) => ({
+      id: o.id,
+      label: o.label,
+      riasec: o.primary,
+    })) ?? [];
 
   return (
-    // overflow-hidden은 배경 컴포넌트가 자체 처리 — main에 걸면 sticky CTA가 죽는다
-    <main className="relative flex min-h-[100dvh] flex-col font-sans">
+    <main className="relative min-h-[100dvh] bg-sand font-sans">
       <ExpeditionBackdrop mood={sceneId} />
       <TrailBar step={currentIndex + 1} total={JOURNEY_TOTAL} />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-grow flex-col px-6 pb-8 pt-7">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentIndex}
-            initial={{ opacity: 0, x: 32 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -32 }}
-            transition={{ duration: 0.35, ease: "easeInOut" }}
-            className="flex flex-grow flex-col"
-          >
-            <SceneWindow
-              scene={sceneId}
-              label={currentQuestion.scene}
-              step={currentIndex + 1}
-              total={JOURNEY_TOTAL}
-            />
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentIndex}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.35 }}
+          className="relative z-10 mx-auto w-full max-w-2xl"
+        >
+          {/* 풀스크린 장면 — welcome 톤 */}
+          <FullBleedScene asset={sceneAsset} heightClass="h-[56vh] min-h-[300px]" priority>
+            <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between p-5 pt-8">
+              <span className="glass-card rounded-full px-3 py-1.5 text-[11px] font-bold text-ink">
+                장면 {currentIndex + 1} · {currentQuestion.scene}
+              </span>
+              <span className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
+                {currentIndex + 1}/{JOURNEY_TOTAL}
+              </span>
+            </div>
+          </FullBleedScene>
 
-            {/* 상황(내레이션) + 질문 — 위계를 나눠 읽기 쉽게 */}
+          {/* 스크롤 영역 — 상황·질문·선택 */}
+          <div className="relative -mt-5 rounded-t-[1.75rem] bg-sand px-6 pb-36 pt-6">
             {currentQuestion.story && (
-              <p className="mb-2 break-keep text-[15px] font-semibold leading-relaxed text-ink-muted">
-                {currentQuestion.story}
-              </p>
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="glass-card mb-5 rounded-2xl p-4"
+              >
+                <p className="break-keep text-[15px] font-semibold leading-relaxed text-ink-soft">
+                  {currentQuestion.story}
+                </p>
+              </motion.div>
             )}
-            <h2 className="mb-7 break-keep text-2xl font-extrabold leading-snug text-ink">
+
+            <h2 className="mb-6 break-keep text-2xl font-extrabold leading-snug text-ink">
               {currentQuestion.text}
             </h2>
 
-            <div className="flex-grow pb-32">{renderQuestionUI()}</div>
+            <ChoiceRow
+              options={choiceOptions}
+              selectedId={currentAnswer || null}
+              onSelect={setCurrentAnswer}
+            />
+          </div>
 
-            <div className="sticky bottom-0 z-10 -mx-6 flex justify-center bg-gradient-to-t from-sand via-sand/80 to-transparent p-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
-              <CtaButton
-                onClick={handleNext}
-                disabled={isNextDisabled}
-                className="max-w-md"
-              >
-                {isLast ? "다음 탐험으로" : "다음 장면으로"}
-              </CtaButton>
-            </div>
-          </motion.div>
-        </AnimatePresence>
-      </div>
+          <div className="fixed bottom-0 left-0 right-0 z-20 flex justify-center bg-gradient-to-t from-sand via-sand/90 to-transparent p-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
+            <CtaButton
+              onClick={handleNext}
+              disabled={isNextDisabled}
+              className="max-w-2xl"
+            >
+              {isLast ? "캠프로 돌아가기" : "다음 장면으로"}
+            </CtaButton>
+          </div>
+        </motion.div>
+      </AnimatePresence>
     </main>
   );
 }
