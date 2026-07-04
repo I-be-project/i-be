@@ -15,12 +15,12 @@ export default function WelcomePage() {
           (여백은 배경색으로 채움). 좁히면 좌우가 중앙 기준으로 점점 잘림. 비율 유지. */}
       <div className="absolute inset-0 overflow-hidden bg-[#49a7e0]">
         <Image
-          src="/welcome-bg.png"
+          src="/welcome.png"
           alt=""
-          width={1915}
-          height={821}
+          width={1650}
+          height={953}
           priority
-          sizes="1915px"
+          sizes="1650px"
           className="absolute left-1/2 top-0 h-full w-auto max-w-none -translate-x-1/2"
         />
         {/* 상단 스크림 — 헤드라인 가독성 */}
