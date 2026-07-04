@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SessionHydrator } from "@/components/SessionHydrator";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "나Be한마당 페르소나 카드",
+  title: "나Be한마당 탐험대원증",
   description: "너는 어떤 미래를 살아보고 싶니?",
 };
 
@@ -23,6 +24,7 @@ export default function RootLayout({
   return (
     <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full flex flex-col font-sans">
+        <SessionHydrator />
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>

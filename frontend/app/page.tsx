@@ -15,12 +15,12 @@ export default function WelcomePage() {
           (여백은 배경색으로 채움). 좁히면 좌우가 중앙 기준으로 점점 잘림. 비율 유지. */}
       <div className="absolute inset-0 overflow-hidden bg-[#49a7e0]">
         <Image
-          src="/welcome-bg.png"
+          src="/welcome.png"
           alt=""
-          width={1915}
-          height={821}
+          width={1650}
+          height={953}
           priority
-          sizes="1915px"
+          sizes="1650px"
           className="absolute left-1/2 top-0 h-full w-auto max-w-none -translate-x-1/2"
         />
         {/* 상단 스크림 — 헤드라인 가독성 */}
@@ -81,7 +81,7 @@ export default function WelcomePage() {
       >
         <div className="mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-[#1d4a5e] drop-shadow-[0_1px_6px_rgba(255,255,255,0.65)]">
           <Compass className="h-4 w-4 text-sky-500" />
-          나비섬으로 떠나는 여정을 시작해
+          나로섬으로 떠나는 여정을 시작해
         </div>
 
         <button
@@ -90,7 +90,7 @@ export default function WelcomePage() {
           className="group flex h-16 w-full max-w-md items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-lg font-bold text-white shadow-[0_14px_34px_rgba(37,99,235,0.42)] transition-all hover:shadow-[0_18px_44px_rgba(37,99,235,0.52)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/70"
         >
           <Sparkles className="h-5 w-5" fill="currentColor" />
-          내 페르소나 찾기 시작
+          내 탐험 시작하기
           <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
         </button>
 

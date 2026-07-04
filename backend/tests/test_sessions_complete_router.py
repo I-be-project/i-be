@@ -16,10 +16,10 @@ class FakeService:
         self.conflict = conflict
         self.calls: list[tuple] = []
 
-    async def complete_survey(self, student_id, persona):
+    async def complete_survey(self, student_id, persona, session_id=None):
         from app.core.errors import ConflictError
 
-        self.calls.append((student_id, persona))
+        self.calls.append((student_id, persona, session_id))
         if self.conflict:
             raise ConflictError("이미 설문을 완료했습니다.")
         from app.schemas.students import PersonaSummary, ProfileSummary

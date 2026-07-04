@@ -7,10 +7,10 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from app.config import Settings
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.repositories.card_repo import CardRecord
 from app.repositories.persona_repo import PersonaRecord
-from app.repositories.session_repo import SessionRecord
+from app.repositories.session_repo import AnswerRecord, SessionRecord
 from app.repositories.student_repo import StudentRecord
 from app.schemas.persona import Persona
 from app.schemas.students import CardSummary, PersonaSummary, ProfileSummary, StudentInfo
@@ -24,10 +24,25 @@ class StudentRepo(Protocol):
 
 
 class SessionRepo(Protocol):
+    async def get_by_id(self, session_id: UUID) -> SessionRecord | None: ...
     async def get_latest_for_student(self, student_id: UUID) -> SessionRecord | None: ...
+    async def get_latest_completed_for_student(
+        self, student_id: UUID
+    ) -> SessionRecord | None: ...
     async def create(
         self, student_id: UUID, *, status: str = ..., conn: Any = ...
     ) -> SessionRecord: ...
+    async def update_status(
+        self, session_id: UUID, status: str, *, conn: Any = ...
+    ) -> SessionRecord: ...
+    async def insert_answer(
+        self,
+        session_id: UUID,
+        stage: str,
+        payload: dict[str, Any],
+        *,
+        conn: Any = ...,
+    ) -> AnswerRecord: ...
 
 
 class PersonaRepo(Protocol):
@@ -86,8 +101,9 @@ class SessionService:
         retry_enabled = bool(await self._settings_repo.get(RETRY_ENABLED_KEY))
         student = await self._fetch_student_info(student_id)
 
-        latest = await self._sessions.get_latest_for_student(student_id)
-        if latest is None or latest.status != "completed":
+        # 진행 중(in_progress) 세션이 있어도 완료 판정은 최근 '완료' 세션 기준.
+        latest = await self._sessions.get_latest_completed_for_student(student_id)
+        if latest is None:
             return ProfileSummary(
                 has_completed=False,
                 retry_enabled=retry_enabled,
@@ -120,21 +136,71 @@ class SessionService:
             card=await self._build_card_summary(persona.id),
         )
 
-    async def complete_survey(self, student_id: UUID, persona: Persona) -> ProfileSummary:
-        """페르소나 선택 확정 → 완료 세션 + 페르소나를 원자적으로 저장.
+    async def submit_answer(
+        self,
+        student_id: UUID,
+        session_id: UUID | None,
+        stage: str,
+        answer: dict[str, Any],
+    ) -> UUID:
+        """진행 중(Q7~9) 답변 저장. 세션이 없으면 새 in_progress 세션을 만든다.
 
-        최근 세션이 completed이고 retry_enabled가 false면 409(ConflictError).
-        session INSERT와 persona INSERT는 하나의 트랜잭션으로 묶는다.
+        - session_id가 None: 새 in_progress 세션 생성 후 그 세션에 저장.
+        - session_id가 있으면: 소유·상태 검증(내 세션 + in_progress) 후 저장.
+        반환값은 이후 저장/완료에서 재사용할 세션 id.
         """
-        latest = await self._sessions.get_latest_for_student(student_id)
+        if session_id is None:
+            session = await self._sessions.create(student_id, status="in_progress")
+            session_id = session.id
+        else:
+            session = await self._sessions.get_by_id(session_id)
+            if session is None:
+                raise NotFoundError("세션을 찾을 수 없습니다.")
+            if session.student_id != student_id:
+                raise ForbiddenError("이 세션에 접근할 수 없습니다.")
+            if session.status != "in_progress":
+                raise ConflictError("이미 종료된 세션입니다.")
+
+        await self._sessions.insert_answer(session_id, stage, answer)
+        return session_id
+
+    async def complete_survey(
+        self,
+        student_id: UUID,
+        persona: Persona,
+        session_id: UUID | None = None,
+    ) -> ProfileSummary:
+        """페르소나 선택 확정 → 세션 completed 승격 + 페르소나를 원자적으로 저장.
+
+        최근 '완료' 세션이 있고 retry_enabled가 false면 409(ConflictError).
+        session_id가 주어지면 그 in_progress 세션을 completed로 올리고(진행 중 답변 유지),
+        없으면 새 completed 세션을 만든다. 상태 변경/생성과 persona INSERT는 한 트랜잭션.
+        """
+        latest = await self._sessions.get_latest_completed_for_student(student_id)
         retry_enabled = bool(await self._settings_repo.get(RETRY_ENABLED_KEY))
-        if latest is not None and latest.status == "completed" and not retry_enabled:
+        if latest is not None and not retry_enabled:
             raise ConflictError("이미 설문을 완료했습니다.")
 
+        # 넘어온 세션이 내 것이고 아직 진행 중일 때만 재사용, 아니면 새로 만든다.
+        reuse: UUID | None = None
+        if session_id is not None:
+            existing = await self._sessions.get_by_id(session_id)
+            if (
+                existing is not None
+                and existing.student_id == student_id
+                and existing.status == "in_progress"
+            ):
+                reuse = session_id
+
         async with self._db_pool.transaction() as conn:
-            session = await self._sessions.create(
-                student_id, status="completed", conn=conn
-            )
+            if reuse is not None:
+                session = await self._sessions.update_status(
+                    reuse, "completed", conn=conn
+                )
+            else:
+                session = await self._sessions.create(
+                    student_id, status="completed", conn=conn
+                )
             await self._personas.create(session.id, persona, conn=conn)
 
         return await self.get_profile_summary(student_id)
@@ -171,11 +237,8 @@ class SessionService:
         )
         return CardSummary(card_image_url=url)
 
-    # 아래는 질문 진행 흐름(별도 작업 영역) — 이번 범위 밖이라 스텁 유지.
+    # 세션 시작/다음 질문 흐름은 아직 별도 작업 영역 — 스텁 유지.
     async def start(self, *args: object, **kwargs: object) -> object:
-        raise NotImplementedError
-
-    async def submit_answer(self, *args: object, **kwargs: object) -> object:
         raise NotImplementedError
 
     async def get_next_question(self, *args: object, **kwargs: object) -> object:

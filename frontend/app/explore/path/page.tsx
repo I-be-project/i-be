@@ -5,7 +5,8 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
-import { generateStage, completeSurvey } from "@/lib/api";
+import { generateStage, completeSurvey, saveAnswer } from "@/lib/api";
+import type { AnswerStage } from "@/lib/api";
 import { getQ7AOptions } from "@/lib/mock/q7a";
 import { Moon } from "lucide-react";
 import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
@@ -15,6 +16,7 @@ import { RankSelect } from "@/components/explore/RankSelect";
 import { ChipSelect } from "@/components/explore/ChipSelect";
 import { NameCardSelect } from "@/components/explore/NameCardSelect";
 import { GeneratingScreen } from "@/components/explore/GeneratingScreen";
+import type { GeneratingStage } from "@/lib/assets/sceneManifest";
 import type {
   Q7BOption,
   Q8Chip,
@@ -132,6 +134,18 @@ export default function PathPage() {
     setNameId(null);
   };
 
+  // Q7~9 답변을 백엔드에 단계별 저장(진행 중). 생성 흐름과 독립 — 실패해도 설문은 막지 않는다.
+  // 첫 저장 때 발급받은 sessionId를 스토어에 보관해 다음 저장·완료에서 재사용한다.
+  const persistAnswer = (stage: AnswerStage, answer: Record<string, unknown>) => {
+    const { studentToken, sessionId, setSessionId } = useSessionStore.getState();
+    if (!studentToken) return; // 정상 흐름에선 항상 로그인 상태
+    void saveAnswer(studentToken, { sessionId: sessionId ?? undefined, stage, answer })
+      .then((res) => {
+        if (!sessionId) setSessionId(res.session_id);
+      })
+      .catch((e) => console.error("답변 저장 실패", stage, e));
+  };
+
   const baseInput = {
     riasecScores: riasecScores ?? {},
     pairCode: pairCode ?? "",
@@ -144,6 +158,7 @@ export default function PathPage() {
     const firstOpt = opts.find((o) => o.id === first)!;
     const secondOpt = opts.find((o) => o.id === second)!;
     setQ7aSelection({ first: firstOpt, second: secondOpt });
+    persistAnswer("q7a", { first: firstOpt.label, second: secondOpt.label });
     callGenerate(
       "q7b",
       { ...baseInput, q7aFirst: firstOpt.label, q7aSecond: secondOpt.label },
@@ -161,6 +176,10 @@ export default function PathPage() {
     const firstOpt = q7bData.options.find((o) => o.subfield_id === first)!;
     const secondOpt = q7bData.options.find((o) => o.subfield_id === second)!;
     setQ7bSelection({ first: firstOpt, second: secondOpt });
+    persistAnswer("q7b", {
+      first: { subfield_id: firstOpt.subfield_id, title: firstOpt.student_title },
+      second: { subfield_id: secondOpt.subfield_id, title: secondOpt.student_title },
+    });
     const a = store.q7aSelection;
     callGenerate(
       "q8",
@@ -184,6 +203,7 @@ export default function PathPage() {
     if (!q8Data) return;
     const chips = q8Data.word_chips.filter((c) => chipIds.includes(c.chip_id));
     setQ8Selection({ chips, freeText });
+    persistAnswer("q8", { chips: chips.map((c) => c.text), freeText });
     const a = store.q7aSelection;
     const b = store.q7bSelection;
     callGenerate(
@@ -209,6 +229,7 @@ export default function PathPage() {
     if (!q9Data) return;
     const chips = q9Data.topic_chips.filter((c) => chipIds.includes(c.chip_id));
     setQ9Selection({ chips, freeText });
+    persistAnswer("q9", { chips: chips.map((c) => c.text), freeText });
     const a = store.q7aSelection;
     const b = store.q7bSelection;
     const careerPool = [
@@ -265,12 +286,17 @@ export default function PathPage() {
     setGenerating(true);
     setError(null);
     try {
-      await completeSurvey(store.studentToken, {
-        name: card.persona_name,
-        tagline: card.short_description,
-        keywords,
-        fields,
-      });
+      // sessionId가 있으면 Q7~9 답변이 쌓인 그 세션을 completed로 승격한다.
+      await completeSurvey(
+        store.studentToken,
+        {
+          name: card.persona_name,
+          tagline: card.short_description,
+          keywords,
+          fields,
+        },
+        useSessionStore.getState().sessionId ?? undefined,
+      );
       router.push("/explore/interpreting");
     } catch {
       pendingRetry.current = submitQ10; // "다시 시도" 시 저장을 재실행
@@ -340,7 +366,7 @@ export default function PathPage() {
   let ctaDisabled = false;
 
   if (stage === "q7a") {
-    title = "탐험을 마친 뒤, 더 가보고 싶은 탐험 구역을 1·2순위로 골라주세요.";
+    title = "섬을 둘러보다 마주친 장소들이에요. 더 가보고 싶은 곳을 1·2순위로 골라주세요.";
     body = (
       <RankSelect
         options={q7aOptions}
@@ -352,7 +378,7 @@ export default function PathPage() {
         }}
       />
     );
-    cta = "이 구역으로 떠나기";
+    cta = "이 곳으로 가보기";
     onCta = submitQ7a;
     ctaDisabled = !rankReady;
   } else if (stage === "q7b" && q7bData) {
@@ -425,6 +451,9 @@ export default function PathPage() {
   }
 
   const showGenerating = generating || error !== null;
+  // 생성 대기 화면 아트는 지금 생성 중인 단계(마지막 요청) 기준.
+  const generatingStage =
+    (lastReq.current?.stage as GeneratingStage | undefined) ?? "q7b";
 
   return (
     // overflow-hidden은 배경 컴포넌트가 자체 처리 — main에 걸면 sticky CTA가 죽는다
@@ -433,9 +462,9 @@ export default function PathPage() {
       <ExpeditionBackdrop mood="night" />
       <TrailBar step={STAGE_INDEX[stage]} total={10} />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-md flex-grow flex-col px-6 pb-8 pt-7">
+      <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-grow flex-col px-6 pb-8 pt-7">
         {showGenerating ? (
-          <GeneratingScreen error={error} onRetry={retry} />
+          <GeneratingScreen error={error} onRetry={retry} stage={generatingStage} />
         ) : (
           <AnimatePresence mode="wait">
             <motion.div
@@ -450,7 +479,7 @@ export default function PathPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="glass-card inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
                   <Moon className="h-3 w-3 text-sky-600" />
-                  밤의 심화 탐험
+                  밤의 별빛 프로그램
                 </div>
                 <div className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
                   {STAGE_INDEX[stage]}/10
@@ -465,7 +494,7 @@ export default function PathPage() {
                 <CtaButton
                   onClick={onCta}
                   disabled={ctaDisabled}
-                  className="max-w-md"
+                  className="max-w-2xl"
                 >
                   {cta}
                 </CtaButton>

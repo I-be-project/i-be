@@ -31,8 +31,21 @@ class FakeSessionRepo:
         self.latest = latest
         self.created: list[SessionRecord] = []
 
+    async def get_by_id(self, session_id: UUID) -> SessionRecord | None:
+        for rec in (self.latest, *self.created):
+            if rec is not None and rec.id == session_id:
+                return rec
+        return None
+
     async def get_latest_for_student(self, student_id: UUID) -> SessionRecord | None:
         return self.latest
+
+    async def get_latest_completed_for_student(
+        self, student_id: UUID
+    ) -> SessionRecord | None:
+        if self.latest is not None and self.latest.status == "completed":
+            return self.latest
+        return None
 
     async def create(
         self, student_id: UUID, *, status: str = "in_progress", conn: Any = None
@@ -47,6 +60,25 @@ class FakeSessionRepo:
         self.created.append(rec)
         self.latest = rec  # 이후 get_profile_summary가 최신 세션으로 보게 함
         return rec
+
+    async def update_status(
+        self, session_id: UUID, status: str, *, conn: Any = None
+    ) -> SessionRecord:
+        assert self.latest is not None
+        updated = replace(
+            self.latest,
+            status=status,
+            completed_at=datetime.now(UTC)
+            if status == "completed"
+            else self.latest.completed_at,
+        )
+        self.latest = updated
+        return updated
+
+    async def insert_answer(
+        self, session_id: UUID, stage: str, payload: dict[str, Any], *, conn: Any = None
+    ) -> object:
+        return object()
 
 
 class FakePersonaRepo:
