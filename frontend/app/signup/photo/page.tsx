@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Camera, ChevronLeft, Image as ImageIcon, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Toast, type ToastVariant } from "@/components/Toast";
@@ -10,6 +10,7 @@ import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, uploadPhoto } from "@/lib/api";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
+import { CameraCapture } from "@/components/photo/CameraCapture";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -22,9 +23,9 @@ export default function SignupPhotoPage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: ToastVariant } | null>(null);
 
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
   // 토큰이 없으면 로그인으로 돌려보낸다. 단, localStorage 복원(hasHydrated) 전에는 보류.
@@ -43,24 +44,35 @@ export default function SignupPhotoPage() {
     setToast({ message, variant });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    e.target.value = ""; // 같은 파일을 다시 골라도 onChange가 발생하도록 리셋
-    if (!selected) return;
-
+  // 파일 하나를 검증 후 선택 상태로 반영한다. (갤러리·카메라 공용)
+  const applySelectedFile = (selected: File): boolean => {
     // 백엔드도 400으로 막지만, 사용자 경험상 먼저 걸러준다.
     if (!ALLOWED_TYPES.includes(selected.type)) {
       showToast("jpeg, png, webp 형식의 사진만 올릴 수 있어.", "error");
-      return;
+      return false;
     }
     if (selected.size > MAX_BYTES) {
       showToast("10MB 이하 사진만 올릴 수 있어.", "error");
-      return;
+      return false;
     }
 
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setFile(selected);
     setPreviewUrl(URL.createObjectURL(selected));
+    return true;
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    e.target.value = ""; // 같은 파일을 다시 골라도 onChange가 발생하도록 리셋
+    if (!selected) return;
+    applySelectedFile(selected);
+  };
+
+  // 웹캠 촬영 + 크롭 완료
+  const handleCameraCapture = (captured: File) => {
+    setCameraOpen(false);
+    applySelectedFile(captured);
   };
 
   const handleUpload = async () => {
@@ -131,15 +143,7 @@ export default function SignupPhotoPage() {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className="relative z-10 mt-auto flex flex-1 flex-col rounded-t-[2rem] bg-white px-6 pb-8 pt-7 shadow-[0_-12px_40px_rgba(37,99,235,0.12)]"
       >
-        {/* 숨겨진 파일 입력 — 모바일에선 capture가 카메라를 바로 띄운다 */}
-        <input
-          ref={cameraInputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp"
-          capture="user"
-          hidden
-          onChange={handleFileChange}
-        />
+        {/* 숨겨진 갤러리 파일 입력 */}
         <input
           ref={galleryInputRef}
           type="file"
@@ -172,7 +176,7 @@ export default function SignupPhotoPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={() => cameraInputRef.current?.click()}
+              onClick={() => setCameraOpen(true)}
               className="h-14 justify-center gap-2 rounded-2xl border border-zinc-200 bg-zinc-50 text-base font-bold text-ink-soft shadow-none transition-all hover:border-sky-300 hover:bg-sky-50 active:scale-[0.98]"
             >
               <Camera className="h-5 w-5 text-sky-600" />
@@ -197,6 +201,19 @@ export default function SignupPhotoPage() {
           </CtaButton>
         </div>
       </motion.section>
+
+      <AnimatePresence>
+        {cameraOpen ? (
+          <CameraCapture
+            onCapture={handleCameraCapture}
+            onClose={() => setCameraOpen(false)}
+            onFallback={() => {
+              setCameraOpen(false);
+              galleryInputRef.current?.click();
+            }}
+          />
+        ) : null}
+      </AnimatePresence>
 
       <Toast
         message={toast?.message ?? null}
