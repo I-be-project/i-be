@@ -8,6 +8,7 @@ import { ChevronRight, Compass, Sparkles, LogOut } from "lucide-react";
 import { useSessionStore } from "@/store/useSessionStore";
 import { getMyProfile } from "@/lib/api";
 import { resumeScreen, resumePath } from "@/lib/explore/flow";
+import { AboutChip, AboutSheet } from "@/components/welcome/AboutSheet";
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -36,6 +37,8 @@ export default function WelcomePage() {
 
   const loggedIn = hasHydrated && Boolean(studentToken);
   const name = fetchedName ?? studentInfo?.name ?? null;
+
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   // 라벨은 기존 문구("내 탐험 시작하기") 그대로, 목적지만 진행상황에 따라 갈린다.
   const goSurvey = () => {
@@ -70,6 +73,11 @@ export default function WelcomePage() {
         <div className="absolute inset-x-0 top-0 h-[55%] bg-gradient-to-b from-white/70 via-white/25 to-transparent" />
         {/* 하단 스크림 — CTA 가독성 */}
         <div className="absolute inset-x-0 bottom-0 h-[42%] bg-gradient-to-t from-white/90 via-white/55 to-transparent" />
+      </div>
+
+      {/* 우측 상단: 체험 안내 칩 */}
+      <div className="absolute right-4 top-[calc(0.75rem+env(safe-area-inset-top))] z-20">
+        <AboutChip onOpen={() => setAboutOpen(true)} />
       </div>
 
       {/* 상단: 배지 + 헤드라인 */}
@@ -175,6 +183,9 @@ export default function WelcomePage() {
           </>
         )}
       </motion.div>
+
+      {/* "체험 안내" 시트 — 칩을 탭하면 아래에서 올라온다 */}
+      <AboutSheet open={aboutOpen} onOpenChange={setAboutOpen} />
     </main>
   );
 }
