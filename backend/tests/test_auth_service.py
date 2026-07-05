@@ -99,12 +99,24 @@ class FakeStudentRepo:
         records.sort(key=lambda r: (r.school, r.grade, r.class_no, r.student_no))
         return len(records), records[offset : offset + limit]
 
+    async def hard_delete(self, student_id: UUID) -> tuple[bool, str | None]:
+        record = self._by_id.pop(student_id, None)
+        if record is None:
+            return False, None
+        self._by_key.pop(
+            self._key(record.school, record.grade, record.class_no, record.student_no),
+            None,
+        )
+        return True, record.photo_key
+
 
 class FakeStorage:
     """업로드 호출을 기록하는 fake — PhotoStorage Protocol 충족."""
 
     def __init__(self) -> None:
         self.uploads: list[tuple[str, bytes, str]] = []
+        self.deleted: list[str] = []
+        self.delete_failures: set[str] = set()
 
     async def upload_photo(self, path: str, data: bytes, *, content_type: str) -> str:
         self.uploads.append((path, data, content_type))
@@ -112,6 +124,11 @@ class FakeStorage:
 
     async def create_signed_url(self, key: str, *, ttl_seconds: int) -> str:
         return f"https://signed.example/{key}?ttl={ttl_seconds}"
+
+    async def delete(self, key: str) -> None:
+        if key in self.delete_failures:
+            raise RuntimeError(f"S3 삭제 실패(테스트): {key}")
+        self.deleted.append(key)
 
 
 def _service() -> tuple[AuthService, FakeStudentRepo, FakeStorage]:

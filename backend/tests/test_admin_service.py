@@ -1,12 +1,44 @@
-"""AdminService.list_students 단위 테스트 — fake 주입."""
+"""AdminService 단위 테스트 — 목록·진행도·상세·삭제, fake 주입."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+from uuid import UUID, uuid4
+
 from app.config import get_settings
+from app.core.errors import NotFoundError
+from app.repositories.session_repo import (
+    AnswerRecord,
+    SessionContent,
+    SessionPersona,
+    StudentProgressRow,
+)
 from app.services.admin_service import AdminService
 from tests.test_auth_service import FakeStorage, FakeStudentRepo
 
 # pyproject: asyncio_mode = "auto" — async 테스트는 마커 없이 그대로 실행됨.
+
+
+class FakeSessionRepo:
+    """관리자 진행도/상세/삭제에 필요한 세션 조회만 흉내내는 인메모리 fake."""
+
+    def __init__(self) -> None:
+        self.progress: dict[UUID, StudentProgressRow] = {}
+        self.contents: dict[UUID, list[SessionContent]] = {}
+        self.card_keys: dict[UUID, list[str]] = {}
+
+    async def get_progress_for_students(
+        self, student_ids: list[UUID]
+    ) -> dict[UUID, StudentProgressRow]:
+        return {sid: self.progress[sid] for sid in student_ids if sid in self.progress}
+
+    async def list_sessions_with_content(
+        self, student_id: UUID
+    ) -> list[SessionContent]:
+        return self.contents.get(student_id, [])
+
+    async def list_card_image_keys(self, student_id: UUID) -> list[str]:
+        return self.card_keys.get(student_id, [])
 
 
 async def _seed(repo: FakeStudentRepo) -> None:
@@ -21,8 +53,17 @@ async def _seed(repo: FakeStudentRepo) -> None:
     await repo.update_photo_key(s2.id, "uploads/photos/x/photo")
 
 
-def _svc(repo: FakeStudentRepo, storage: FakeStorage) -> AdminService:
-    return AdminService(students=repo, storage=storage, settings=get_settings())
+def _svc(
+    repo: FakeStudentRepo,
+    storage: FakeStorage,
+    sessions: FakeSessionRepo | None = None,
+) -> AdminService:
+    return AdminService(
+        students=repo,
+        sessions=sessions or FakeSessionRepo(),
+        storage=storage,
+        settings=get_settings(),
+    )
 
 
 async def test_list_returns_all_sorted() -> None:
@@ -64,3 +105,145 @@ async def test_search_by_name() -> None:
         q="홍", school=None, grade=None, class_no=None, limit=50, offset=0
     )
     assert [i.name for i in result.items] == ["홍길동"]
+
+
+# --- 진행도 -------------------------------------------------------------------
+
+
+async def test_progress_defaults_to_not_started() -> None:
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await _seed(repo)
+    # 세션 정보가 전혀 없으면 모든 학생이 not_started.
+    result = await _svc(repo, storage).list_students(
+        q=None, school=None, grade=None, class_no=None, limit=50, offset=0
+    )
+    assert {i.progress.status for i in result.items} == {"not_started"}
+
+
+async def test_progress_maps_in_progress_and_completed() -> None:
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await _seed(repo)
+    sessions = FakeSessionRepo()
+    by_name = {r.name: r for r in repo._by_id.values()}
+    now = datetime.now(UTC)
+    sessions.progress[by_name["홍길동"].id] = StudentProgressRow(
+        student_id=by_name["홍길동"].id, status="in_progress", created_at=now,
+        completed_at=None, has_persona=False, has_card=False, stages=["q1to6", "q7a"],
+    )
+    sessions.progress[by_name["김영희"].id] = StudentProgressRow(
+        student_id=by_name["김영희"].id, status="completed", created_at=now,
+        completed_at=now, has_persona=True, has_card=True, stages=["q1to6"],
+    )
+    result = await _svc(repo, storage, sessions).list_students(
+        q=None, school=None, grade=None, class_no=None, limit=50, offset=0
+    )
+    prog = {i.name: i.progress for i in result.items}
+    assert prog["홍길동"].status == "in_progress"
+    assert prog["홍길동"].stages_done == ["q1to6", "q7a"]
+    assert prog["김영희"].status == "completed"
+    assert prog["김영희"].has_card is True
+
+
+# --- 상세 ---------------------------------------------------------------------
+
+
+async def test_student_detail_assembles_sessions() -> None:
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await _seed(repo)
+    sessions = FakeSessionRepo()
+    student = next(r for r in repo._by_id.values() if r.name == "홍길동")
+    now = datetime.now(UTC)
+    sessions.contents[student.id] = [
+        SessionContent(
+            id=uuid4(), status="completed", created_at=now, completed_at=now,
+            answers=[AnswerRecord(uuid4(), uuid4(), "q1to6", {"riasec": "RIA"}, now)],
+            persona=SessionPersona(
+                name="탐험가", tagline="새로움을 좇는", keywords=["호기심"], fields=["과학"]
+            ),
+            card_image_key="cards/x/card",
+        )
+    ]
+    detail = await _svc(repo, storage, sessions).get_student_detail(student.id)
+    assert detail.name == "홍길동"
+    assert len(detail.sessions) == 1
+    s = detail.sessions[0]
+    assert s.answers[0].stage == "q1to6"
+    assert s.persona is not None and s.persona.name == "탐험가"
+    assert s.card_image_url is not None  # presigned URL 생성됨
+
+
+async def test_student_detail_missing_raises_not_found() -> None:
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    try:
+        await _svc(repo, storage).get_student_detail(uuid4())
+    except NotFoundError:
+        pass
+    else:  # pragma: no cover
+        raise AssertionError("없는 학생은 NotFoundError여야 한다")
+
+
+# --- 삭제 ---------------------------------------------------------------------
+
+
+async def test_delete_student_removes_row_and_storage() -> None:
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await _seed(repo)
+    sessions = FakeSessionRepo()
+    student = next(r for r in repo._by_id.values() if r.name == "김영희")  # 사진 있음
+    sessions.card_keys[student.id] = ["cards/a/card", "cards/b/card"]
+
+    res = await _svc(repo, storage, sessions).delete_student(student.id)
+
+    assert res.student_id == student.id
+    # 사진 1 + 카드 2 = 3개 S3 삭제.
+    assert res.removed_storage_objects == 3
+    assert set(storage.deleted) == {"uploads/photos/x/photo", "cards/a/card", "cards/b/card"}
+    # DB 행 제거됨.
+    assert await repo.get_by_id(student.id) is None
+
+
+async def test_delete_student_missing_raises_not_found() -> None:
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    try:
+        await _svc(repo, storage).delete_student(uuid4())
+    except NotFoundError:
+        pass
+    else:  # pragma: no cover
+        raise AssertionError("없는 학생 삭제는 NotFoundError여야 한다")
+
+
+async def test_bulk_delete_removes_found_and_reports_missing() -> None:
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await _seed(repo)
+    sessions = FakeSessionRepo()
+    younghee = next(r for r in repo._by_id.values() if r.name == "김영희")  # 사진 있음
+    gildong = next(r for r in repo._by_id.values() if r.name == "홍길동")
+    sessions.card_keys[younghee.id] = ["cards/a/card"]
+    missing = uuid4()
+
+    res = await _svc(repo, storage, sessions).delete_students(
+        [younghee.id, gildong.id, missing]
+    )
+
+    assert set(res.deleted) == {younghee.id, gildong.id}
+    assert res.not_found == [missing]
+    # 김영희 사진 1 + 카드 1 = 2.
+    assert res.removed_storage_objects == 2
+    assert await repo.get_by_id(younghee.id) is None
+    assert await repo.get_by_id(gildong.id) is None
+
+
+async def test_delete_student_survives_storage_failure() -> None:
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await _seed(repo)
+    sessions = FakeSessionRepo()
+    student = next(r for r in repo._by_id.values() if r.name == "김영희")
+    sessions.card_keys[student.id] = ["cards/a/card"]
+    storage.delete_failures = {"uploads/photos/x/photo"}  # 사진 삭제만 실패
+
+    res = await _svc(repo, storage, sessions).delete_student(student.id)
+
+    # 사진 삭제 실패해도 DB 삭제는 성공, 카드 1건은 제거됨.
+    assert res.removed_storage_objects == 1
+    assert storage.deleted == ["cards/a/card"]
+    assert await repo.get_by_id(student.id) is None
