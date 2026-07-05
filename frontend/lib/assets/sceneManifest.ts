@@ -38,14 +38,14 @@ const sceneBase = "/scenes";
 
 function scenePaths(name: string): Pick<SceneAsset, "src" | "fallbackSrc"> {
   return {
-    src: `${sceneBase}/${name}.png`,
+    src: `${sceneBase}/${name}.webp`,
     fallbackSrc: `${sceneBase}/${name}.svg`,
   };
 }
 
 function spotPaths(slug: string): Pick<SceneAsset, "src" | "fallbackSrc"> {
   return {
-    src: `${sceneBase}/spots/${slug}.png`,
+    src: `${sceneBase}/spots/${slug}.webp`,
     fallbackSrc: `${sceneBase}/spots/${slug}.svg`,
   };
 }

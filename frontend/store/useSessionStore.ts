@@ -126,7 +126,6 @@ export const useSessionStore = create<SessionStore>()(
       q7bSelection: null,
       q8Selection: null,
       q9Selection: null,
-      q10Selection: null,
     }),
   setStudentInfo: (info) => set({ studentInfo: info }),
   setInputMode: (mode) => set({ inputMode: mode }),
