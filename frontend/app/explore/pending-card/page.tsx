@@ -61,8 +61,11 @@ export default function PendingCardPage() {
           만들어지고 있어
         </h1>
         <p className="max-w-xs break-keep text-[14.5px] font-semibold leading-relaxed text-ink-soft [text-shadow:0_1px_10px_rgba(255,255,255,0.7)]">
-          탐험 설문은 끝났어. 네가 고른 이름과 이야기는 이미 정리됐고, 카드
-          모습만 공개를 기다리는 중이야.
+          탐험 설문은 끝났어.
+          <br />
+          네가 고른 이름과 이야기는 이미 정리됐고,
+          <br />
+          카드 모습만 공개를 기다리는 중이야.
         </p>
 
         {/* 아직 공개되지 않은 탐험대원증 — 숨쉬듯 빛나는 봉인된 황금 물음표 카드 */}
@@ -119,7 +122,7 @@ export default function PendingCardPage() {
             onClick={copyEmail}
             className="mt-5 inline-flex items-center gap-2.5 rounded-full border border-ink/25 px-5 py-2.5 transition hover:border-ink/45 active:scale-[0.97] [&_*]:[text-shadow:none]"
           >
-            <span className="text-[16px] font-bold text-ink">
+            <span className="text-[16px] font-medium text-ink-soft">
               {SUPPORT_EMAIL}
             </span>
             {copied ? (
