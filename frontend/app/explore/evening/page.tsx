@@ -47,24 +47,25 @@ export default function EveningPage() {
         priority
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[35%] bg-gradient-to-b from-white/50 via-white/15 to-transparent" />
-        <div className="absolute inset-x-0 top-0 z-10 flex flex-col gap-4 p-5 pt-12">
-          <div className="flex items-start justify-between">
-            <span className="glass-card inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
-              <Moon className="h-3 w-3 text-amber-500" />
-              낮 탐험 · 클리어
-            </span>
+        <div className="absolute inset-x-0 top-0 z-10 flex flex-col gap-4 px-6 pt-12">
+          <div className="flex items-start justify-end">
             <span className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
               6/10
             </span>
           </div>
-          <motion.h2
+          <motion.div
             initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="max-w-[80%] text-left text-[1.75rem] font-black leading-tight text-ink drop-shadow-sm"
+            className="max-w-[80%] text-left"
           >
-            해가 지고, 캠프에 등불이 켜졌어
-          </motion.h2>
+            <h2 className="text-[2.4rem] font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+              캠프의 밤
+            </h2>
+            <p className="mt-2 text-[15px] font-semibold leading-relaxed text-white/90 drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
+              해가 지고, 캠프에 등불이 켜졌어
+            </p>
+          </motion.div>
         </div>
       </FullBleedScene>
 

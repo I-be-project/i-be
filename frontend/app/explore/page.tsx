@@ -36,14 +36,10 @@ export default function ExplorePage() {
           transition={{ duration: 0.6, delay: 0.15 }}
           className="absolute inset-x-0 top-0 z-10 flex flex-col items-start px-6 pt-12 text-left"
         >
-          <div className="glass-card mb-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-ink">
-            <Compass className="h-4 w-4 text-sky-500" />
-            탐험 브리핑 · 입항
-          </div>
-          <h1 className="max-w-[80%] text-[1.9rem] font-black leading-tight tracking-tight text-ink drop-shadow-sm">
-            나로섬에 도착했어!
+          <h1 className="max-w-[80%] text-[2.85rem] font-black leading-tight tracking-tight text-ink drop-shadow-[0_2px_10px_rgba(255,255,255,0.7)]">
+            나로섬 도착
           </h1>
-          <p className="mt-2 max-w-[80%] text-[15px] font-semibold leading-relaxed text-ink-soft">
+          <p className="mt-2 max-w-[80%] text-[15px] font-semibold leading-relaxed text-ink-soft drop-shadow-[0_1px_6px_rgba(255,255,255,0.65)]">
             바닷바람 너머, 탐험 캠프가 보여.
           </p>
         </motion.div>
