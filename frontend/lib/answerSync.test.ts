@@ -61,7 +61,10 @@ describe("answerSync", () => {
         );
       vi.stubGlobal("fetch", fetchMock);
 
-      await expect(persistStage("tok", "q7a", { x: 1 })).rejects.toBeTruthy();
+      await expect(persistStage("tok", "q7a", { x: 1 })).rejects.toMatchObject({
+        name: "ApiError",
+        status: 401,
+      });
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
@@ -142,6 +145,34 @@ describe("answerSync", () => {
 
     it("저장할 답변이 없으면 예외를 던진다", async () => {
       await expect(reconcileAllAnswers("tok")).rejects.toThrow();
+    });
+
+    it("완료 세션에 재전송하면 409 ApiError를 그대로 전파한다(삼키거나 재시도 안 함)", async () => {
+      // finalizeSurvey의 409 성공처리는 reconcile이 409를 status 그대로 던진다는 계약에 의존한다.
+      useSessionStore.setState({
+        sessionId: "S1",
+        riasecScores: { R: 1, I: 1, A: 1, S: 1, E: 1, C: 1 },
+        pairCode: "RI",
+        q9Selection: { chips: [{ chip_id: "c1", text: "우주" }], freeText: "" },
+      });
+      const fetchMock = vi
+        .fn()
+        .mockImplementation(() =>
+          Promise.resolve(
+            jsonResponse(
+              { error: { code: "conflict", message: "이미 종료된 세션입니다." } },
+              409,
+            ),
+          ),
+        );
+      vi.stubGlobal("fetch", fetchMock);
+
+      await expect(reconcileAllAnswers("tok")).rejects.toMatchObject({
+        name: "ApiError",
+        status: 409,
+      });
+      // 409는 일시적이 아니므로 첫 단계에서 재시도 없이 즉시 실패한다.
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 });

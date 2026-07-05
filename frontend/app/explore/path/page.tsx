@@ -5,7 +5,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
-import { generateStage, completeSurvey } from "@/lib/api";
+import { ApiError, generateStage, completeSurvey } from "@/lib/api";
 import type { AnswerStage } from "@/lib/api";
 import { persistStage, reconcileAllAnswers } from "@/lib/answerSync";
 import { getQ7AOptions } from "@/lib/mock/q7a";
@@ -235,7 +235,18 @@ export default function PathPage() {
       await completeSurvey(studentToken, null, sid);
       setSurveyCompleted(true);
       router.push("/explore/pending-card");
-    } catch {
+    } catch (e) {
+      // 완료 흐름의 409는 "서버가 이미 이 학생을 완료로 본다"는 뜻이다:
+      //  - completeSurvey → "이미 설문을 완료했습니다"
+      //  - reconcile 중 saveAnswer → "이미 종료된 세션입니다"(sessionId가 완료 세션을 가리킴)
+      // 세션 상태는 현재 in_progress/completed 둘뿐이라(abandoned 전이 미사용) '이미 종료'는
+      // 곧 완료를 의미한다. 응답 유실·이미 완료로 인한 무한 409 재시도(막다른 길)를 피하려면
+      // 성공으로 간주해 종료 화면으로 보낸다. (향후 abandoned 도입 시 이 분기 재검토 필요)
+      if (e instanceof ApiError && e.status === 409) {
+        setSurveyCompleted(true);
+        router.push("/explore/pending-card");
+        return;
+      }
       pendingRetry.current = () => finalizeSurvey(chips, freeTextValue); // "다시 시도" 시 완료 저장을 재실행
       setError("탐험 기록을 저장하지 못했어. 다시 시도해줄래?");
     } finally {
