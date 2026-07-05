@@ -57,18 +57,18 @@ export function RankSelect({
               onClick={() => handleClick(opt.id)}
               className={cn(
                 // 선택 색상은 부모가 주입한 CSS 변수(--scene-*)로 단계별 팔레트를 따른다.
-                "flex min-h-[74px] w-full items-center justify-between gap-4 rounded-[21px] border px-5 py-3.5 text-left backdrop-blur-[8px] transition-[transform,background-color,border-color,box-shadow] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scene-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
+                "flex min-h-[58px] w-full items-center justify-between gap-3 rounded-[18px] border px-4 py-3 text-left backdrop-blur-[8px] transition-[transform,background-color,border-color,box-shadow] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scene-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
                 selected
                   ? "border-2 border-[var(--scene-accent)] bg-[var(--scene-option-selected)] shadow-[0_6px_18px_rgba(13,48,71,0.10)]"
                   : "border-white/55 bg-white/80 shadow-[0_5px_16px_rgba(46,58,96,0.08)] hover:border-[var(--scene-accent)] hover:bg-white/90",
               )}
             >
               <span className="min-w-0">
-                <span className="block break-keep text-[17px] font-extrabold leading-tight text-ink">
+                <span className="block break-keep text-[14px] font-extrabold leading-tight text-ink">
                   {location.name}
                 </span>
                 {(location.description || opt.description) && (
-                  <span className="mt-1 block break-keep text-[15px] font-medium leading-[1.45] text-ink/70">
+                  <span className="mt-1 block break-keep text-[13px] font-medium leading-[1.45] text-ink/70">
                     {location.description || opt.description}
                   </span>
                 )}
@@ -93,7 +93,7 @@ export function RankSelect({
             aria-pressed={selected}
             onClick={() => handleClick(opt.id)}
             className={cn(
-              "flex w-full items-center gap-3.5 rounded-2xl border border-solid p-4 text-left text-[15px] font-medium backdrop-blur-xl transition-all",
+              "flex w-full items-center gap-3.5 rounded-2xl border border-solid p-4 text-left text-[14px] font-medium backdrop-blur-xl transition-all",
               selected
                 ? "border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_12px_28px_rgba(37,99,235,0.35)]"
                 : "border-white/70 bg-white/80 text-ink shadow-[0_8px_24px_rgba(37,99,235,0.08)] hover:border-sky-300 active:scale-[0.99]",

@@ -28,8 +28,9 @@ import { useFlowGuard } from "@/lib/explore/flow";
 const JOURNEY_TOTAL = 10;
 
 const SHEET_SPRING = { type: "spring" as const, stiffness: 360, damping: 40 };
-// 접힌 상태에서 라운드 상단이 살짝 보이도록 남겨두는 peek 높이
-const SHEET_PEEK = 24;
+// 접힌 상태에서는 하단 블록(제목+선택지+CTA)을 화면 밖으로 완전히 숨긴다(peek 0).
+// 살짝 보이는 빈 띠 없이 상단부(화살표+설명)만 남게 한다.
+const SHEET_PEEK = 0;
 
 // 힌트·설명·제목이 선택지 메뉴 바로 위에 "붙어" 있는 하나의 시트.
 // 평소엔 선택지+CTA 블록만 화면 아래로 접혀 숨어 있고(힌트·설명·제목은 그대로 보임),
@@ -44,6 +45,7 @@ function QuestionScene({
   ctaLabel,
   ctaDisabled,
   onCta,
+  topInset,
 }: {
   story?: string;
   title: string;
@@ -53,20 +55,46 @@ function QuestionScene({
   ctaLabel: string;
   ctaDisabled: boolean;
   onCta: () => void;
+  // 상단 고정 바(TrailBar 등) 높이 — 시트가 열렸을 때 이 아래로만 올라오게 제한한다.
+  topInset: number;
 }) {
   const reduce = useReducedMotion();
+  // 힌트+설명이 항상 보이는 상단부 — 이 높이를 알아야 열렸을 때 선택지 영역이
+  // 헤더 아래 남은 공간을 정확히 채우도록(넘치면 스크롤) 계산할 수 있다.
+  const topSectionRef = useRef<HTMLDivElement>(null);
+  const [topSectionHeight, setTopSectionHeight] = useState(120);
   // 선택지+CTA 블록 — 접힌 상태에서 이 높이만큼 화면 아래로 내려가 숨는다.
   const hiddenRef = useRef<HTMLDivElement>(null);
   const inited = useRef(false);
   const [closedY, setClosedY] = useState(480);
   const [open, setOpen] = useState(false);
+  // ResizeObserver 콜백 안에서 최신 open 값을 읽기 위한 ref(이펙트 재구독 없이).
+  const openRef = useRef(open);
   const y = useMotionValue(480);
   const dragControls = useDragControls();
+
+  useEffect(() => {
+    openRef.current = open;
+  }, [open]);
+
+  useEffect(() => {
+    const el = topSectionRef.current;
+    if (!el) return;
+    const update = () => setTopSectionHeight(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   useEffect(() => {
     const el = hiddenRef.current;
     if (!el) return;
     const update = () => {
+      // 열린 상태에선 hiddenRef가 남은 공간을 채우려고 커지므로(제목이 선택지와 함께
+      // 올라오며 설명 자리를 메움) 그 높이를 closedY로 쓰면 접힘 위치가 틀어진다.
+      // 접힌 상태(설명이 온전히 보이는 높이)일 때만 closedY를 갱신한다.
+      if (openRef.current) return;
       // peek 높이만큼 덜 내려, 접혀도 라운드 상단이 살짝 보이고 제목이 바닥에 딱 붙지 않는다.
       const cy = Math.max(el.offsetHeight - SHEET_PEEK, 80);
       setClosedY(cy);
@@ -116,11 +144,14 @@ function QuestionScene({
         }}
         className="flex w-full max-w-2xl flex-col"
       >
-        {/* 힌트 + 설명 + 제목 — 메뉴 바로 위에 붙어 항상 보이고, 여기서 드래그 시작.
+        {/* 힌트 + 설명 — 메뉴(제목 포함) 바로 위에 붙어 항상 보이고, 여기서 드래그 시작.
             그라데이션은 설명 위(힌트 위쪽)까지 이어져 이미지 위에서도 글씨가 잘 읽힌다. */}
         <div
+          ref={topSectionRef}
           onPointerDown={(e) => dragControls.start(e)}
-          className="relative isolate flex flex-shrink-0 cursor-grab touch-none select-none flex-col px-6 pb-1 pt-10 active:cursor-grabbing"
+          className={`relative isolate flex flex-shrink-0 cursor-grab touch-none select-none flex-col px-6 transition-[padding] duration-300 ease-out active:cursor-grabbing ${
+            open ? "pt-0 pb-0" : "pt-10 pb-6"
+          }`}
         >
           {/* 뒤에 깔리는 그라데이션 — 힌트 위쪽(-top)부터 시작해 설명 부분 위까지 이어진다.
               메뉴와 같은 부모 안에 있어 함께 움직인다(별도 정적 레이어가 아님). */}
@@ -132,54 +163,69 @@ function QuestionScene({
             }}
           />
 
-          {/* 위로 올리기 안내 — 제목·설명 위 화살표(열리면 방향 반전) */}
-          <div className="mb-4 flex justify-center">
-            <motion.div
-              className="flex flex-col items-center text-ink-muted"
-              animate={reduce || open ? undefined : { y: [0, -4, 0] }}
-              transition={{ duration: 1.6, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <ChevronUp
-                className={`-mb-2.5 h-5 w-5 transition-transform ${open ? "rotate-180" : ""}`}
-                strokeWidth={2.4}
-              />
-              <ChevronUp
-                className={`h-5 w-5 opacity-60 transition-transform ${open ? "rotate-180" : ""}`}
-                strokeWidth={2.4}
-              />
-            </motion.div>
+          {/* 위로 올리기 안내 화살표 — 접힌 상태에서만 보이는 "밀어 올리기" 손잡이.
+              펼치면 자리째 접혀(높이 0) 완전히 사라지고, 제목이 헤더 바로 아래로 붙는다. */}
+          <div
+            className={`grid ${reduce ? "" : "transition-[grid-template-rows] duration-300 ease-out"}`}
+            style={{ gridTemplateRows: open ? "0fr" : "1fr" }}
+          >
+            <div className="overflow-hidden">
+              <div className="mb-4 flex justify-center">
+                <motion.div
+                  className="flex flex-col items-center text-ink drop-shadow-[0_1px_6px_rgba(255,255,255,0.9)]"
+                  animate={reduce || open ? undefined : { y: [0, -6, 0] }}
+                  transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
+                >
+                  <ChevronUp className="-mb-3 h-6 w-6" strokeWidth={2.8} />
+                  <ChevronUp className="h-6 w-6 opacity-70" strokeWidth={2.8} />
+                </motion.div>
+              </div>
+            </div>
           </div>
 
+          {/* 설명 — 접힌 상태에선 보이고, 펼치면 자리를 접어(높이 0) 사라진다. */}
           {story && (
-            <p className="mb-4 break-keep text-[15px] font-semibold leading-relaxed text-ink-soft drop-shadow-[0_1px_10px_rgba(255,255,255,0.6)]">
-              {story}
-            </p>
+            <div
+              className={`grid ${reduce ? "" : "transition-[grid-template-rows] duration-300 ease-out"}`}
+              style={{ gridTemplateRows: open ? "0fr" : "1fr" }}
+            >
+              <div className="overflow-hidden">
+                <p
+                  className="break-keep text-[15px] font-semibold leading-relaxed text-ink-soft drop-shadow-[0_1px_10px_rgba(255,255,255,0.6)] transition-opacity duration-200"
+                  style={{ opacity: open ? 0 : 1 }}
+                >
+                  {story}
+                </p>
+              </div>
+            </div>
           )}
-          {/* 제목 아래 여백 — 접힘 상태에서 제목과 메뉴 사이에 숨 쉴 공간을 준다 */}
-          <h2 className="break-keep pb-3 text-[1.9rem] font-black leading-[1.18] tracking-tight text-ink drop-shadow-[0_1px_12px_rgba(255,255,255,0.55)]">
-            {title}
-          </h2>
         </div>
 
-        {/* 선택지 + CTA — 접힌 상태에선 이 블록 높이만큼 화면 아래로 숨는다.
-            위 텍스트 영역과 같은 파스텔 색으로 이어지는 평평한 상단(라운드 없음).
-            내부 스크롤 없이 리스트 전체가 한 번에 끝까지 올라와 보인다. */}
+        {/* 제목 + 선택지 + CTA — 접힌 상태에선 이 블록 전체가 화면 아래로 숨어 있다가,
+            시트를 위로 올리면 제목이 선택지와 함께 자연스럽게 따라 올라온다(별도 애니메이션 불필요).
+            열렸을 때 항상 헤더 바로 아래까지 꽉 채우는 고정 높이 — 내용이 짧아도 하늘이 남지 않는다.
+            CTA는 바닥에 고정하고, 그 위(제목+선택지)만 필요하면 내부 스크롤된다. */}
         <div
           ref={hiddenRef}
           className="flex flex-col"
           style={{
+            height: `calc(100dvh - ${topInset + topSectionHeight + 16}px)`,
             background:
               "linear-gradient(to bottom, var(--scene-bg), var(--scene-bg-soft))",
           }}
         >
-          {/* 선택지 — 전체가 한 번에 드러난다(스크롤 없음) */}
-          <div className="px-6 pt-5 pb-4">
-            <ChoiceRow
-              themed
-              options={options}
-              selectedId={selectedId}
-              onSelect={onSelect}
-            />
+          <div className="flex-1 overflow-y-auto">
+            <h2 className="break-keep px-6 pb-3 pt-5 text-[1.9rem] font-black leading-[1.18] tracking-tight text-ink">
+              {title}
+            </h2>
+            <div className="px-6 pb-4">
+              <ChoiceRow
+                themed
+                options={options}
+                selectedId={selectedId}
+                onSelect={onSelect}
+              />
+            </div>
           </div>
 
           {/* CTA — 시트 하단에 고정 */}
@@ -240,6 +286,21 @@ export default function QuestionsPage() {
   const questions = mockQuestions;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentAnswer, setCurrentAnswer] = useState<string>("");
+
+  // 상단 고정 바 높이 — 시트가 열렸을 때 이 아래로만 올라오게 QuestionScene에 전달한다.
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(96);
+  useEffect(() => {
+    // ready가 false인 첫 렌더에선 헤더가 아직 그려지지 않아 el이 null이다.
+    // ready가 true로 바뀌어 헤더가 실제로 마운트된 뒤에 다시 시도해야 한다.
+    const el = headerRef.current;
+    if (!el) return;
+    const update = () => setHeaderHeight(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ready]);
 
   const currentQuestion = questions[currentIndex];
   // Q1~4 / Q5 / Q6 테마 (질문 id 기준으로 프론트에서 계산 — 데이터 구조 불변)
@@ -348,7 +409,10 @@ export default function QuestionsPage() {
 
       {/* 상단 고정 바 — 진행도 + 장면명 + 진행 단계 + 뒤로가기. 화면이 스크롤되지 않으므로 항상 보인다
           (프레임 폭에 맞춰 가운데 고정 — 뒤로가기 버튼도 이 컨테이너 기준 좌측에 둔다). */}
-      <div className="fixed left-1/2 top-0 z-30 w-full max-w-2xl -translate-x-1/2">
+      <div
+        ref={headerRef}
+        className="fixed left-1/2 top-0 z-30 w-full max-w-2xl -translate-x-1/2"
+      >
         <TrailBar step={currentIndex + 1} total={JOURNEY_TOTAL} />
         <div className="relative flex items-start justify-end px-6 pt-[calc(env(safe-area-inset-top)+2.5rem)]">
           {/* Q1~6은 앞뒤 이동 가능 — 첫 질문에서는 브리핑 화면으로 돌아간다 */}
@@ -395,6 +459,7 @@ export default function QuestionsPage() {
             ctaLabel={isLast ? "캠프로 돌아가기" : "다음 장면으로"}
             ctaDisabled={isNextDisabled}
             onCta={handleNext}
+            topInset={headerHeight}
           />
         </motion.div>
       </AnimatePresence>

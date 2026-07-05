@@ -97,9 +97,11 @@ export default function PathPage() {
   const [chipIds, setChipIds] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
 
-  // 다음 단계로 넘어가면 맨 위부터 다시 보이게
+  // 제목+리스트만 담는 내부 스크롤 영역 — 헤더(진행 칩)/푸터(CTA)는 고정.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // 다음 단계로 넘어가면 내부 스크롤 영역을 맨 위부터 다시 보이게
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [stage]);
 
   const q1to6 = answers
@@ -463,8 +465,8 @@ export default function PathPage() {
     (lastReq.current?.stage as GeneratingStage | undefined) ?? "q7b";
 
   return (
-    // overflow-hidden은 배경 컴포넌트가 자체 처리 — main에 걸면 sticky CTA가 죽는다
-    <main className="relative flex min-h-[100dvh] flex-col overflow-x-hidden font-sans">
+    // 화면 높이에 고정 — 페이지 전체 스크롤을 막고, 제목+리스트만 내부에서 스크롤한다.
+    <main className="relative flex h-[100dvh] flex-col overflow-hidden font-sans">
       {/* Q6 해질녘 신호 이후 — 밤이 깊어진 섬에서 심화 탐험이 이어진다 */}
       <ExpeditionBackdrop mood="night" />
       {stage === "q7a" && (
@@ -479,42 +481,50 @@ export default function PathPage() {
       )}
       <TrailBar step={STAGE_INDEX[stage]} total={10} />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-grow flex-col px-5 pb-0 pt-6 sm:px-6">
-        {showGenerating ? (
-          <GeneratingScreen error={error} onRetry={retry} stage={generatingStage} />
-        ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={stage}
-              initial={{ opacity: 0, x: 32 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -32 }}
-              transition={{ duration: 0.35, ease: "easeInOut" }}
-              style={STAGE_THEME[stage]}
-              className="flex flex-grow flex-col"
-            >
-              {/* 컴팩트 진행 칩 — 진행 헤더 블록 대신 한 줄로 */}
-              <div className="mb-6 flex items-center">
-                <div className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/35 px-3 py-1.5 text-[11px] font-bold text-ink shadow-sm backdrop-blur-md">
-                  <Moon className="h-3 w-3 text-sky-600" />
-                  밤 · 별빛 프로그램
-                </div>
+      {showGenerating ? (
+        <GeneratingScreen error={error} onRetry={retry} stage={generatingStage} />
+      ) : (
+        <>
+          {/* 고정 헤더 — 진행 칩(스크롤 제외) */}
+          <div className="relative z-10 mx-auto w-full max-w-2xl shrink-0 px-5 pt-6 sm:px-6">
+            <div className="flex items-center">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/35 px-3 py-1.5 text-[11px] font-bold text-ink shadow-sm backdrop-blur-md">
+                <Moon className="h-3 w-3 text-sky-600" />
+                밤 · 별빛 프로그램
               </div>
+            </div>
+          </div>
 
-              <h2 className="mb-3 max-w-xl break-keep text-[clamp(27px,6vw,34px)] font-black leading-[1.25] tracking-[-0.025em] text-ink">
-                {title}
-              </h2>
-              {subtitle && (
-                <p className="mb-6 break-keep text-[14px] font-medium leading-relaxed text-ink/65">
-                  {subtitle}
-                </p>
-              )}
-              {/* 하단 고정 CTA가 마지막 항목을 가리지 않도록 여백 확보 */}
-              <div className="flex-grow pb-32">{body}</div>
-            </motion.div>
-          </AnimatePresence>
-        )}
-      </div>
+          {/* 내부 스크롤 영역 — 제목 + 부제 + 리스트만 스크롤 (헤더/푸터 제외) */}
+          <div
+            ref={scrollRef}
+            className="relative z-10 mx-auto w-full min-h-0 max-w-2xl flex-1 overflow-y-auto px-5 pt-5 sm:px-6"
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={stage}
+                initial={{ opacity: 0, x: 32 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -32 }}
+                transition={{ duration: 0.35, ease: "easeInOut" }}
+                style={STAGE_THEME[stage]}
+                className="flex flex-col"
+              >
+                <h2 className="mb-3 max-w-xl break-keep text-[clamp(27px,6vw,34px)] font-black leading-[1.25] tracking-[-0.025em] text-ink">
+                  {title}
+                </h2>
+                {subtitle && (
+                  <p className="mb-6 break-keep text-[14px] font-medium leading-relaxed text-ink/65">
+                    {subtitle}
+                  </p>
+                )}
+                {/* 하단 고정 CTA가 마지막 항목을 가리지 않도록 여백 확보 */}
+                <div className="pb-32">{body}</div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </>
+      )}
 
       {/* 하단 고정 CTA — x 슬라이드되는 카드(motion.div) 밖, main 직속에 둬야 뷰포트 기준으로 고정된다.
           (transform 조상 안에 두면 fixed가 그 조상 기준이 되어 하단 고정이 깨진다) */}

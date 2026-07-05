@@ -87,7 +87,7 @@ export function ChoiceRow({
                   : onSelect?.(opt.id)
               }
               className={cn(
-                "flex min-h-[74px] w-full items-center justify-between gap-3 rounded-[22px] px-[22px] py-4 text-left text-[18px] font-medium leading-[1.55] text-ink backdrop-blur-[8px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scene-accent)]",
+                "flex min-h-[58px] w-full items-center justify-between gap-3 rounded-[18px] px-4 py-3 text-left text-[14px] font-medium leading-[1.55] text-ink backdrop-blur-[8px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scene-accent)]",
                 selected
                   ? "border-2 border-[var(--scene-accent)] bg-[var(--scene-option-selected)] shadow-[0_6px_18px_rgba(13,48,71,0.10)]"
                   : "border border-[var(--scene-option-border)] bg-[var(--scene-option-bg)] shadow-[0_2px_10px_rgba(13,48,71,0.06)] hover:border-[var(--scene-accent)] active:scale-[0.99]",
@@ -114,7 +114,7 @@ export function ChoiceRow({
               rankMode === "rank" ? handleRankClick(opt.id) : onSelect?.(opt.id)
             }
             className={cn(
-              "flex w-full items-center gap-3 rounded-2xl border border-solid p-3.5 text-left text-[15px] font-medium backdrop-blur-xl transition-all",
+              "flex w-full items-center gap-3 rounded-2xl border border-solid p-3.5 text-left text-[14px] font-medium backdrop-blur-xl transition-all",
               selected
                 ? "border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_12px_28px_rgba(37,99,235,0.35)]"
                 : "border-white/70 bg-white/80 text-ink shadow-[0_8px_24px_rgba(37,99,235,0.08)] hover:border-sky-300 active:scale-[0.99]",

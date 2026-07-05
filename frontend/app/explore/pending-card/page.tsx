@@ -31,7 +31,7 @@ export default function PendingCardPage() {
   if (!ready) return <FlowLoading mood="night" />;
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 py-12 font-sans">
+    <main className="relative flex h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 py-8 font-sans">
       {/* 배경 — 나로섬 한마당 전경(해질녘 광장). 앱 프레임(main) 안에 갇힘. */}
       <div
         aria-hidden
@@ -53,7 +53,7 @@ export default function PendingCardPage() {
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: "easeOut" }}
-        className="relative z-10 flex w-full max-w-md flex-col items-center text-center"
+        className="relative z-10 flex h-full w-full max-w-md flex-col items-center justify-center text-center"
       >
         <h1 className="mb-3 break-keep text-[1.9rem] font-black leading-tight tracking-tight text-ink [text-shadow:0_1px_16px_rgba(255,255,255,0.7)]">
           탐험대원증이
@@ -69,7 +69,7 @@ export default function PendingCardPage() {
         </p>
 
         {/* 아직 공개되지 않은 탐험대원증 — 숨쉬듯 빛나는 봉인된 황금 물음표 카드 */}
-        <div className="relative my-10 flex h-[26rem] w-full items-center justify-center">
+        <div className="relative my-6 flex min-h-0 w-full flex-1 items-center justify-center">
           {/* 뒤에서 번지는 금빛 광채 */}
           {[...Array(3)].map((_, i) => (
             <motion.div
@@ -92,6 +92,7 @@ export default function PendingCardPage() {
           <motion.div
             animate={{ scale: [1, 1.06, 1] }}
             transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
+            className="flex h-full max-h-[26rem] items-center justify-center"
           >
             <Image
               src="/card.png"
@@ -100,7 +101,7 @@ export default function PendingCardPage() {
               height={1024}
               priority
               draggable={false}
-              className="h-auto w-[min(74vw,27rem)] select-none"
+              className="h-full max-h-full w-auto max-w-[min(74vw,27rem)] select-none object-contain"
             />
           </motion.div>
         </div>

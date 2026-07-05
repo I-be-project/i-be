@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Moon } from "lucide-react";
 import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
+import { DragSheet } from "@/components/voyage/DragSheet";
 import { FullBleedScene } from "@/components/voyage/FullBleedScene";
 import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { eveningBridgeAsset } from "@/lib/assets/sceneManifest";
@@ -43,17 +44,8 @@ export default function EveningPage() {
         </motion.div>
       </FullBleedScene>
 
-      <motion.div
-        initial={{ y: "45%", opacity: 0 }}
-        animate={{ y: "0%", opacity: 1 }}
-        transition={{ duration: 0.55, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100dvh-3rem)] flex-col px-6 pt-28"
-        style={{
-          background:
-            "linear-gradient(to bottom, rgba(253,243,224,0) 0px, rgba(253,243,224,0.6) 52px, #fdf3e0 104px, #fffbf3 100%)",
-        }}
-      >
-        <div className="glass-card mb-4 min-h-0 flex-1 overflow-y-auto rounded-3xl p-5 text-left">
+      <DragSheet>
+        <div className="glass-card mb-4 rounded-3xl p-5 text-left">
           <p className="break-keep text-[17px] font-extrabold leading-loose text-ink">
             낮에는 코스를 따라가며 갈림길마다 누구와 어떻게 움직일지, 네 행동을
             하나씩 골랐지.
@@ -78,12 +70,12 @@ export default function EveningPage() {
           </p>
         </div>
 
-        <div className="mt-auto shrink-0 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
+        <div className="pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
           <CtaButton onClick={() => router.push("/explore/path")}>
             별빛 프로그램 시작
           </CtaButton>
         </div>
-      </motion.div>
+      </DragSheet>
     </main>
   );
 }
