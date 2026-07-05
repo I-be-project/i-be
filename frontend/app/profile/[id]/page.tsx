@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Toast, type ToastVariant } from "@/components/Toast";
 import { PersonaCard } from "@/components/card/PersonaCard";
 import { useSessionStore } from "@/store/useSessionStore";
+import { genderLabel } from "@/lib/utils";
 import {
   ApiError,
   getMyProfile,
@@ -125,6 +126,7 @@ export default function ProfilePage() {
         classNo: profile.student.class_no,
         studentNo: profile.student.student_no,
         name: profile.student.name,
+        gender: profile.student.gender,
         photoUrl: profile.student.photo_url,
       }
     : studentInfo
@@ -199,7 +201,8 @@ export default function ProfilePage() {
                 <GraduationCap className="h-4 w-4 text-sky-600" />
                 <span>
                   {displayStudent.school} · {displayStudent.grade}학년{" "}
-                  {displayStudent.classNo}반 {displayStudent.studentNo}번
+                  {displayStudent.classNo}반 {displayStudent.studentNo}번 ·{" "}
+                  {genderLabel(displayStudent.gender)}
                 </span>
               </div>
             </>

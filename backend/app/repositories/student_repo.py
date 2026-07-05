@@ -17,7 +17,7 @@ from app.repositories.base import BaseRepository
 
 _COLUMNS = (
     "id, school, grade, class_no, student_no, name, "
-    "password, photo_key, consent_privacy, created_at, deleted_at"
+    "password, gender, photo_key, consent_privacy, created_at, deleted_at"
 )
 
 
@@ -32,6 +32,7 @@ class StudentRecord:
     student_no: int
     name: str
     password: str  # 평문 저장 (정책상 해시하지 않음)
+    gender: str | None  # 'male' | 'female' (과거 가입자는 None일 수 있음)
     photo_key: str | None
     consent_privacy: bool
     created_at: datetime
@@ -47,6 +48,7 @@ def _to_record(row: asyncpg.Record) -> StudentRecord:
         student_no=row["student_no"],
         name=row["name"],
         password=row["password"],
+        gender=row["gender"],
         photo_key=row["photo_key"],
         consent_privacy=row["consent_privacy"],
         created_at=row["created_at"],
@@ -64,6 +66,7 @@ class StudentRepository(BaseRepository):
         student_no: int,
         name: str,
         password: str,
+        gender: str,
         consent_privacy: bool,
     ) -> StudentRecord:
         """학생 1명 생성 후 저장된 레코드 반환.
@@ -73,9 +76,9 @@ class StudentRepository(BaseRepository):
         """
         query = f"""
             insert into pii.students (
-                school, grade, class_no, student_no, name, password, consent_privacy
+                school, grade, class_no, student_no, name, password, gender, consent_privacy
             )
-            values ($1, $2, $3, $4, $5, $6, $7)
+            values ($1, $2, $3, $4, $5, $6, $7, $8)
             returning {_COLUMNS}
         """
         try:
@@ -88,6 +91,7 @@ class StudentRepository(BaseRepository):
                     student_no,
                     name,
                     password,
+                    gender,
                     consent_privacy,
                 )
         except asyncpg.UniqueViolationError as exc:

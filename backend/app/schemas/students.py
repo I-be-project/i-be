@@ -13,6 +13,9 @@ class StudentInfo(BaseModel):
     class_no: int
     student_no: int
     name: str
+    gender: str | None = Field(
+        None, description="성별 ('male' | 'female'). 과거 가입자는 null일 수 있음"
+    )
     photo_url: str | None = Field(
         None, description="학생 사진 Presigned GET URL (만료 있음). 사진이 없으면 null"
     )

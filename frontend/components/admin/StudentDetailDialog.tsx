@@ -21,6 +21,7 @@ import {
   type AdminStudentItem,
 } from "@/lib/api";
 import { clearAdminToken, getAdminToken } from "@/lib/adminAuth";
+import { genderLabel } from "@/lib/utils";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -274,6 +275,7 @@ export function StudentDetailDialog({
                     {student.grade}학년 {student.class_no}반 {student.student_no}번
                   </span>
                 </Field>
+                <Field label="성별">{genderLabel(student.gender)}</Field>
                 <Field label="비밀번호">
                   <span className="rounded-md bg-muted px-2 py-0.5 font-mono">
                     {student.password}

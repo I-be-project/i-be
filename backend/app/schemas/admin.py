@@ -42,6 +42,7 @@ class AdminStudentItem(BaseModel):
     student_no: int
     name: str
     password: str = Field(..., description="평문 비밀번호 — 관리자 전용 노출")
+    gender: str | None = Field(None, description="성별 ('male' | 'female', 없으면 null)")
     photo_url: str | None = Field(None, description="사진 presigned URL (없으면 null)")
     consent_privacy: bool
     created_at: datetime
@@ -85,6 +86,7 @@ class AdminStudentDetail(BaseModel):
     student_no: int
     name: str
     password: str = Field(..., description="평문 비밀번호 — 관리자 전용 노출")
+    gender: str | None = Field(None, description="성별 ('male' | 'female', 없으면 null)")
     photo_url: str | None = None
     consent_privacy: bool
     created_at: datetime

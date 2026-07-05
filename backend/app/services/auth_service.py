@@ -35,6 +35,7 @@ class StudentRepo(Protocol):
         student_no: int,
         name: str,
         password: str,
+        gender: str,
         consent_privacy: bool,
     ) -> StudentRecord: ...
 
@@ -105,6 +106,7 @@ class AuthService:
             student_no=req.student_no,
             name=req.name,
             password=req.password,  # 평문 저장 (해시하지 않음)
+            gender=req.gender,
             consent_privacy=req.consent_privacy,
         )
         return student, self._issue_token(student.id)

@@ -45,6 +45,7 @@ export interface StudentInfo {
   classNo: number;
   studentNo: number;
   name: string;
+  gender: "male" | "female";
 }
 
 interface SessionStore {

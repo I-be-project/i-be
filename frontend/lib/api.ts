@@ -16,6 +16,7 @@ export interface RegisterPayload {
   student_no: number;
   name: string;
   password: string;
+  gender: "male" | "female";
   consent_privacy: boolean;
 }
 
@@ -56,6 +57,8 @@ export interface ProfileStudent {
   class_no: number;
   student_no: number;
   name: string;
+  // 성별 ('male' | 'female'). 과거 가입자는 null일 수 있음.
+  gender: string | null;
   // 학생 사진 Presigned GET URL (만료 있음). 사진이 없으면 null.
   photo_url: string | null;
 }
@@ -244,6 +247,7 @@ export interface AdminStudentItem {
   student_no: number;
   name: string;
   password: string;
+  gender: string | null;
   photo_url: string | null;
   consent_privacy: boolean;
   created_at: string;
@@ -286,6 +290,7 @@ export interface AdminStudentDetail {
   student_no: number;
   name: string;
   password: string;
+  gender: string | null;
   photo_url: string | null;
   consent_privacy: boolean;
   created_at: string;

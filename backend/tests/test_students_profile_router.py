@@ -70,6 +70,7 @@ async def test_me_with_no_session_returns_not_completed() -> None:
                 "class_no": 3,
                 "student_no": 11,
                 "name": "홍길동",
+                "gender": "male",
                 "photo_url": None,
             },
             "persona": None,
