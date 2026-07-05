@@ -14,18 +14,13 @@ import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { RankSelect } from "@/components/explore/RankSelect";
 import { ChipSelect } from "@/components/explore/ChipSelect";
-import { NameCardSelect } from "@/components/explore/NameCardSelect";
 import { GeneratingScreen } from "@/components/explore/GeneratingScreen";
 import type { GeneratingStage } from "@/lib/assets/sceneManifest";
-import type {
-  Q7BOption,
-  Q8Chip,
-  Q9Chip,
-  NameCard,
-} from "@/store/useSessionStore";
+import type { Q7BOption, Q8Chip, Q9Chip } from "@/store/useSessionStore";
 
-type Stage = "q7a" | "q7b" | "q8" | "q9" | "q10";
-const STAGE_INDEX: Record<Stage, number> = { q7a: 7, q7b: 8, q8: 8, q9: 9, q10: 10 };
+// 별빛 프로그램은 Q9가 마지막 — 응답을 마치면 세션을 완료하고 공개 대기로 간다.
+type Stage = "q7a" | "q7b" | "q8" | "q9";
+const STAGE_INDEX: Record<Stage, number> = { q7a: 7, q7b: 8, q8: 8, q9: 9 };
 
 interface Q7BData {
   title: string;
@@ -46,13 +41,6 @@ interface Q9Data {
   topic_chips: Q9Chip[];
   free_text_placeholder: string;
 }
-interface Q10Data {
-  title: string;
-  intro: string;
-  name_cards: (NameCard & {
-    materials_used_backend?: { field?: string; career_reference?: string };
-  })[];
-}
 
 export default function PathPage() {
   const router = useRouter();
@@ -65,8 +53,6 @@ export default function PathPage() {
     setQ7bSelection,
     setQ8Selection,
     setQ9Selection,
-    setQ10Selection,
-    setPersona,
   } = store;
 
   const [stage, setStage] = useState<Stage>("q7a");
@@ -77,14 +63,12 @@ export default function PathPage() {
   const [q7bData, setQ7bData] = useState<Q7BData | null>(null);
   const [q8Data, setQ8Data] = useState<Q8Data | null>(null);
   const [q9Data, setQ9Data] = useState<Q9Data | null>(null);
-  const [q10Data, setQ10Data] = useState<Q10Data | null>(null);
 
   // 진행 중 선택 상태
   const [first, setFirst] = useState<string | null>(null);
   const [second, setSecond] = useState<string | null>(null);
   const [chipIds, setChipIds] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
-  const [nameId, setNameId] = useState<string | null>(null);
 
   // pairCode 없으면 비정상 진입 — 처음으로
   useEffect(() => {
@@ -106,7 +90,7 @@ export default function PathPage() {
   const pendingRetry = useRef<(() => void) | null>(null);
   const callGenerate = useCallback(
     async (
-      apiStage: "q7b" | "q8" | "q9" | "q10",
+      apiStage: "q7b" | "q8" | "q9",
       body: unknown,
       onOk: (data: unknown) => void,
     ) => {
@@ -131,7 +115,6 @@ export default function PathPage() {
     setSecond(null);
     setChipIds([]);
     setFreeText("");
-    setNameId(null);
   };
 
   // Q7~9 답변을 백엔드에 단계별 저장(진행 중). 생성 흐름과 독립 — 실패해도 설문은 막지 않는다.
@@ -224,82 +207,38 @@ export default function PathPage() {
     );
   };
 
-  // Q9 확정 → Q10 생성
-  const submitQ9 = () => {
+  // Q9 확정 → 세션 완료 → 공개 대기 화면. Q9가 마지막 질문이다.
+  // 탐험대원증 이름·카드는 한마당에서 공개하므로 여기서는 페르소나를 만들지 않고
+  // 세션만 completed로 승격한다.
+  const submitQ9 = async () => {
     if (!q9Data) return;
     const chips = q9Data.topic_chips.filter((c) => chipIds.includes(c.chip_id));
     setQ9Selection({ chips, freeText });
-    persistAnswer("q9", { chips: chips.map((c) => c.text), freeText });
-    const a = store.q7aSelection;
-    const b = store.q7bSelection;
-    const careerPool = [
-      ...(b?.first.career_pool ?? []),
-      ...(b?.second.career_pool ?? []),
-    ];
-    callGenerate(
-      "q10",
-      {
-        ...baseInput,
-        q7aFirst: a?.first.label ?? "",
-        q7aSecond: a?.second.label ?? "",
-        q7bFirst: b?.first,
-        q7bSecond: b?.second,
-        q8: store.q8Selection,
-        q9: { chips, freeText },
-        careerPool,
-      },
-      (json) => {
-        setQ10Data((json as { q10: Q10Data }).q10);
-        resetSelection();
-        setStage("q10");
-      },
-    );
-  };
-
-  // Q10 확정 → persona 매핑 → 백엔드 완료 저장 → 결과로
-  const submitQ10 = async () => {
-    if (!q10Data || !nameId) return;
-    const card = q10Data.name_cards.find((c) => c.name_id === nameId)!;
-    setQ10Selection(card);
-    const b = store.q7bSelection;
-    const keywords = [
-      ...(store.q8Selection?.chips.map((c) => c.text) ?? []),
-      ...(store.q9Selection?.chips.map((c) => c.text) ?? []),
-    ].slice(0, 5);
-    const fields = [card.materials_used_backend?.field ?? pairCode ?? ""].filter(Boolean);
-    setPersona({
-      name: card.persona_name,
-      tagline: card.short_description,
-      keywords,
-      fields,
-      recommendedBooths: [
-        ...(b?.first.career_pool ?? []),
-        ...(b?.second.career_pool ?? []),
-      ].slice(0, 3),
-    });
 
     // 완료 저장은 인증 필요. 토큰 없으면 로그인으로.
-    if (!store.studentToken) {
+    const { studentToken, sessionId, setSessionId } = useSessionStore.getState();
+    if (!studentToken) {
       router.push("/login");
       return;
     }
     setGenerating(true);
     setError(null);
     try {
-      // sessionId가 있으면 Q7~9 답변이 쌓인 그 세션을 completed로 승격한다.
-      await completeSurvey(
-        store.studentToken,
-        {
-          name: card.persona_name,
-          tagline: card.short_description,
-          keywords,
-          fields,
-        },
-        useSessionStore.getState().sessionId ?? undefined,
-      );
-      router.push("/explore/interpreting");
+      // Q9 답변을 먼저 확정 저장한 뒤(세션이 completed로 바뀌기 전) 완료로 승격한다.
+      let sid = sessionId ?? undefined;
+      const saved = await saveAnswer(studentToken, {
+        sessionId: sid,
+        stage: "q9",
+        answer: { chips: chips.map((c) => c.text), freeText },
+      });
+      if (!sid) {
+        setSessionId(saved.session_id);
+        sid = saved.session_id;
+      }
+      await completeSurvey(studentToken, null, sid);
+      router.push("/explore/pending-card");
     } catch {
-      pendingRetry.current = submitQ10; // "다시 시도" 시 저장을 재실행
+      pendingRetry.current = submitQ9; // "다시 시도" 시 완료 저장을 재실행
       setError("탐험 기록을 저장하지 못했어. 다시 시도해줄래?");
     } finally {
       setGenerating(false);
@@ -316,7 +255,7 @@ export default function PathPage() {
     }
     const req = lastReq.current;
     if (!req) return;
-    const apiStage = req.stage as "q7b" | "q8" | "q9" | "q10";
+    const apiStage = req.stage as "q7b" | "q8" | "q9";
     const onOkMap = {
       q7b: (json: unknown) => {
         setQ7bData((json as { q7b: Q7BData }).q7b);
@@ -332,11 +271,6 @@ export default function PathPage() {
         setQ9Data((json as { q9: Q9Data }).q9);
         resetSelection();
         setStage("q9");
-      },
-      q10: (json: unknown) => {
-        setQ10Data((json as { q10: Q10Data }).q10);
-        resetSelection();
-        setStage("q10");
       },
     };
     callGenerate(apiStage, req.body, onOkMap[apiStage]);
@@ -431,23 +365,6 @@ export default function PathPage() {
     cta = "이걸 더 살펴볼래";
     onCta = submitQ9;
     ctaDisabled = !chipReady;
-  } else if (stage === "q10" && q10Data) {
-    title = q10Data.title;
-    body = (
-      <NameCardSelect
-        cards={q10Data.name_cards.map((c) => ({
-          id: c.name_id,
-          name: c.persona_name,
-          description: c.short_description,
-          emphasis: c.emphasis,
-        }))}
-        selectedId={nameId}
-        onSelect={setNameId}
-      />
-    );
-    cta = "탐험대원증 이름으로 결정하기";
-    onCta = submitQ10;
-    ctaDisabled = nameId === null;
   }
 
   const showGenerating = generating || error !== null;

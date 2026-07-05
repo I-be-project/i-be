@@ -3,7 +3,7 @@
 import { campSpotTitles, type CampSpotTitle } from "@/lib/mock/campMap";
 import type { SceneId } from "@/components/voyage/ExpeditionScene";
 
-export type GeneratingStage = "q7b" | "q8" | "q9" | "q10";
+export type GeneratingStage = "q7b" | "q8" | "q9";
 
 export interface SceneAsset {
   id: string;
@@ -31,10 +31,6 @@ export const generatingCopy: Record<GeneratingStage, GeneratingCopy> = {
   q9: {
     main: "마음이 가는 대상을 찾는 중…",
     sub: "오늘 밤, 특히 더 살펴보고 싶은 것을 모으는 중",
-  },
-  q10: {
-    main: "탐험대원증에 새길 이름을 짓는 중…",
-    sub: "지금까지의 선택이 하나의 역할 이름으로 모이고 있어",
   },
 };
 
@@ -122,12 +118,6 @@ export const generatingAssets: Record<GeneratingStage, SceneAsset> = {
     alt: "마음이 가는 대상을 살피는 장면",
     videoSrc: `${sceneBase}/gen-q9.webm`,
     ...scenePaths("gen-q9"),
-  },
-  q10: {
-    id: "gen-q10",
-    alt: "탐험대원증 이름이 만들어지는 장면",
-    videoSrc: `${sceneBase}/gen-q10.webm`,
-    ...scenePaths("gen-q10"),
   },
 };
 

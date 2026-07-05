@@ -362,3 +362,24 @@ async def test_complete_survey_allows_new_session_when_retry_on() -> None:
     summary = await service.complete_survey(uuid4(), _persona_input())
     assert summary.has_completed is True
     assert len(service._sessions.created) == 1  # type: ignore[attr-defined]
+
+
+async def test_complete_survey_without_persona_completes_without_persona() -> None:
+    # 학생 흐름은 Q9가 마지막 — persona=None으로 완료하면 세션만 completed가 되고
+    # persona는 저장하지 않는다(프로필은 '완료 · 카드 준비 중').
+    service, _, db_pool = _build(latest=None)
+    summary = await service.complete_survey(uuid4(), None)
+    assert db_pool.entered is True
+    assert service._sessions.created[0].status == "completed"  # type: ignore[attr-defined]
+    assert service._personas.created == []  # type: ignore[attr-defined]
+    assert summary.has_completed is True
+    assert summary.persona is None
+    assert summary.card is None
+
+
+async def test_complete_survey_without_persona_conflict_when_completed_and_retry_off() -> None:
+    import pytest
+
+    service, _, _ = _build(latest=_session("completed"), retry=False)
+    with pytest.raises(ConflictError):
+        await service.complete_survey(uuid4(), None)

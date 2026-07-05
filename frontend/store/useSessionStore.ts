@@ -37,14 +37,6 @@ export interface Q9Chip {
   text: string;
 }
 
-// Q10 페르소나 이름 카드
-export interface NameCard {
-  name_id: string;
-  persona_name: string;
-  short_description: string;
-  emphasis: string;
-}
-
 // 회원가입 때 입력한 학생 정보. 백엔드가 이 값을 돌려주는 API가 없어 가입 시 보관한다.
 // 인증 정보와 함께 localStorage에 유지된다(새로고침해도 프로필 폴백 표시 가능).
 export interface StudentInfo {
@@ -79,7 +71,6 @@ interface SessionStore {
   q7bSelection: { first: Q7BOption; second: Q7BOption } | null;
   q8Selection: { chips: Q8Chip[]; freeText: string } | null;
   q9Selection: { chips: Q9Chip[]; freeText: string } | null;
-  q10Selection: NameCard | null;
 
   setAuth: (token: string, id: string) => void;
   setStudentInfo: (info: StudentInfo) => void;
@@ -93,7 +84,6 @@ interface SessionStore {
   setQ7bSelection: (sel: { first: Q7BOption; second: Q7BOption }) => void;
   setQ8Selection: (sel: { chips: Q8Chip[]; freeText: string }) => void;
   setQ9Selection: (sel: { chips: Q9Chip[]; freeText: string }) => void;
-  setQ10Selection: (card: NameCard) => void;
   reset: () => void;
 }
 
@@ -118,7 +108,6 @@ export const useSessionStore = create<SessionStore>()(
   q7bSelection: null,
   q8Selection: null,
   q9Selection: null,
-  q10Selection: null,
 
   setAuth: (token, id) => set({ studentToken: token, studentId: id }),
   setStudentInfo: (info) => set({ studentInfo: info }),
@@ -133,7 +122,6 @@ export const useSessionStore = create<SessionStore>()(
   setQ7bSelection: (sel) => set({ q7bSelection: sel }),
   setQ8Selection: (sel) => set({ q8Selection: sel }),
   setQ9Selection: (sel) => set({ q9Selection: sel }),
-  setQ10Selection: (card) => set({ q10Selection: card }),
   reset: () =>
     set({
       studentToken: null,
@@ -150,7 +138,6 @@ export const useSessionStore = create<SessionStore>()(
       q7bSelection: null,
       q8Selection: null,
       q9Selection: null,
-      q10Selection: null,
     }),
     }),
     {

@@ -27,7 +27,7 @@ export const devAdaptiveQuestions: DevQA[] = [
   { question: "10년 뒤 어떤 전문가로 불리고 싶나요?", answer: "생태를 지키는 탐사 기술 전문가" },
 ];
 
-// Q10: 페르소나 후보 3개 — 학생이 1개 선택
+// 카드 생성 테스트용 페르소나 후보 (dev 전용 — 학생 흐름과 무관)
 export const devPersonaCandidates: DevPersona[] = [
   {
     name: "숲을 지키는 드론 전문가",

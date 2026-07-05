@@ -258,11 +258,11 @@ export function fetchAdminStudents(
   );
 }
 
-// LLM 생성 단계(q7b/q8/q9/q10)를 백엔드에 위임한다.
+// LLM 생성 단계(q7b/q8/q9)를 백엔드에 위임한다.
 // 반환값은 단계명을 키로 갖는 파싱된 JSON (예: { q7b: {...} }).
 // 호출 측에서 (json as { q7b: Q7BData }).q7b 형태로 캐스팅한다.
 export function generateStage(
-  stage: "q7b" | "q8" | "q9" | "q10",
+  stage: "q7b" | "q8" | "q9",
   input: Record<string, unknown>
 ): Promise<unknown> {
   return request<unknown>(`/api/generate/${stage}`, {
@@ -299,7 +299,9 @@ export function saveAnswer(
   });
 }
 
-// 페르소나 선택 확정 → 완료 세션 + 페르소나 저장. 인증 필요.
+// 세션 완료. 인증 필요.
+// 학생 흐름은 Q9가 마지막이라 persona 없이 세션만 completed로 승격한다(→ 프로필 '완료 · 카드 준비 중').
+// 탐험대원증 이름·카드는 이후(한마당)에 생성·공개한다. persona를 넘기면 함께 저장한다.
 export interface PersonaInput {
   name: string;
   tagline: string;
@@ -309,7 +311,7 @@ export interface PersonaInput {
 
 export function completeSurvey(
   token: string,
-  persona: PersonaInput,
+  persona?: PersonaInput | null,
   sessionId?: string
 ): Promise<ProfileSummary> {
   return request<ProfileSummary>("/api/sessions/complete", {
@@ -319,6 +321,6 @@ export function completeSurvey(
       Authorization: `Bearer ${token}`,
     },
     // sessionId가 있으면 그 in_progress 세션을 completed로 승격한다.
-    body: JSON.stringify({ ...persona, sessionId }),
+    body: JSON.stringify({ ...(persona ?? {}), sessionId }),
   });
 }

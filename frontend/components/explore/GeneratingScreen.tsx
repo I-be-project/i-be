@@ -16,7 +16,7 @@ interface GeneratingScreenProps {
   stage?: GeneratingStage;
 }
 
-/** Q7B–Q10 생성 대기 — welcome 톤 풀스크린 컷신 */
+/** Q7B–Q9 생성 대기 — welcome 톤 풀스크린 컷신 */
 export function GeneratingScreen({ error, onRetry, stage = "q7b" }: GeneratingScreenProps) {
   const asset = generatingAssets[stage];
   const copy = generatingCopy[stage];

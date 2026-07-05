@@ -11,7 +11,7 @@ const floatingKeywords = ["탐험", "팀", "별빛", "섬", "선택"];
 
 export default function InterpretingPage() {
   const router = useRouter();
-  // 실제 페르소나는 Q10 확정 단계(explore/path)에서 이미 스토어에 저장돼 있다.
+  // 페르소나는 결과 단계에서 스토어에 저장돼 있어야 한다.
   // 여기서는 덮어쓰지 않고, 없으면 처음으로 돌려보낸다.
   const persona = useSessionStore((state) => state.persona);
   const [currentKeyword, setCurrentKeyword] = useState<string>("");

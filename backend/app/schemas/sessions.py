@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.schemas.persona import Persona
 
 # 저장을 허용하는 stage. q1to6은 Q1~6 결과를 한 번에 담고, q7a~q9는 단계별.
-# Q10은 답변이 아니라 persona로 승격하므로 여기 없다.
+# q9가 마지막 질문이며, 이후 /complete로 세션을 완료한다.
 ANSWER_STAGES = frozenset({"q1to6", "q7a", "q7b", "q8", "q9"})
 
 
@@ -34,13 +34,30 @@ class SaveAnswerResponse(BaseModel):
     session_id: UUID
 
 
-class CompleteRequest(Persona):
+class CompleteRequest(BaseModel):
     """POST /api/sessions/complete 요청 본문.
 
-    Persona 필드(name/tagline/keywords/fields)에 더해, 진행 중 세션 id를 선택적으로 받는다.
-    session_id가 있으면 그 in_progress 세션을 completed로 승격하고, 없으면 새 세션을 만든다.
+    학생 흐름은 Q9가 마지막이라 persona 없이 세션만 completed로 승격한다.
+    이때 name을 비우면(또는 생략) 페르소나를 저장하지 않고, 이름·카드는 이후
+    (한마당)에 생성·공개한다. persona(name/tagline/keywords/fields)를 함께 넘기면
+    저장한다. session_id가 있으면 그 in_progress 세션을 승격하고, 없으면 새로 만든다.
     """
 
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
+    name: str | None = Field(default=None, max_length=60)
+    tagline: str = Field(default="", max_length=160)
+    keywords: list[str] = Field(default_factory=list, max_length=8)
+    fields: list[str] = Field(default_factory=list, max_length=8)
     session_id: UUID | None = Field(default=None, alias="sessionId")
+
+    def to_persona(self) -> Persona | None:
+        """name이 있으면 Persona로 변환하고, 없으면 None(페르소나 미저장 완료)."""
+        if not self.name or not self.name.strip():
+            return None
+        return Persona(
+            name=self.name,
+            tagline=self.tagline,
+            keywords=self.keywords,
+            fields=self.fields,
+        )

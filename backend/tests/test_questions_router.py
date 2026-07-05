@@ -81,16 +81,6 @@ async def _client(app: Any) -> AsyncIterator[httpx.AsyncClient]:
                 "q8": {"chip_id": "ATT_01"},
             },
         ),
-        (
-            "q10",
-            {
-                "q7bFirst": {"subfield_id": "SUB_01"},
-                "q7bSecond": None,
-                "q8": {"chip_id": "ATT_01"},
-                "q9": {"chip_id": "TOPIC_01"},
-                "careerPool": ["데이터 과학자", "UX 디자이너"],
-            },
-        ),
     ],
 )
 async def test_valid_stage_returns_stub_payload(stage: str, extra_body: dict[str, Any]) -> None:

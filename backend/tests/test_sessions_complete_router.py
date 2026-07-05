@@ -24,16 +24,22 @@ class FakeService:
             raise ConflictError("이미 설문을 완료했습니다.")
         from app.schemas.students import PersonaSummary, ProfileSummary
 
-        return ProfileSummary(
-            has_completed=True,
-            retry_enabled=False,
-            student=None,
-            persona=PersonaSummary(
+        # persona 없이 완료(Q9가 마지막)면 프로필은 '완료 · 카드 준비 중'.
+        summary = (
+            None
+            if persona is None
+            else PersonaSummary(
                 name=persona.name,
                 tagline=persona.tagline,
                 keywords=list(persona.keywords),
                 fields=list(persona.fields),
-            ),
+            )
+        )
+        return ProfileSummary(
+            has_completed=True,
+            retry_enabled=False,
+            student=None,
+            persona=summary,
             card=None,
         )
 
@@ -70,6 +76,24 @@ async def test_complete_returns_profile_summary() -> None:
         assert body["has_completed"] is True
         assert body["persona"]["name"] == "숲을 지키는 드론전문가"
         assert len(service.calls) == 1
+    finally:
+        await gen.aclose()
+
+
+async def test_complete_without_persona_returns_profile_summary() -> None:
+    # 학생 흐름은 Q9가 마지막 — 이름 없이 완료하면 persona=None으로 서비스가 호출된다.
+    service = FakeService()
+    gen = _client(_app_with(service))
+    client = await anext(gen)
+    try:
+        res = await client.post("/api/sessions/complete", json={})
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert body["has_completed"] is True
+        assert body["persona"] is None
+        assert len(service.calls) == 1
+        # to_persona()가 None을 넘겼는지 확인.
+        assert service.calls[0][1] is None
     finally:
         await gen.aclose()
 

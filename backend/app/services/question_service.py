@@ -1,4 +1,4 @@
-"""Q7-B/Q8/Q9/Q10 생성 서비스 (stateless)."""
+"""Q7-B/Q8/Q9 생성 서비스 (stateless)."""
 
 from __future__ import annotations
 
@@ -11,7 +11,6 @@ from app.services.question_prompts import (
     build_q7b_messages,
     build_q8_messages,
     build_q9_messages,
-    build_q10_messages,
 )
 
 # stage → (AIPurpose, message builder)
@@ -19,7 +18,6 @@ _STAGE_CONFIG: dict[str, tuple[AIPurpose, object]] = {
     "q7b": (AIPurpose.ADAPTIVE_QUESTIONS, build_q7b_messages),
     "q8": (AIPurpose.ADAPTIVE_QUESTIONS, build_q8_messages),
     "q9": (AIPurpose.ADAPTIVE_QUESTIONS, build_q9_messages),
-    "q10": (AIPurpose.FINAL_QUESTION, build_q10_messages),
 }
 
 
