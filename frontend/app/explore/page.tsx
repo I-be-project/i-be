@@ -61,12 +61,8 @@ export default function ExplorePage() {
           transition={{ delay: 0.5 }}
           className="glass-card mb-4 rounded-2xl p-5 text-left"
         >
-          <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1.5 text-sm font-bold text-sky-600">
-            <ScrollText className="h-4 w-4" strokeWidth={2.2} />
-            탐험 안내
-          </div>
-          <p className="text-[15px] font-extrabold leading-relaxed text-ink">
-            하루 동안 장면을 지나며 선택하고, 그 선택들이 모여 너만의
+          <p className="text-[18px] font-extrabold leading-relaxed text-ink">
+            여러 장면을 지나며 선택지를 고르고, <br />그 선택들이 모여 너만의
             탐험대원증이 돼.
           </p>
 
@@ -74,19 +70,17 @@ export default function ExplorePage() {
 
           <div className="flex flex-col gap-4">
             <div>
-              <p className="mb-1 text-[15px] font-extrabold text-ink">
-                이건 뭐 하는 체험이야?
-              </p>
               <p className="text-[15px] font-medium leading-relaxed text-ink-muted">
-                나Be한마당에서 폰으로 하는 미래 탐험이야. 게임처럼 하루를
-                살아가며 선택해. 정답을 맞히는 게 아니라, 네가 끌리는 쪽을
-                골라보면 돼.
+                게임처럼 하루를 살아가며 선택해. <br />
+                정답을 맞히는 게 아니라, 네가 끌리는 쪽을 골라보면 돼.
               </p>
             </div>
             <div>
               <p className="text-[15px] font-medium leading-relaxed text-ink-muted">
-                끝나면 탐험대원증이 만들어져. 한마당 체험부스에서 네 탐험
-                이야기를 이어갈, 너를 설명하는 카드야.
+                끝나면 탐험대원증이 만들어져.
+                <br />
+                한마당 체험부스에서 네 탐험 이야기를 이어갈, 너를 설명하는
+                카드야.
               </p>
             </div>
           </div>
@@ -99,19 +93,16 @@ export default function ExplorePage() {
           className="mb-6 rounded-2xl bg-amber-50 px-5 py-4 text-left ring-1 ring-amber-200/60"
         >
           <p className="text-[15px] font-bold leading-relaxed text-ink">
-            탐험이 끝나면 탐험대원증이 완성돼. 한마당에서 공개되는 날, 네가 고른
-            미래 이름이 펼쳐질 거야.
+            한마당에서 공개되는 날, 네가 고른 미래 이름이 펼쳐질 거야.
           </p>
         </motion.div>
 
-        <p className="mb-2 inline-flex items-center justify-center gap-1.5 text-center text-sm font-bold text-ink-muted">
-          <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
-          준비됐다면, 낮 탐험 첫 장면으로!
-        </p>
-
         <div className="mt-auto shrink-0 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
-          <CtaButton onClick={() => router.push("/explore/questions")}>
-            <Compass className="h-5 w-5" />낮 탐험 시작하기
+          <CtaButton
+            onClick={() => router.push("/explore/questions")}
+            className="bg-gradient-to-r from-sky-400 to-blue-500 shadow-[0_10px_26px_rgba(56,189,248,0.35)] hover:shadow-[0_14px_34px_rgba(56,189,248,0.45)]"
+          >
+            낮 탐험 시작하기
           </CtaButton>
         </div>
       </motion.div>

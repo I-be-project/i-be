@@ -33,7 +33,11 @@ interface ChoiceRowProps {
 
 const itemVariants = {
   hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" as const } },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: "easeOut" as const },
+  },
 };
 
 export function ChoiceRow({
@@ -83,7 +87,7 @@ export function ChoiceRow({
                   : onSelect?.(opt.id)
               }
               className={cn(
-                "flex min-h-[74px] w-full items-center justify-between gap-3 rounded-[22px] px-[22px] py-4 text-left text-[15px] font-medium leading-[1.55] text-ink backdrop-blur-[8px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scene-accent)]",
+                "flex min-h-[74px] w-full items-center justify-between gap-3 rounded-[22px] px-[22px] py-4 text-left text-[18px] font-medium leading-[1.55] text-ink backdrop-blur-[8px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scene-accent)]",
                 selected
                   ? "border-2 border-[var(--scene-accent)] bg-[var(--scene-option-selected)] shadow-[0_6px_18px_rgba(13,48,71,0.10)]"
                   : "border border-[var(--scene-option-border)] bg-[var(--scene-option-bg)] shadow-[0_2px_10px_rgba(13,48,71,0.06)] hover:border-[var(--scene-accent)] active:scale-[0.99]",
@@ -107,9 +111,7 @@ export function ChoiceRow({
             type="button"
             variants={itemVariants}
             onClick={() =>
-              rankMode === "rank"
-                ? handleRankClick(opt.id)
-                : onSelect?.(opt.id)
+              rankMode === "rank" ? handleRankClick(opt.id) : onSelect?.(opt.id)
             }
             className={cn(
               "flex w-full items-center gap-3 rounded-2xl border border-solid p-3.5 text-left text-[15px] font-medium backdrop-blur-xl transition-all",

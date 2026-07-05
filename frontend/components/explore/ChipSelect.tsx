@@ -41,7 +41,7 @@ export function ChipSelect({
             className={cn(
               // 선택 색상은 부모가 주입한 CSS 변수(--scene-*)로 단계별 팔레트를 따른다.
               // border 강조는 Q1~6과 통일 — 미선택 1px, 선택 시 2px.
-              "flex min-h-[74px] w-full items-center justify-between gap-4 rounded-[21px] border px-5 py-3.5 text-left text-[15px] font-medium leading-[1.5] text-ink backdrop-blur-[8px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scene-accent)]",
+              "flex min-h-[74px] w-full items-center justify-between gap-4 rounded-[21px] border px-5 py-3.5 text-left text-[17px] font-medium leading-[1.5] text-ink backdrop-blur-[8px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scene-accent)]",
               selected
                 ? "border-2 border-[var(--scene-accent)] bg-[var(--scene-option-selected)] shadow-[0_6px_18px_rgba(13,48,71,0.10)]"
                 : "border-white/70 bg-white/80 shadow-[0_5px_16px_rgba(46,58,96,0.08)] hover:border-[var(--scene-accent)] hover:bg-white/90",
@@ -62,7 +62,7 @@ export function ChipSelect({
         onChange={(e) => onFreeText(e.target.value)}
         placeholder={placeholder}
         // 포커스 강조를 답변 카드와 통일 — ring 대신 2px accent border(미선택 1px → 포커스 2px).
-        className="min-h-[74px] rounded-[21px] border border-solid border-white/70 bg-white/80 px-5 py-3.5 text-[15px] shadow-[0_5px_16px_rgba(46,58,96,0.08)] backdrop-blur-[8px] focus-visible:border-2 focus-visible:border-[var(--scene-accent)] focus-visible:ring-0"
+        className="min-h-[74px] rounded-[21px] border border-solid border-white/70 bg-white/80 px-5 py-3.5 text-[17px] shadow-[0_5px_16px_rgba(46,58,96,0.08)] backdrop-blur-[8px] focus-visible:border-2 focus-visible:border-[var(--scene-accent)] focus-visible:ring-0"
       />
     </div>
   );

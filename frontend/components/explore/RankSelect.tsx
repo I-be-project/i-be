@@ -64,11 +64,11 @@ export function RankSelect({
               )}
             >
               <span className="min-w-0">
-                <span className="block break-keep text-[15px] font-extrabold leading-tight text-ink">
+                <span className="block break-keep text-[17px] font-extrabold leading-tight text-ink">
                   {location.name}
                 </span>
                 {(location.description || opt.description) && (
-                  <span className="mt-1 block break-keep text-[14px] font-medium leading-[1.45] text-ink/70">
+                  <span className="mt-1 block break-keep text-[15px] font-medium leading-[1.45] text-ink/70">
                     {location.description || opt.description}
                   </span>
                 )}
