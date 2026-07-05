@@ -2,10 +2,20 @@
 
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi import APIRouter
 
 from app.deps import AdminServiceDep, CurrentAdminDep
-from app.schemas.admin import AdminLoginRequest, AdminLoginResponse, AdminStudentList
+from app.schemas.admin import (
+    AdminBulkDeleteRequest,
+    AdminBulkDeleteResponse,
+    AdminDeleteResponse,
+    AdminLoginRequest,
+    AdminLoginResponse,
+    AdminStudentDetail,
+    AdminStudentList,
+)
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -31,6 +41,36 @@ async def list_students(
     return await admin.list_students(
         q=q, school=school, grade=grade, class_no=class_no, limit=limit, offset=offset
     )
+
+
+@router.post("/students/bulk-delete", response_model=AdminBulkDeleteResponse)
+async def bulk_delete_students(
+    req: AdminBulkDeleteRequest,
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> AdminBulkDeleteResponse:
+    """여러 학생을 한 번에 하드 삭제(DB cascade + S3 사진/카드 이미지)."""
+    return await admin.delete_students(req.ids)
+
+
+@router.get("/students/{student_id}", response_model=AdminStudentDetail)
+async def student_detail(
+    student_id: UUID,
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> AdminStudentDetail:
+    """학생 1명 상세 — 설문 진행 단계별 답변·페르소나·카드 결과."""
+    return await admin.get_student_detail(student_id)
+
+
+@router.delete("/students/{student_id}", response_model=AdminDeleteResponse)
+async def delete_student(
+    student_id: UUID,
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> AdminDeleteResponse:
+    """학생 하드 삭제 — DB(세션·답변·페르소나·카드 cascade) + S3 사진/카드 이미지."""
+    return await admin.delete_student(student_id)
 
 
 @router.get("/dashboard")

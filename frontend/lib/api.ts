@@ -202,6 +202,16 @@ export interface AdminLoginResponse {
   admin_token: string;
 }
 
+export type AdminProgressStatus = "not_started" | "in_progress" | "completed";
+
+export interface AdminStudentProgress {
+  status: AdminProgressStatus;
+  stages_done: string[];
+  has_persona: boolean;
+  has_card: boolean;
+  last_activity_at: string | null;
+}
+
 export interface AdminStudentItem {
   id: string;
   school: string;
@@ -213,11 +223,60 @@ export interface AdminStudentItem {
   photo_url: string | null;
   consent_privacy: boolean;
   created_at: string;
+  progress: AdminStudentProgress;
 }
 
 export interface AdminStudentList {
   total: number;
   items: AdminStudentItem[];
+}
+
+export interface AdminAnswer {
+  stage: string;
+  payload: Record<string, unknown>;
+  created_at: string;
+}
+
+export interface AdminPersona {
+  name: string;
+  tagline: string;
+  keywords: string[];
+  fields: string[];
+}
+
+export interface AdminSessionDetail {
+  id: string;
+  status: string;
+  created_at: string;
+  completed_at: string | null;
+  answers: AdminAnswer[];
+  persona: AdminPersona | null;
+  card_image_url: string | null;
+}
+
+export interface AdminStudentDetail {
+  id: string;
+  school: string;
+  grade: number;
+  class_no: number;
+  student_no: number;
+  name: string;
+  password: string;
+  photo_url: string | null;
+  consent_privacy: boolean;
+  created_at: string;
+  sessions: AdminSessionDetail[];
+}
+
+export interface AdminDeleteResponse {
+  student_id: string;
+  removed_storage_objects: number;
+}
+
+export interface AdminBulkDeleteResponse {
+  deleted: string[];
+  not_found: string[];
+  removed_storage_objects: number;
 }
 
 export interface AdminStudentQuery {
@@ -256,6 +315,40 @@ export function fetchAdminStudents(
     `/api/admin/students${qs ? `?${qs}` : ""}`,
     { method: "GET", headers: { Authorization: `Bearer ${token}` } }
   );
+}
+
+export function fetchAdminStudentDetail(
+  token: string,
+  id: string
+): Promise<AdminStudentDetail> {
+  return request<AdminStudentDetail>(`/api/admin/students/${id}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function deleteAdminStudent(
+  token: string,
+  id: string
+): Promise<AdminDeleteResponse> {
+  return request<AdminDeleteResponse>(`/api/admin/students/${id}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function bulkDeleteAdminStudents(
+  token: string,
+  ids: string[]
+): Promise<AdminBulkDeleteResponse> {
+  return request<AdminBulkDeleteResponse>("/api/admin/students/bulk-delete", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ ids }),
+  });
 }
 
 // LLM 생성 단계(q7b/q8/q9)를 백엔드에 위임한다.

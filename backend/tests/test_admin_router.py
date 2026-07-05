@@ -11,16 +11,20 @@ from app.core.security import TokenKind, create_token
 from app.deps import get_admin_service
 from app.main import create_app
 from app.services.admin_service import AdminService
+from tests.test_admin_service import FakeSessionRepo
 from tests.test_auth_service import FakeStorage, FakeStudentRepo
 
 
-def _build() -> tuple[object, FakeStudentRepo, FakeStorage]:
+def _build() -> tuple[object, FakeStudentRepo, FakeStorage, FakeSessionRepo]:
     repo = FakeStudentRepo()
     storage = FakeStorage()
-    service = AdminService(students=repo, storage=storage, settings=get_settings())
+    sessions = FakeSessionRepo()
+    service = AdminService(
+        students=repo, sessions=sessions, storage=storage, settings=get_settings()
+    )
     app = create_app()
     app.dependency_overrides[get_admin_service] = lambda: service
-    return app, repo, storage
+    return app, repo, storage, sessions
 
 
 async def _client(app: object) -> AsyncIterator[httpx.AsyncClient]:
@@ -31,7 +35,7 @@ async def _client(app: object) -> AsyncIterator[httpx.AsyncClient]:
 
 async def test_login_success_returns_admin_token() -> None:
     settings = get_settings()
-    app, _, _ = _build()
+    app, _, _, _ = _build()
     gen = _client(app)
     client = await anext(gen)
     try:
@@ -46,7 +50,7 @@ async def test_login_success_returns_admin_token() -> None:
 
 
 async def test_login_wrong_credentials_unauthorized() -> None:
-    app, _, _ = _build()
+    app, _, _, _ = _build()
     gen = _client(app)
     client = await anext(gen)
     try:
@@ -70,7 +74,7 @@ def _admin_token() -> str:
 
 
 async def test_students_requires_admin_token() -> None:
-    app, _, _ = _build()
+    app, _, _, _ = _build()
     gen = _client(app)
     client = await anext(gen)
     try:
@@ -83,7 +87,7 @@ async def test_students_requires_admin_token() -> None:
 async def test_students_rejects_student_token() -> None:
     from datetime import timedelta
 
-    app, _, _ = _build()
+    app, _, _, _ = _build()
     gen = _client(app)
     client = await anext(gen)
     try:
@@ -101,7 +105,7 @@ async def test_students_rejects_student_token() -> None:
 
 
 async def test_students_lists_with_admin_token() -> None:
-    app, repo, _ = _build()
+    app, repo, _, _ = _build()
     await repo.create(
         school="한마당고", grade=2, class_no=3, student_no=11,
         name="홍길동", password="20100101", consent_privacy=True,
@@ -118,5 +122,99 @@ async def test_students_lists_with_admin_token() -> None:
         assert body["total"] == 1
         assert body["items"][0]["name"] == "홍길동"
         assert body["items"][0]["password"] == "20100101"
+        # 진행도 필드가 항상 포함되며, 세션 없으면 not_started.
+        assert body["items"][0]["progress"]["status"] == "not_started"
+    finally:
+        await gen.aclose()
+
+
+async def test_student_detail_requires_admin_token() -> None:
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get("/api/admin/students/00000000-0000-0000-0000-000000000001")
+        assert res.status_code == 401
+    finally:
+        await gen.aclose()
+
+
+async def test_student_detail_returns_content() -> None:
+    app, repo, _, sessions = _build()
+    student = await repo.create(
+        school="한마당고", grade=2, class_no=3, student_no=11,
+        name="홍길동", password="20100101", consent_privacy=True,
+    )
+    from datetime import UTC, datetime
+    from uuid import uuid4
+
+    from app.repositories.session_repo import SessionContent, SessionPersona
+
+    now = datetime.now(UTC)
+    sessions.contents[student.id] = [
+        SessionContent(
+            id=uuid4(), status="completed", created_at=now, completed_at=now,
+            answers=[], persona=SessionPersona("탐험가", "새로움", ["호기심"], ["과학"]),
+            card_image_key=None,
+        )
+    ]
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            f"/api/admin/students/{student.id}",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        body = res.json()
+        assert body["name"] == "홍길동"
+        assert body["sessions"][0]["persona"]["name"] == "탐험가"
+    finally:
+        await gen.aclose()
+
+
+async def test_student_detail_missing_returns_404() -> None:
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            "/api/admin/students/00000000-0000-0000-0000-000000000009",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 404
+    finally:
+        await gen.aclose()
+
+
+async def test_delete_student_removes_and_requires_token() -> None:
+    app, repo, storage, _ = _build()
+    student = await repo.create(
+        school="한마당고", grade=2, class_no=3, student_no=11,
+        name="홍길동", password="20100101", consent_privacy=True,
+    )
+    await repo.update_photo_key(student.id, "uploads/photos/x/photo")
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        # 토큰 없으면 401.
+        res = await client.delete(f"/api/admin/students/{student.id}")
+        assert res.status_code == 401
+
+        # admin 토큰으로 삭제 성공.
+        res = await client.delete(
+            f"/api/admin/students/{student.id}",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        assert res.json()["removed_storage_objects"] == 1
+        assert "uploads/photos/x/photo" in storage.deleted
+
+        # 삭제 후 목록에서 사라짐.
+        res = await client.get(
+            "/api/admin/students",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.json()["total"] == 0
     finally:
         await gen.aclose()

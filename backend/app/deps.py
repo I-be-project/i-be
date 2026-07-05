@@ -148,10 +148,13 @@ CurrentStudentDep = Annotated[UUID, Depends(current_student)]
 
 def get_admin_service(
     students: StudentRepoDep,
+    sessions: Annotated[SessionRepository, Depends(get_session_repo)],
     storage: StorageClientDep,
     settings: SettingsDep,
 ) -> AdminService:
-    return AdminService(students=students, storage=storage, settings=settings)
+    return AdminService(
+        students=students, sessions=sessions, storage=storage, settings=settings
+    )
 
 
 AdminServiceDep = Annotated[AdminService, Depends(get_admin_service)]
