@@ -88,7 +88,6 @@ export default function WelcomePage() {
           transition={{ duration: 0.5 }}
           className="glass-card mb-7 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#0e3a4f] shadow-[0_4px_20px_rgba(14,58,79,0.15)]"
         >
-          <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
           2026 나Be한마당
         </motion.div>
 
