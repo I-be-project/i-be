@@ -145,21 +145,29 @@ class SessionService:
     ) -> UUID:
         """진행 중(Q7~9) 답변 저장. 세션이 없으면 새 in_progress 세션을 만든다.
 
-        - session_id가 None: 새 in_progress 세션 생성 후 그 세션에 저장.
+        - session_id가 None: 새 in_progress 세션 생성 + 첫 답변 삽입을 한 트랜잭션으로
+          원자화한다. 삽입이 실패/취소되면 세션 생성도 함께 롤백되어, '답변 없는
+          유령 세션'이 남거나 그 stage 답변만 유실되는 일이 없다.
         - session_id가 있으면: 소유·상태 검증(내 세션 + in_progress) 후 저장.
         반환값은 이후 저장/완료에서 재사용할 세션 id.
         """
         if session_id is None:
-            session = await self._sessions.create(student_id, status="in_progress")
-            session_id = session.id
-        else:
-            session = await self._sessions.get_by_id(session_id)
-            if session is None:
-                raise NotFoundError("세션을 찾을 수 없습니다.")
-            if session.student_id != student_id:
-                raise ForbiddenError("이 세션에 접근할 수 없습니다.")
-            if session.status != "in_progress":
-                raise ConflictError("이미 종료된 세션입니다.")
+            async with self._db_pool.transaction() as conn:
+                session = await self._sessions.create(
+                    student_id, status="in_progress", conn=conn
+                )
+                await self._sessions.insert_answer(
+                    session.id, stage, answer, conn=conn
+                )
+            return session.id
+
+        existing = await self._sessions.get_by_id(session_id)
+        if existing is None:
+            raise NotFoundError("세션을 찾을 수 없습니다.")
+        if existing.student_id != student_id:
+            raise ForbiddenError("이 세션에 접근할 수 없습니다.")
+        if existing.status != "in_progress":
+            raise ConflictError("이미 종료된 세션입니다.")
 
         await self._sessions.insert_answer(session_id, stage, answer)
         return session_id
@@ -167,10 +175,14 @@ class SessionService:
     async def complete_survey(
         self,
         student_id: UUID,
-        persona: Persona,
+        persona: Persona | None,
         session_id: UUID | None = None,
     ) -> ProfileSummary:
-        """페르소나 선택 확정 → 세션 completed 승격 + 페르소나를 원자적으로 저장.
+        """세션 completed 승격(+ persona가 있으면 원자적으로 저장).
+
+        학생 흐름은 Q9가 마지막이라 보통 persona=None으로 호출한다. 이 경우 세션만
+        completed로 올리고 페르소나는 저장하지 않아 프로필이 '완료 · 카드 준비 중'이 된다.
+        persona가 주어지면 함께 저장한다.
 
         최근 '완료' 세션이 있고 retry_enabled가 false면 409(ConflictError).
         session_id가 주어지면 그 in_progress 세션을 completed로 올리고(진행 중 답변 유지),
@@ -201,7 +213,9 @@ class SessionService:
                 session = await self._sessions.create(
                     student_id, status="completed", conn=conn
                 )
-            await self._personas.create(session.id, persona, conn=conn)
+            # 이름 선택이 없는 완료(Q9가 마지막)면 persona는 저장하지 않는다.
+            if persona is not None:
+                await self._personas.create(session.id, persona, conn=conn)
 
         return await self.get_profile_summary(student_id)
 

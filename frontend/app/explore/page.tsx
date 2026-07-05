@@ -3,32 +3,13 @@
 import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Compass, MapPin, Sun, Moon, Sparkles } from "lucide-react";
+import { Compass, ScrollText, Sparkles } from "lucide-react";
 import { CtaButton } from "@/components/voyage/CtaButton";
+import { DragSheet } from "@/components/voyage/DragSheet";
 import { FullBleedScene } from "@/components/voyage/FullBleedScene";
+import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { useSessionStore } from "@/store/useSessionStore";
 import { briefingCampMapAsset } from "@/lib/assets/sceneManifest";
-
-const JOURNEY_STEPS = [
-  {
-    step: 1,
-    Icon: MapPin,
-    title: "섬에 도착",
-    desc: "팀과 함께 나로섬 캠프에 왔어요",
-  },
-  {
-    step: 2,
-    Icon: Sun,
-    title: "낮 탐험 6번",
-    desc: "장면마다 하나씩 고르면 돼요. 정답은 없어요",
-  },
-  {
-    step: 3,
-    Icon: Moon,
-    title: "밤 별빛 프로그램",
-    desc: "낮에 고른 걸 이어서, 캠프가 밤에 열려요",
-  },
-] as const;
 
 // 탐험 브리핑 — 나로섬 도착 장면. Q1~6 스토리의 도입부를 여기서 연다.
 export default function ExplorePage() {
@@ -40,78 +21,79 @@ export default function ExplorePage() {
   useEffect(() => {
     if (hasHydrated && !studentToken) router.replace("/login");
   }, [hasHydrated, studentToken, router]);
-  if (!hasHydrated || !studentToken) return null;
+  if (!hasHydrated || !studentToken) return <FlowLoading />;
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col bg-sand font-sans">
-      <FullBleedScene asset={briefingCampMapAsset} heightClass="h-[62vh] min-h-[320px]" priority>
+    <main className="relative h-[100dvh] overflow-hidden bg-sand font-sans">
+      <FullBleedScene
+        asset={briefingCampMapAsset}
+        heightClass="h-[62vh] min-h-[320px]"
+        priority
+      >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/65 via-white/20 to-transparent" />
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="absolute inset-x-0 bottom-6 z-10 flex flex-col items-center px-6 text-center"
+          className="absolute inset-x-0 top-0 z-10 flex flex-col items-start px-6 pt-12 text-left"
         >
-          <div className="glass-card mb-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-ink">
-            <Compass className="h-4 w-4 text-sky-500" />
-            처음 오는 친구도 괜찮아요
-          </div>
-          <h1 className="text-[1.9rem] font-black leading-tight tracking-tight text-ink drop-shadow-sm">
-            나로섬에 도착했어!
+          <h1 className="max-w-[80%] text-[2.85rem] font-black leading-tight tracking-tight text-ink drop-shadow-[0_2px_10px_rgba(255,255,255,0.7)]">
+            나로섬 도착
           </h1>
-          <p className="mt-2 max-w-xs text-[15px] font-semibold leading-relaxed text-ink-soft">
-            오늘은 팀과 함께 섬을 탐험하고,
-            <br />
-            밤에는 특별한 프로그램이 열려요
+          <p
+            className="mt-2 max-w-[80%] text-[15px] font-semibold leading-relaxed text-ink-soft"
+            style={{
+              filter:
+                "drop-shadow(0 2px 4px rgba(255,255,255,1)) drop-shadow(0 4px 28px rgba(255,255,255,1))",
+            }}
+          >
+            바닷바람 너머, 탐험 캠프가 보여.
           </p>
         </motion.div>
       </FullBleedScene>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.25 }}
-        className="relative z-10 -mt-5 flex flex-1 flex-col rounded-t-[1.75rem] bg-sand px-6 pb-10 pt-7"
-      >
-        <p className="mb-4 text-center text-sm font-bold text-ink-muted">
-          오늘 이렇게 진행돼요
-        </p>
+      <DragSheet>
+        <div className="glass-card mb-4 rounded-2xl p-5 text-left">
+          <p className="text-[18px] font-extrabold leading-relaxed text-ink">
+            여러 장면을 지나며 선택지를 고르고, <br />그 선택들이 모여 너만의
+            탐험대원증이 돼.
+          </p>
 
-        <div className="mb-6 flex flex-col gap-2.5">
-          {JOURNEY_STEPS.map(({ step, Icon, title, desc }, i) => (
-            <motion.div
-              key={step}
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 + i * 0.08 }}
-              className="glass-card flex items-center gap-3.5 rounded-2xl p-4"
-            >
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-sky-500 text-sm font-extrabold text-white">
-                {step}
-              </span>
-              <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-sky-100 text-sky-600">
-                <Icon className="h-4 w-4" strokeWidth={2.2} />
-              </span>
-              <span className="flex min-w-0 flex-col text-left">
-                <span className="text-[15px] font-extrabold text-ink">{title}</span>
-                <span className="text-sm font-medium leading-snug text-ink-muted">{desc}</span>
-              </span>
-            </motion.div>
-          ))}
+          <div className="my-4 h-px bg-ink/10" />
+
+          <div className="flex flex-col gap-4">
+            <div>
+              <p className="text-[15px] font-medium leading-relaxed text-ink-muted">
+                게임처럼 하루를 살아가며 선택해. <br />
+                정답을 맞히는 게 아니라, 네가 끌리는 쪽을 골라보면 돼.
+              </p>
+            </div>
+            <div>
+              <p className="text-[15px] font-medium leading-relaxed text-ink-muted">
+                끝나면 탐험대원증이 만들어져.
+                <br />
+                한마당 체험부스에서 네 탐험 이야기를 이어갈, 너를 설명하는
+                카드야.
+              </p>
+            </div>
+          </div>
         </div>
 
-        <p className="mb-8 inline-flex items-center justify-center gap-1.5 text-center text-sm font-bold text-ink-muted">
-          <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
-          지금부터 낮 탐험 6번을 시작해 볼까요?
-        </p>
+        <div className="mb-6 rounded-2xl bg-amber-50 px-5 py-4 text-left ring-1 ring-amber-200/60">
+          <p className="text-[15px] font-bold leading-relaxed text-ink">
+            한마당에서 공개되는 날, 네가 고른 미래 이름이 펼쳐질 거야.
+          </p>
+        </div>
 
-        <div className="mt-auto">
-          <CtaButton onClick={() => router.push("/explore/questions")}>
-            <Compass className="h-5 w-5" />
+        <div className="pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
+          <CtaButton
+            onClick={() => router.push("/explore/questions")}
+            className="bg-gradient-to-r from-sky-400 to-blue-500 shadow-[0_10px_26px_rgba(56,189,248,0.35)] hover:shadow-[0_14px_34px_rgba(56,189,248,0.45)]"
+          >
             낮 탐험 시작하기
           </CtaButton>
         </div>
-      </motion.div>
+      </DragSheet>
     </main>
   );
 }

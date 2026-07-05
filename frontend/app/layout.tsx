@@ -1,11 +1,17 @@
 import type { Metadata, Viewport } from "next";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SessionHydrator } from "@/components/SessionHydrator";
+import { AppFrame } from "@/components/AppFrame";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "나Be한마당 탐험대원증",
   description: "너는 어떤 미래를 살아보고 싶니?",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/icon.png",
+    apple: "/icon.png",
+  },
 };
 
 // 다이나믹 아일랜드/상태바 영역이 흰색으로 뜨지 않도록 상단창 배경색을 지정.
@@ -25,7 +31,9 @@ export default function RootLayout({
     <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full flex flex-col font-sans">
         <SessionHydrator />
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider>
+          <AppFrame>{children}</AppFrame>
+        </TooltipProvider>
       </body>
     </html>
   );

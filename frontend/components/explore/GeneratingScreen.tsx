@@ -16,19 +16,19 @@ interface GeneratingScreenProps {
   stage?: GeneratingStage;
 }
 
-/** Q7B–Q10 생성 대기 — welcome 톤 풀스크린 컷신 */
+/** Q7B–Q9 생성 대기 — welcome 톤 풀스크린 컷신 */
 export function GeneratingScreen({ error, onRetry, stage = "q7b" }: GeneratingScreenProps) {
   const asset = generatingAssets[stage];
   const copy = generatingCopy[stage];
 
   if (error) {
     return (
-      <div className="fixed inset-0 z-30 flex flex-col items-center justify-center bg-[#49a7e0]/95 px-6 text-center">
+      <div className="fixed inset-y-0 left-1/2 z-30 flex w-full max-w-2xl -translate-x-1/2 flex-col items-center justify-center bg-[#49a7e0]/95 px-6 text-center">
         <div className="glass-card flex max-w-sm flex-col items-center gap-5 rounded-3xl p-8">
           <AlertCircle className="h-12 w-12 text-rose-400" />
           <p className="break-keep text-lg font-bold text-ink">{error}</p>
           <CtaButton onClick={onRetry} className="w-auto px-8">
-            다시 시도
+            다시 시도해줄래?
           </CtaButton>
         </div>
       </div>
@@ -36,7 +36,7 @@ export function GeneratingScreen({ error, onRetry, stage = "q7b" }: GeneratingSc
   }
 
   return (
-    <div className="fixed inset-0 z-30 overflow-hidden">
+    <div className="fixed inset-y-0 left-1/2 z-30 w-full max-w-2xl -translate-x-1/2 overflow-hidden">
       <FullBleedScene asset={asset} heightClass="h-[100dvh]" priority bottomScrim={false}>
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[45%] bg-gradient-to-b from-white/60 via-white/20 to-transparent" />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[50%] bg-gradient-to-t from-[#fdf3e0]/95 via-[#fdf3e0]/55 to-transparent" />

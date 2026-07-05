@@ -18,7 +18,7 @@ import {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-// 스텝: 0 사진 → 1 Q1~6 → 2 Q7 → 3 Q8 → 4 Q9 → 5 페르소나 선택 → 6 결과
+// 스텝: 0 사진 → 1 Q1~6 → 2 Q7 → 3 Q8 → 4 Q9 → 5 카드 생성용 페르소나 선택(dev) → 6 결과
 const ADAPTIVE_START = 2;
 
 async function fileToBase64(file: File): Promise<string> {
@@ -166,7 +166,7 @@ export default function DevFlowPage() {
 
           {step === 5 && (
             <div className="space-y-4">
-              <p className="text-muted-foreground">Q10. 마음에 드는 페르소나를 골라주세요</p>
+              <p className="text-muted-foreground">카드 생성 테스트 — 페르소나를 골라주세요 (dev)</p>
               <div className="grid gap-3">
                 {devPersonaCandidates.map((p) => (
                   <Card

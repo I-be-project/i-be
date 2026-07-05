@@ -13,7 +13,7 @@ export function CtaButton({
     <Button
       size="lg"
       className={cn(
-        "h-14 w-full rounded-full border border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-base font-bold text-white shadow-[0_10px_26px_rgba(37,99,235,0.35)] transition-all hover:shadow-[0_14px_34px_rgba(37,99,235,0.45)] active:scale-[0.98] disabled:opacity-50",
+        "h-14 w-full rounded-full border-0 bg-clip-border bg-gradient-to-r from-sky-500 to-blue-600 text-base font-bold text-white shadow-[0_10px_26px_rgba(37,99,235,0.35)] transition-all hover:shadow-[0_14px_34px_rgba(37,99,235,0.45)] active:scale-[0.98] disabled:opacity-50",
         className,
       )}
       {...props}

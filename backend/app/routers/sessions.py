@@ -52,12 +52,16 @@ async def complete_survey(
     sessions: SessionServiceDep,
     body: CompleteRequest,
 ) -> ProfileSummary:
-    """페르소나 선택 확정 → 완료 세션 + 페르소나 저장 후 프로필 요약 반환.
+    """세션을 completed로 승격하고 프로필 요약을 반환한다.
 
-    session_id가 있으면 그 in_progress 세션(진행 중 답변 포함)을 completed로 승격한다.
+    학생 흐름은 Q9가 마지막이라 보통 persona 없이 호출한다(이 경우 페르소나를
+    저장하지 않아 프로필은 '완료 · 카드 준비 중'이 된다). name이 있으면 페르소나도 저장한다.
+    session_id가 있으면 그 in_progress 세션(진행 중 답변 포함)을 승격한다.
     이미 완료 + retry off → 409.
     """
-    return await sessions.complete_survey(student_id, body, session_id=body.session_id)
+    return await sessions.complete_survey(
+        student_id, body.to_persona(), session_id=body.session_id
+    )
 
 
 @router.get("/{session_id}/next-question")

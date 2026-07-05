@@ -1,31 +1,49 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
-import { generateStage, completeSurvey, saveAnswer } from "@/lib/api";
+import { ApiError, generateStage, completeSurvey } from "@/lib/api";
 import type { AnswerStage } from "@/lib/api";
+import { persistStage, reconcileAllAnswers } from "@/lib/answerSync";
 import { getQ7AOptions } from "@/lib/mock/q7a";
 import { Moon } from "lucide-react";
 import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
+import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { RankSelect } from "@/components/explore/RankSelect";
 import { ChipSelect } from "@/components/explore/ChipSelect";
-import { NameCardSelect } from "@/components/explore/NameCardSelect";
 import { GeneratingScreen } from "@/components/explore/GeneratingScreen";
 import type { GeneratingStage } from "@/lib/assets/sceneManifest";
-import type {
-  Q7BOption,
-  Q8Chip,
-  Q9Chip,
-  NameCard,
-} from "@/store/useSessionStore";
+import type { Q7BOption, Q8Chip, Q9Chip } from "@/store/useSessionStore";
+import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
 
-type Stage = "q7a" | "q7b" | "q8" | "q9" | "q10";
-const STAGE_INDEX: Record<Stage, number> = { q7a: 7, q7b: 8, q8: 8, q9: 9, q10: 10 };
+// 별빛 프로그램은 Q9가 마지막 — 응답을 마치면 세션을 완료하고 공개 대기로 간다.
+type Stage = "q7a" | "q7b" | "q8" | "q9";
+const STAGE_INDEX: Record<Stage, number> = { q7a: 7, q7b: 8, q8: 8, q9: 9 };
+
+// 단계별 답변 선택 색상 — CSS 변수로 주입하고 RankSelect/ChipSelect가 var()로 소비한다.
+// --scene-option-selected: 선택 배경, --scene-accent: 선택 테두리/포커스, --scene-check: 순위 뱃지.
+type SceneVars = CSSProperties & Record<`--${string}`, string>;
+const BLUE_THEME: SceneVars = {
+  "--scene-option-selected": "#E5EAF8",
+  "--scene-accent": "#7083C4",
+  "--scene-check": "#5369B1",
+};
+const WARM_THEME: SceneVars = {
+  "--scene-option-selected": "#E5EAF8",
+  "--scene-accent": "#7083C4",
+  "--scene-check": "#5369B1",
+};
+const STAGE_THEME: Record<Stage, SceneVars> = {
+  q7a: BLUE_THEME,
+  q7b: BLUE_THEME,
+  q8: BLUE_THEME,
+  q9: WARM_THEME,
+};
 
 interface Q7BData {
   title: string;
@@ -46,16 +64,13 @@ interface Q9Data {
   topic_chips: Q9Chip[];
   free_text_placeholder: string;
 }
-interface Q10Data {
-  title: string;
-  intro: string;
-  name_cards: (NameCard & {
-    materials_used_backend?: { field?: string; career_reference?: string };
-  })[];
-}
 
 export default function PathPage() {
   const router = useRouter();
+  // 밤 프로그램(Q7~9) — 여기부터는 뒤로가기를 막고, 재진입 시 완료한 질문 다음 단계로 이어간다.
+  const { ready } = useFlowGuard("path");
+  useBlockBack();
+
   const store = useSessionStore();
   const {
     riasecScores,
@@ -65,8 +80,6 @@ export default function PathPage() {
     setQ7bSelection,
     setQ8Selection,
     setQ9Selection,
-    setQ10Selection,
-    setPersona,
   } = store;
 
   const [stage, setStage] = useState<Stage>("q7a");
@@ -77,23 +90,18 @@ export default function PathPage() {
   const [q7bData, setQ7bData] = useState<Q7BData | null>(null);
   const [q8Data, setQ8Data] = useState<Q8Data | null>(null);
   const [q9Data, setQ9Data] = useState<Q9Data | null>(null);
-  const [q10Data, setQ10Data] = useState<Q10Data | null>(null);
 
   // 진행 중 선택 상태
   const [first, setFirst] = useState<string | null>(null);
   const [second, setSecond] = useState<string | null>(null);
   const [chipIds, setChipIds] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
-  const [nameId, setNameId] = useState<string | null>(null);
 
-  // pairCode 없으면 비정상 진입 — 처음으로
+  // 제목+리스트만 담는 내부 스크롤 영역 — 헤더(진행 칩)/푸터(CTA)는 고정.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // 다음 단계로 넘어가면 내부 스크롤 영역을 맨 위부터 다시 보이게
   useEffect(() => {
-    if (!pairCode || !riasecScores) router.replace("/explore");
-  }, [pairCode, riasecScores, router]);
-
-  // 다음 단계로 넘어가면 맨 위부터 다시 보이게
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    scrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
   }, [stage]);
 
   const q1to6 = answers
@@ -106,7 +114,7 @@ export default function PathPage() {
   const pendingRetry = useRef<(() => void) | null>(null);
   const callGenerate = useCallback(
     async (
-      apiStage: "q7b" | "q8" | "q9" | "q10",
+      apiStage: "q7b" | "q8" | "q9",
       body: unknown,
       onOk: (data: unknown) => void,
     ) => {
@@ -118,7 +126,7 @@ export default function PathPage() {
         const json = await generateStage(apiStage, body as Record<string, unknown>);
         onOk(json);
       } catch {
-        setError("생성에 실패했어요. 다시 시도해주세요.");
+        setError("섬의 안내가 잠시 끊겼어. 다시 시도해줄래?");
       } finally {
         setGenerating(false);
       }
@@ -131,19 +139,34 @@ export default function PathPage() {
     setSecond(null);
     setChipIds([]);
     setFreeText("");
-    setNameId(null);
+  };
+
+  // 생성 결과를 화면에 반영하는 공통 핸들러 — 제출·재시도·이어하기가 함께 쓴다.
+  const showQ7b = (json: unknown) => {
+    setQ7bData((json as { q7b: Q7BData }).q7b);
+    resetSelection();
+    setStage("q7b");
+  };
+  const showQ8 = (json: unknown) => {
+    setQ8Data((json as { q8: Q8Data }).q8);
+    resetSelection();
+    setStage("q8");
+  };
+  const showQ9 = (json: unknown) => {
+    setQ9Data((json as { q9: Q9Data }).q9);
+    resetSelection();
+    setStage("q9");
   };
 
   // Q7~9 답변을 백엔드에 단계별 저장(진행 중). 생성 흐름과 독립 — 실패해도 설문은 막지 않는다.
-  // 첫 저장 때 발급받은 sessionId를 스토어에 보관해 다음 저장·완료에서 재사용한다.
+  // persistStage가 재시도 + sessionId single-flight(세션 분할 방지)를 담당한다.
+  // 여기서 실패해도 완료 시 reconcileAllAnswers가 스토어에서 재전송하므로 최종 유실은 없다.
   const persistAnswer = (stage: AnswerStage, answer: Record<string, unknown>) => {
-    const { studentToken, sessionId, setSessionId } = useSessionStore.getState();
+    const { studentToken } = useSessionStore.getState();
     if (!studentToken) return; // 정상 흐름에선 항상 로그인 상태
-    void saveAnswer(studentToken, { sessionId: sessionId ?? undefined, stage, answer })
-      .then((res) => {
-        if (!sessionId) setSessionId(res.session_id);
-      })
-      .catch((e) => console.error("답변 저장 실패", stage, e));
+    void persistStage(studentToken, stage, answer).catch((e) =>
+      console.error("답변 저장 실패(완료 시 재동기화로 보장됨)", stage, e),
+    );
   };
 
   const baseInput = {
@@ -162,11 +185,7 @@ export default function PathPage() {
     callGenerate(
       "q7b",
       { ...baseInput, q7aFirst: firstOpt.label, q7aSecond: secondOpt.label },
-      (json) => {
-        setQ7bData((json as { q7b: Q7BData }).q7b);
-        resetSelection();
-        setStage("q7b");
-      },
+      showQ7b,
     );
   };
 
@@ -190,11 +209,7 @@ export default function PathPage() {
         q7bFirst: firstOpt,
         q7bSecond: secondOpt,
       },
-      (json) => {
-        setQ8Data((json as { q8: Q8Data }).q8);
-        resetSelection();
-        setStage("q8");
-      },
+      showQ8,
     );
   };
 
@@ -216,94 +231,57 @@ export default function PathPage() {
         q7bSecond: b?.second,
         q8: { chips, freeText },
       },
-      (json) => {
-        setQ9Data((json as { q9: Q9Data }).q9);
-        resetSelection();
-        setStage("q9");
-      },
+      showQ9,
     );
   };
 
-  // Q9 확정 → Q10 생성
-  const submitQ9 = () => {
-    if (!q9Data) return;
-    const chips = q9Data.topic_chips.filter((c) => chipIds.includes(c.chip_id));
-    setQ9Selection({ chips, freeText });
-    persistAnswer("q9", { chips: chips.map((c) => c.text), freeText });
-    const a = store.q7aSelection;
-    const b = store.q7bSelection;
-    const careerPool = [
-      ...(b?.first.career_pool ?? []),
-      ...(b?.second.career_pool ?? []),
-    ];
-    callGenerate(
-      "q10",
-      {
-        ...baseInput,
-        q7aFirst: a?.first.label ?? "",
-        q7aSecond: a?.second.label ?? "",
-        q7bFirst: b?.first,
-        q7bSecond: b?.second,
-        q8: store.q8Selection,
-        q9: { chips, freeText },
-        careerPool,
-      },
-      (json) => {
-        setQ10Data((json as { q10: Q10Data }).q10);
-        resetSelection();
-        setStage("q10");
-      },
-    );
-  };
-
-  // Q10 확정 → persona 매핑 → 백엔드 완료 저장 → 결과로
-  const submitQ10 = async () => {
-    if (!q10Data || !nameId) return;
-    const card = q10Data.name_cards.find((c) => c.name_id === nameId)!;
-    setQ10Selection(card);
-    const b = store.q7bSelection;
-    const keywords = [
-      ...(store.q8Selection?.chips.map((c) => c.text) ?? []),
-      ...(store.q9Selection?.chips.map((c) => c.text) ?? []),
-    ].slice(0, 5);
-    const fields = [card.materials_used_backend?.field ?? pairCode ?? ""].filter(Boolean);
-    setPersona({
-      name: card.persona_name,
-      tagline: card.short_description,
-      keywords,
-      fields,
-      recommendedBooths: [
-        ...(b?.first.career_pool ?? []),
-        ...(b?.second.career_pool ?? []),
-      ].slice(0, 3),
-    });
-
+  // Q9 답변으로 세션을 완료 저장하고 공개 대기 화면으로 이동한다. Q9가 마지막 질문이다.
+  // 탐험대원증 이름·카드는 한마당에서 공개하므로 페르소나 없이 세션만 completed로 승격한다.
+  // 제출(submitQ9)과 이어하기(재진입 시 Q9까지 답했지만 완료 저장 전) 양쪽에서 재사용한다.
+  const finalizeSurvey = async (
+    chips: { text: string }[],
+    freeTextValue: string,
+  ) => {
     // 완료 저장은 인증 필요. 토큰 없으면 로그인으로.
-    if (!store.studentToken) {
+    const { studentToken, setSurveyCompleted } = useSessionStore.getState();
+    if (!studentToken) {
       router.push("/login");
       return;
     }
     setGenerating(true);
     setError(null);
     try {
-      // sessionId가 있으면 Q7~9 답변이 쌓인 그 세션을 completed로 승격한다.
-      await completeSurvey(
-        store.studentToken,
-        {
-          name: card.persona_name,
-          tagline: card.short_description,
-          keywords,
-          fields,
-        },
-        useSessionStore.getState().sessionId ?? undefined,
-      );
-      router.push("/explore/interpreting");
-    } catch {
-      pendingRetry.current = submitQ10; // "다시 시도" 시 저장을 재실행
-      setError("결과 저장에 실패했어요. 다시 시도해주세요.");
+      // 완료 직전, 스토어의 전체 답변(q1to6~q9)을 세션에 재전송해 앞선 저장의 누락을 메운다.
+      // insert가 (session_id, stage) 기준 멱등이라 재전송은 안전하며, 이로써 완료 세션은
+      // 항상 온전한 답변을 갖는다("완료"가 데이터 무결성의 단일 관문). 그 뒤 completed로 승격.
+      const sid = await reconcileAllAnswers(studentToken);
+      await completeSurvey(studentToken, null, sid);
+      setSurveyCompleted(true);
+      router.push("/explore/pending-card");
+    } catch (e) {
+      // 완료 흐름의 409는 "서버가 이미 이 학생을 완료로 본다"는 뜻이다:
+      //  - completeSurvey → "이미 설문을 완료했습니다"
+      //  - reconcile 중 saveAnswer → "이미 종료된 세션입니다"(sessionId가 완료 세션을 가리킴)
+      // 세션 상태는 현재 in_progress/completed 둘뿐이라(abandoned 전이 미사용) '이미 종료'는
+      // 곧 완료를 의미한다. 응답 유실·이미 완료로 인한 무한 409 재시도(막다른 길)를 피하려면
+      // 성공으로 간주해 종료 화면으로 보낸다. (향후 abandoned 도입 시 이 분기 재검토 필요)
+      if (e instanceof ApiError && e.status === 409) {
+        setSurveyCompleted(true);
+        router.push("/explore/pending-card");
+        return;
+      }
+      pendingRetry.current = () => finalizeSurvey(chips, freeTextValue); // "다시 시도" 시 완료 저장을 재실행
+      setError("탐험 기록을 저장하지 못했어. 다시 시도해줄래?");
     } finally {
       setGenerating(false);
     }
+  };
+
+  const submitQ9 = () => {
+    if (!q9Data) return;
+    const chips = q9Data.topic_chips.filter((c) => chipIds.includes(c.chip_id));
+    setQ9Selection({ chips, freeText });
+    void finalizeSurvey(chips, freeText);
   };
 
   // "다시 시도" — 저장 재시도 핸들러가 있으면 우선, 없으면 마지막 생성 요청 재실행
@@ -316,42 +294,83 @@ export default function PathPage() {
     }
     const req = lastReq.current;
     if (!req) return;
-    const apiStage = req.stage as "q7b" | "q8" | "q9" | "q10";
-    const onOkMap = {
-      q7b: (json: unknown) => {
-        setQ7bData((json as { q7b: Q7BData }).q7b);
-        resetSelection();
-        setStage("q7b");
-      },
-      q8: (json: unknown) => {
-        setQ8Data((json as { q8: Q8Data }).q8);
-        resetSelection();
-        setStage("q8");
-      },
-      q9: (json: unknown) => {
-        setQ9Data((json as { q9: Q9Data }).q9);
-        resetSelection();
-        setStage("q9");
-      },
-      q10: (json: unknown) => {
-        setQ10Data((json as { q10: Q10Data }).q10);
-        resetSelection();
-        setStage("q10");
-      },
-    };
+    const apiStage = req.stage as "q7b" | "q8" | "q9";
+    const onOkMap = { q7b: showQ7b, q8: showQ8, q9: showQ9 };
     callGenerate(apiStage, req.body, onOkMap[apiStage]);
   };
 
-  const toggleChip = (id: string) =>
-    setChipIds((prev) =>
-      prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : prev.length >= 2
-          ? prev // 최대 2개
-          : [...prev, id],
-    );
+  // 재진입/새로고침 이어하기 — 저장된 선택으로 "완료한 질문 다음 단계"를 다시 생성해 보여준다.
+  // 밤 프로그램 선택지는 LLM이 실시간 생성하므로, 이전 답변을 입력으로 다음 단계를 재생성한다.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (!ready || resumedRef.current) return;
+    resumedRef.current = true;
+    const s = useSessionStore.getState();
+    const base = {
+      riasecScores: s.riasecScores ?? {},
+      pairCode: s.pairCode ?? "",
+      q1to6: s.answers
+        .map((a) => a.value)
+        .filter((v): v is string => typeof v === "string"),
+    };
+    const a = s.q7aSelection;
+    const b = s.q7bSelection;
+    // Q9까지 답했지만 완료 저장 전에 이탈 → 완료 저장부터 다시.
+    if (s.q9Selection && !s.surveyCompleted) {
+      void finalizeSurvey(s.q9Selection.chips, s.q9Selection.freeText);
+      return;
+    }
+    // Q8 완료 → Q9 재생성.
+    if (s.q8Selection) {
+      callGenerate(
+        "q9",
+        {
+          ...base,
+          q7aFirst: a?.first.label ?? "",
+          q7aSecond: a?.second.label ?? "",
+          q7bFirst: b?.first,
+          q7bSecond: b?.second,
+          q8: { chips: s.q8Selection.chips, freeText: s.q8Selection.freeText },
+        },
+        showQ9,
+      );
+      return;
+    }
+    // Q7-B 완료 → Q8 재생성.
+    if (b) {
+      callGenerate(
+        "q8",
+        {
+          ...base,
+          q7aFirst: a?.first.label ?? "",
+          q7aSecond: a?.second.label ?? "",
+          q7bFirst: b.first,
+          q7bSecond: b.second,
+        },
+        showQ8,
+      );
+      return;
+    }
+    // Q7-A 완료 → Q7-B 재생성.
+    if (a) {
+      callGenerate(
+        "q7b",
+        { ...base, q7aFirst: a.first.label, q7aSecond: a.second.label },
+        showQ7b,
+      );
+      return;
+    }
+    // 저장된 밤 선택이 없으면 신규 진입 — q7a 그대로 시작.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
-  if (!pairCode || !riasecScores) return null;
+  // Q8·Q9는 1개만 선택 — 같은 칩을 다시 누르면 해제, 다른 칩을 누르면 교체.
+  const toggleChip = (id: string) =>
+    setChipIds((prev) => (prev.includes(id) ? [] : [id]));
+
+  // 복원 전이거나 진입 조건 미충족이면 가드가 리다이렉트할 때까지 그리지 않는다.
+  // (pairCode/riasecScores 널 체크로 아래 렌더의 타입도 좁힌다)
+  if (!ready || !pairCode || !riasecScores) return <FlowLoading mood="night" />;
 
   // 현재 단계의 제목/본문/하단버튼 구성
   const rankReady = first !== null && second !== null;
@@ -360,29 +379,33 @@ export default function PathPage() {
   const q7aOptions = getQ7AOptions(pairCode);
 
   let title = "";
+  let subtitle = "";
   let body: ReactNode = null;
   let cta = "";
   let onCta: () => void = () => {};
   let ctaDisabled = false;
 
   if (stage === "q7a") {
-    title = "섬을 둘러보다 마주친 장소들이에요. 더 가보고 싶은 곳을 1·2순위로 골라주세요.";
+    title = "등불이 켜진 캠프 공간 중, 오늘 밤 가장 먼저 들어가 보고 싶은 곳은?";
+    subtitle = "끌리는 장소를 두 개 골라봐.";
     body = (
       <RankSelect
         options={q7aOptions}
         first={first}
         second={second}
+        variant="location"
         onChange={(f, s) => {
           setFirst(f);
           setSecond(s);
         }}
       />
     );
-    cta = "이 곳으로 가보기";
+    cta = "등불 아래로 들어가기";
     onCta = submitQ7a;
     ctaDisabled = !rankReady;
   } else if (stage === "q7b" && q7bData) {
     title = q7bData.title;
+    subtitle = "마음이 가는 두 가지를 골라봐.";
     body = (
       <RankSelect
         options={q7bData.options.map((o) => ({
@@ -392,17 +415,19 @@ export default function PathPage() {
         }))}
         first={first}
         second={second}
+        variant="location"
         onChange={(f, s) => {
           setFirst(f);
           setSecond(s);
         }}
       />
     );
-    cta = "이 길로 들어가기";
+    cta = "도구를 주머니에 넣기";
     onCta = submitQ7b;
     ctaDisabled = !rankReady;
   } else if (stage === "q8" && q8Data) {
     title = q8Data.title;
+    subtitle = "어울리는 낱말을 골라봐. 직접 적어도 좋아.";
     body = (
       <ChipSelect
         chips={q8Data.word_chips.map((c) => ({ id: c.chip_id, text: c.text }))}
@@ -413,11 +438,12 @@ export default function PathPage() {
         onFreeText={setFreeText}
       />
     );
-    cta = "다음";
+    cta = "이렇게 해볼래";
     onCta = submitQ8;
     ctaDisabled = !chipReady;
   } else if (stage === "q9" && q9Data) {
     title = q9Data.title;
+    subtitle = "더 살펴보고 싶은 걸 골라봐. 직접 적어도 좋아.";
     body = (
       <ChipSelect
         chips={q9Data.topic_chips.map((c) => ({ id: c.chip_id, text: c.text }))}
@@ -428,26 +454,9 @@ export default function PathPage() {
         onFreeText={setFreeText}
       />
     );
-    cta = "다음";
+    cta = "이걸 더 살펴볼래";
     onCta = submitQ9;
     ctaDisabled = !chipReady;
-  } else if (stage === "q10" && q10Data) {
-    title = q10Data.title;
-    body = (
-      <NameCardSelect
-        cards={q10Data.name_cards.map((c) => ({
-          id: c.name_id,
-          name: c.persona_name,
-          description: c.short_description,
-          emphasis: c.emphasis,
-        }))}
-        selectedId={nameId}
-        onSelect={setNameId}
-      />
-    );
-    cta = "이 이름으로 결정하기";
-    onCta = submitQ10;
-    ctaDisabled = nameId === null;
   }
 
   const showGenerating = generating || error !== null;
@@ -456,53 +465,76 @@ export default function PathPage() {
     (lastReq.current?.stage as GeneratingStage | undefined) ?? "q7b";
 
   return (
-    // overflow-hidden은 배경 컴포넌트가 자체 처리 — main에 걸면 sticky CTA가 죽는다
-    <main className="relative flex min-h-[100dvh] flex-col font-sans">
+    // 화면 높이에 고정 — 페이지 전체 스크롤을 막고, 제목+리스트만 내부에서 스크롤한다.
+    <main className="relative flex h-[100dvh] flex-col overflow-hidden font-sans">
       {/* Q6 해질녘 신호 이후 — 밤이 깊어진 섬에서 심화 탐험이 이어진다 */}
       <ExpeditionBackdrop mood="night" />
+      {stage === "q7a" && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 78% 12%, rgba(255,245,205,0.18), transparent 24%), linear-gradient(to bottom, rgba(120,136,181,0.92) 0%, rgba(156,155,192,0.9) 36%, rgba(214,194,190,0.88) 68%, rgba(247,229,195,0.96) 100%)",
+          }}
+        />
+      )}
       <TrailBar step={STAGE_INDEX[stage]} total={10} />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-grow flex-col px-6 pb-8 pt-7">
-        {showGenerating ? (
-          <GeneratingScreen error={error} onRetry={retry} stage={generatingStage} />
-        ) : (
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={stage}
-              initial={{ opacity: 0, x: 32 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -32 }}
-              transition={{ duration: 0.35, ease: "easeInOut" }}
-              className="flex flex-grow flex-col"
-            >
-              {/* 컴팩트 진행 칩 — 진행 헤더 블록 대신 한 줄로 */}
-              <div className="mb-4 flex items-center justify-between">
-                <div className="glass-card inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
-                  <Moon className="h-3 w-3 text-sky-600" />
-                  밤의 별빛 프로그램
-                </div>
-                <div className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
-                  {STAGE_INDEX[stage]}/10
-                </div>
+      {showGenerating ? (
+        <GeneratingScreen error={error} onRetry={retry} stage={generatingStage} />
+      ) : (
+        <>
+          {/* 고정 헤더 — 진행 칩(스크롤 제외) */}
+          <div className="relative z-10 mx-auto w-full max-w-2xl shrink-0 px-5 pt-6 sm:px-6">
+            <div className="flex items-center">
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/35 px-3 py-1.5 text-[11px] font-bold text-ink shadow-sm backdrop-blur-md">
+                <Moon className="h-3 w-3 text-sky-600" />
+                밤 · 별빛 프로그램
               </div>
+            </div>
+          </div>
 
-              <h2 className="mb-7 break-keep text-2xl font-extrabold leading-snug text-ink">
-                {title}
-              </h2>
-              <div className="flex-grow pb-32">{body}</div>
-              <div className="sticky bottom-0 z-10 -mx-6 flex justify-center bg-gradient-to-t from-sand via-sand/80 to-transparent p-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
-                <CtaButton
-                  onClick={onCta}
-                  disabled={ctaDisabled}
-                  className="max-w-2xl"
-                >
-                  {cta}
-                </CtaButton>
-              </div>
-            </motion.div>
-          </AnimatePresence>
-        )}
-      </div>
+          {/* 내부 스크롤 영역 — 제목 + 부제 + 리스트만 스크롤 (헤더/푸터 제외) */}
+          <div
+            ref={scrollRef}
+            className="relative z-10 mx-auto w-full min-h-0 max-w-2xl flex-1 overflow-y-auto px-5 pt-5 sm:px-6"
+          >
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={stage}
+                initial={{ opacity: 0, x: 32 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -32 }}
+                transition={{ duration: 0.35, ease: "easeInOut" }}
+                style={STAGE_THEME[stage]}
+                className="flex flex-col"
+              >
+                <h2 className="mb-3 max-w-xl break-keep text-[clamp(27px,6vw,34px)] font-black leading-[1.25] tracking-[-0.025em] text-ink">
+                  {title}
+                </h2>
+                {subtitle && (
+                  <p className="mb-6 break-keep text-[14px] font-medium leading-relaxed text-ink/65">
+                    {subtitle}
+                  </p>
+                )}
+                {/* 하단 고정 CTA가 마지막 항목을 가리지 않도록 여백 확보 */}
+                <div className="pb-32">{body}</div>
+              </motion.div>
+            </AnimatePresence>
+          </div>
+        </>
+      )}
+
+      {/* 하단 고정 CTA — x 슬라이드되는 카드(motion.div) 밖, main 직속에 둬야 뷰포트 기준으로 고정된다.
+          (transform 조상 안에 두면 fixed가 그 조상 기준이 되어 하단 고정이 깨진다) */}
+      {!showGenerating && (
+        <div className="fixed bottom-0 left-1/2 z-20 flex w-full max-w-2xl -translate-x-1/2 justify-center bg-gradient-to-t from-[#f7e5c3] via-[#f7e5c3]/95 to-transparent px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-7 sm:px-6">
+          <CtaButton onClick={onCta} disabled={ctaDisabled} className="max-w-2xl">
+            {cta}
+          </CtaButton>
+        </div>
+      )}
     </main>
   );
 }

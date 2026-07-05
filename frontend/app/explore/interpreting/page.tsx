@@ -7,14 +7,11 @@ import { Compass } from "lucide-react";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
 
-const floatingKeywords = [
-  "호기심", "창의성", "논리", "자연", "미래",
-  "연결", "안정", "도전", "데이터", "감성"
-];
+const floatingKeywords = ["탐험", "팀", "별빛", "섬", "선택"];
 
 export default function InterpretingPage() {
   const router = useRouter();
-  // 실제 페르소나는 Q10 확정 단계(explore/path)에서 이미 스토어에 저장돼 있다.
+  // 페르소나는 결과 단계에서 스토어에 저장돼 있어야 한다.
   // 여기서는 덮어쓰지 않고, 없으면 처음으로 돌려보낸다.
   const persona = useSessionStore((state) => state.persona);
   const [currentKeyword, setCurrentKeyword] = useState<string>("");
@@ -101,9 +98,9 @@ export default function InterpretingPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          오늘 탐험 기록을
+          별빛 아래,
           <br />
-          정리하고 있어…
+          탐험 일지를 정리하는 중…
         </motion.h2>
 
         <div className="flex h-12 items-center justify-center">

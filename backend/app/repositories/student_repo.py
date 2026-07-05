@@ -194,9 +194,21 @@ class StudentRepository(BaseRepository):
             rows = await conn.fetch(list_query, *params, limit, offset)
         return int(total), [_to_record(row) for row in rows]
 
-    # 데이터 삭제(soft delete + 사진 폐기)는 다른 작업 영역 — 인터페이스만 유지.
-    async def soft_delete(self, *args: object, **kwargs: object) -> object:
-        raise NotImplementedError
+    async def hard_delete(self, student_id: UUID) -> tuple[bool, str | None]:
+        """학생 행을 완전 삭제(관리자 전용). soft-delete 여부와 무관하게 지운다.
 
-    async def clear_photo(self, *args: object, **kwargs: object) -> object:
+        FK ON DELETE CASCADE로 generated.sessions → answers/personas → cards가
+        함께 제거된다. RETURNING으로 삭제된 행의 photo_key를 받아 S3 정리에 쓴다.
+
+        반환: (삭제된 행이 있었는지, 그 행의 photo_key). 대상이 없으면 (False, None).
+        """
+        query = "delete from pii.students where id = $1 returning photo_key"
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, student_id)
+        if row is None:
+            return False, None
+        return True, row["photo_key"]
+
+    # soft delete(자동 폐기)는 정책상 미사용 — 인터페이스만 유지.
+    async def soft_delete(self, *args: object, **kwargs: object) -> object:
         raise NotImplementedError

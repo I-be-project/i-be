@@ -30,6 +30,7 @@ export default function SignupPage() {
   });
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [consent, setConsent] = useState(false);
 
   const [error, setError] = useState<string | null>(null);
@@ -63,9 +64,18 @@ export default function SignupPage() {
       !identity.classNo ||
       !identity.studentNo ||
       !name.trim() ||
-      !password
+      !password ||
+      !confirmPassword
     ) {
       setError("모든 항목을 입력해줘.");
+      return;
+    }
+    if (!/^\d{4}$/.test(password)) {
+      setError("비밀번호는 숫자 4자리로 정해줘.");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("비밀번호가 서로 달라. 다시 확인해줘.");
       return;
     }
     if (grade < 1 || grade > 12) {
@@ -146,12 +156,12 @@ export default function SignupPage() {
           탐험대 등록 · 1/2
         </p>
         <h1 className="text-[2rem] font-black leading-[1.2] tracking-tight text-ink">
-          먼저 너를
+          탐험대원
           <br />
-          알려줘
+          명단에 올려줘
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
-          나로섬 탐험 기록을 남기려면 탐험대원 정보가 필요해.
+          나로섬에 도착하면, 너의 이름이 탐험대 명단에 새겨져.   탐험이 끝나면 이 기록이 탐험대원증이 돼.
         </p>
       </div>
 
@@ -192,16 +202,40 @@ export default function SignupPage() {
               <Input
                 id="password"
                 type="password"
+                inputMode="numeric"
+                maxLength={4}
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="생년월일 8자리 (예: 20100101)"
+                onChange={(e) =>
+                  setPassword(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+                placeholder="생일 4자리 (예: 1029)"
                 disabled={loading}
                 autoComplete="new-password"
                 className={inputClass}
               />
               <p className="mt-1.5 text-xs font-medium text-zinc-500">
-                생년월일 8자리처럼 기억하기 쉬운 숫자로 정해줘.
+                생일 4자리나 전화번호 뒷자리처럼 기억하기 쉬운 숫자로 정해줘
               </p>
+            </div>
+
+            <div>
+              <label htmlFor="confirmPassword" className={labelClass}>
+                비밀번호 확인
+              </label>
+              <Input
+                id="confirmPassword"
+                type="password"
+                inputMode="numeric"
+                maxLength={4}
+                value={confirmPassword}
+                onChange={(e) =>
+                  setConfirmPassword(e.target.value.replace(/\D/g, "").slice(0, 4))
+                }
+                placeholder="비밀번호를 한 번 더 입력해줘"
+                disabled={loading}
+                autoComplete="new-password"
+                className={inputClass}
+              />
             </div>
 
             <div
@@ -222,7 +256,7 @@ export default function SignupPage() {
                   개인정보 수집 및 이용 동의
                 </label>
                 <p className="text-xs text-ink-muted">
-                  행사 기록 및 탐험대원증 발급을 위해 최소한의 정보를 수집합니다.
+                  행사 기록 및 탐험대원증 발급을 위해 최소한의 정보를 수집합니다
                 </p>
               </div>
             </div>
@@ -252,7 +286,7 @@ export default function SignupPage() {
           {/* 하단 고정 액션 */}
           <div className="mt-auto pt-8">
             <CtaButton type="submit" disabled={loading}>
-              {loading ? "등록하는 중..." : "다음"}
+              {loading ? "명단에 올리는 중..." : "다음"}
             </CtaButton>
 
             <p className="mt-5 text-center text-sm font-medium text-zinc-500">

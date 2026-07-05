@@ -1,4 +1,4 @@
-"""Q7-B/Q8/Q9/Q10 생성 엔드포인트 요청·응답 스키마."""
+"""Q7-B/Q8/Q9 생성 엔드포인트 요청·응답 스키마."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from typing import Any
 from pydantic import BaseModel, ConfigDict, Field
 
 # 허용된 stage 값
-VALID_STAGES = frozenset({"q7b", "q8", "q9", "q10"})
+VALID_STAGES = frozenset({"q7b", "q8", "q9"})
 
 
 class GenerateInput(BaseModel):

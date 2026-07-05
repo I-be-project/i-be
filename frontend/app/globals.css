@@ -121,6 +121,12 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html,
+  body {
+    /* 화면이 꽉 찬 앱처럼 보이도록, 위아래로 당겨도 튕기는 오버스크롤(고무줄 바운스)을 막는다.
+       내부에서 의도적으로 스크롤하는 영역(overflow-y-auto 등)의 스크롤 자체는 막지 않는다. */
+    overscroll-behavior-y: none;
+  }
   body {
     @apply bg-background text-foreground;
   }

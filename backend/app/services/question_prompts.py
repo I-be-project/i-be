@@ -1,4 +1,4 @@
-"""Q7-B / Q8 / Q9 / Q10 프롬프트 빌더.
+"""Q7-B / Q8 / Q9 프롬프트 빌더.
 
 각 함수는 [{"role": "system", "content": ...}, {"role": "user", "content": ...}]
 형태의 메시지 리스트를 반환한다. 시스템 프롬프트와 유저 메시지 내용은
@@ -51,7 +51,7 @@ RIASEC 유형, 점수, 전문 분야명을 직접 보여주지 않는다.
 - backend_subfield: 세부 분야
 - backend_keywords: 해당 분야를 설명하는 내부 키워드
 - career_pool: 연결 가능한 현실 직업 후보
-- persona_material_keywords: Q8~Q10 페르소나 생성에 사용할 재료
+- persona_material_keywords: Q8·Q9와 이후 탐험대원증(페르소나) 생성에 사용할 재료
 
 ## 입력 활용 규칙
 
@@ -183,7 +183,7 @@ backend_keywords는 해당 세부 분야를 설명하는
 
 - 선택지마다 3~5개
 - student_title이나 student_description을 단순 반복하지 않는다.
-- Q10 이름과 부스 추천을 만들 때 활용할 수 있는
+- 이후 탐험대원증 이름과 부스 추천을 만들 때 활용할 수 있는
   분야·활동 중심 키워드로 작성한다.
 - 직업명은 넣지 않는다.
 
@@ -195,12 +195,12 @@ career_pool에는 해당 세부 분야와 연결되는
 - 실제 존재하는 직업명 사용
 - 서로 이름만 다른 유사 직업으로 채우지 않는다.
 - Q7-A 공간 및 backend_subfield와 직접 관련된 직업만 포함한다.
-- Q10 결과를 미리 한 직업으로 확정하지 않는다.
+- 이후 결과를 미리 한 직업으로 확정하지 않는다.
 - student_title과 student_description에는 이 직업명을 노출하지 않는다.
 
 ## persona_material_keywords 작성 규칙
 
-persona_material_keywords는 Q8, Q9, Q10의 생성에 사용할
+persona_material_keywords는 Q8·Q9와 이후 탐험대원증(페르소나) 생성에 사용할
 페르소나 재료 키워드다.
 
 - 선택지마다 3~5개
@@ -250,7 +250,7 @@ title, intro, selection_rule은 아래 문구를 그대로 사용한다.
 
 {
   "q7b": {
-    "title": "선택한 캠프 공간에서 어떤 도구를 사용해 볼까?",
+    "title": "선택한 캠프 공간에서 어떤 도구를 사용해 보고 싶어?",
     "intro": "캠프에 등불이 켜지고 별빛 프로그램이 시작됐어요. 방금 고른 두 공간에서 해보고 싶은 활동을 떠올리며, 가장 마음이 가는 탐험 도구를 1순위와 2순위로 골라주세요.",
     "selection_rule": "6개 중 1순위와 2순위 선택",
     "options": [
@@ -342,7 +342,7 @@ Q8에서 생성하는 단어 칩은 학생이 선호하는 다음 요소를 표�
 Q8에서 고른 표현은 이후 다음 정보로 사용된다.
 
 - Q9 대상 선택지 생성 재료
-- Q10 나Be 페르소나 이름 생성 재료
+- 이후 나Be 탐험대원증(페르소나) 이름 생성 재료
 - 결과 카드의 keywords
 - 페르소나 설명의 행동 방식
 
@@ -546,7 +546,7 @@ why_generated_backend는 학생에게 노출하지 않는
 
 ## persona_usage_hint 작성 규칙
 
-persona_usage_hint는 Q10 페르소나 이름과 설명을 만들 때
+persona_usage_hint는 이후 탐험대원증(페르소나) 이름과 설명을 만들 때
 이 칩을 어떻게 활용할지 알려주는 내부 메모다.
 
 학생에게는 노출하지 않는다.
@@ -614,7 +614,7 @@ word_chips 안에 '직접 입력' 또는 '기타' 칩을 만들지 않는다.
 따라서 title과 intro는 다음 문구를 그대로 사용한다.
 
 title:
-"고른 탐험 도구를 어떤 방식으로 사용해 보고 싶을까?"
+"고른 탐험 도구를 어떤 방식으로 사용해 보고 싶어?"
 
 intro:
 "지금까지의 선택을 바탕으로, 고른 도구를 사용하는 방식에 어울릴 만한 표현들이 열렸습니다."
@@ -660,7 +660,7 @@ word_chips는 반드시 정확히 6개를 생성한다.
 
 {
   "q8": {
-    "title": "고른 탐험 도구를 어떤 방식으로 사용해 보고 싶을까?",
+    "title": "고른 탐험 도구를 어떤 방식으로 사용해 보고 싶어?",
     "intro": "지금까지의 선택을 바탕으로, 고른 도구를 사용하는 방식에 어울릴 만한 표현들이 열렸습니다.",
     "answer_type": "word_chips_plus_free_text",
     "selection_rule": "후보 중 1~2개를 고르거나 직접 입력",
@@ -767,8 +767,8 @@ Q9에서 생성하는 주제 칩은 다음 중 하나 이상을
 
 Q9에서 고른 표현은 이후 다음 정보로 사용된다.
 
-- Q10 나Be 페르소나 이름 생성
-- Q10 한 줄 설명 생성
+- 이후 나Be 탐험대원증(페르소나) 이름 생성
+- 탐험대원증 한 줄 설명 생성
 - 결과 카드의 keywords
 - 현실 진로 및 행사 부스 연결의 세부 근거
 
@@ -881,7 +881,7 @@ text는 학생 화면에 보이는 주제 칩 문구다.
 5. 하나의 칩에는 하나의 중심 관심 대상만 담는다.
 6. 학생의 성격이나 능력을 단정하지 않는다.
 7. 여섯 칩의 길이와 매력도를 비슷하게 맞춘다.
-8. Q10 페르소나 이름과 설명의 재료로 사용해도 자연스러워야 한다.
+8. 이후 탐험대원증(페르소나) 이름과 설명의 재료로 사용해도 자연스러워야 한다.
 9. 학생이 실제 탐험 활동을 떠올릴 수 있어야 한다.
 10. 특정 직업 하나로 곧바로 연결되는 표현은 피한다.
 
@@ -1027,7 +1027,7 @@ why_generated_backend는 학생에게 노출하지 않는
 
 ## persona_usage_hint 작성 규칙
 
-persona_usage_hint는 Q10 페르소나 이름과 설명을 생성할 때
+persona_usage_hint는 이후 탐험대원증(페르소나) 이름과 설명을 생성할 때
 해당 주제를 어떻게 사용할지 알려주는 내부 메모다.
 
 학생에게는 노출하지 않는다.
@@ -1038,7 +1038,7 @@ persona_usage_hint는 Q10 페르소나 이름과 설명을 생성할 때
 2. 어떤 관심 대상이나 장면을 향하는 역할인지 설명한다.
 3. Q8에서 고른 방식과 결합할 수 있게 작성한다.
 4. 특정 직업 하나를 정답으로 확정하지 않는다.
-5. Q10 페르소나 이름의 관심 방향 또는 목적어로 활용할 수 있어야 한다.
+5. 이후 탐험대원증(페르소나) 이름의 관심 방향 또는 목적어로 활용할 수 있어야 한다.
 
 좋은 예:
 
@@ -1097,7 +1097,7 @@ topic_chips 안에 '직접 입력' 또는 '기타' 칩을 만들지 않는다.
 따라서 title과 intro는 다음 문구를 그대로 사용한다.
 
 title:
-"고른 탐험 도구로 무엇을 더 살펴보고 싶을까?"
+"고른 탐험 도구로 무엇을 더 살펴보고 싶어?"
 
 intro:
 "당신이 고른 도구와 탐험 방식을 떠올리며, 특히 마음이 가는 대상이나 장면을 골라주세요."
@@ -1145,7 +1145,7 @@ topic_chips는 반드시 정확히 6개를 생성한다.
 
 {
   "q9": {
-    "title": "고른 탐험 도구로 무엇을 더 살펴보고 싶을까?",
+    "title": "고른 탐험 도구로 무엇을 더 살펴보고 싶어?",
     "intro": "당신이 고른 도구와 탐험 방식을 떠올리며, 특히 마음이 가는 대상이나 장면을 골라주세요.",
     "answer_type": "topic_chips_plus_free_text",
     "selection_rule": "후보 중 1~2개를 고르거나 직접 입력",
@@ -1201,58 +1201,3 @@ def build_q9_messages(data: GenerateInput) -> list[dict[str, Any]]:
         {"role": "user", "content": user},
     ]
 
-
-# ──────────────────────────────────────────────────────────────
-# Q10
-# ──────────────────────────────────────────────────────────────
-
-_Q10_SYSTEM = """너는 중·고등학생 대상 진로 페르소나 카드의 이름을 만드는 작명가이자
-진로 콘텐츠 기획자다.
-
-과업: 학생에게 제시할 최종 진로 페르소나 이름 후보 3개를 생성한다.
-Q1~Q9는 나비섬 탐험 형식이었지만 Q10에서는 현실 진로 페르소나 이름으로 전환한다.
-이름은 실제 진로·직업·역할과 연결되는 현실적 이름이어야 한다.
-
-생성 조건:
-1. 이름에 "나비섬","탐험","탐험가","미션","구역","탐험길" 같은 세계관 표현 금지.
-2. Pair Code/RIASEC 유형명/점수를 이름에 직접 노출 금지.
-3. 직업군은 참고하되 특정 직업을 강하게 단정하지 않는다.
-4. "현실에서 있을 법한 역할형 페르소나"처럼. 너무 추상적/유치/과장 금지.
-5. Q8/Q9 직접 입력이 있으면 우선 반영.
-6. 후보 3개는 서로 충분히 다르고 강조점이 다르다.
-   1안: 관심 대상 중심 / 2안: 태도·방식 중심 / 3안: 분야·역할 중심.
-7. 각 후보에 중·고등학생이 이해할 한 줄 설명.
-8. 이름 구조 예: "[대상]을 [태도/방식]하는 [역할명]" 등.
-좋은 예: 숲을 지키는 드론전문가, 감정을 번역하는 콘텐츠 기획자,
-도시의 빈틈을 설계하는 공간기획자.
-피할 예: 나비섬 탐험가, 미션 해결 전문가, RA형 제작 창작자, 미래를 여는 융합형 인재.
-
-반드시 아래 JSON 스키마로만 출력한다:
-{"q10":{"title":"당신의 나Be 페르소나 이름을 골라주세요",
-"intro":"지금까지의 선택을 바탕으로 3개의 진로 페르소나 이름이 만들어졌습니다. 가장 마음에 드는 이름을 하나 선택해주세요.",
-"selection_rule":"3개 중 1개 선택",
-"name_cards":[{"name_id":"NAME_01","persona_name":"","short_description":"",
-"emphasis":"관심 대상 중심","materials_used_backend":{"pair_code":"","field":"",
-"subfield":"","attitude":"","topic":"","career_reference":""}},
-{"name_id":"NAME_02","persona_name":"","short_description":"","emphasis":"태도/방식 중심","materials_used_backend":{}},
-{"name_id":"NAME_03","persona_name":"","short_description":"","emphasis":"분야/역할 중심","materials_used_backend":{}}]}}"""
-
-
-def build_q10_messages(data: GenerateInput) -> list[dict[str, Any]]:
-    user = (
-        f"RIASEC 전체 점수: {json.dumps(data.riasec_scores, ensure_ascii=False)}\n"
-        f"Pair Code: {data.pair_code}\n"
-        f"Q1~Q6 선택 요약: {json.dumps(data.q1to6, ensure_ascii=False)}\n"
-        f"Q7-A 1순위: {data.q7a_first}\n"
-        f"Q7-A 2순위: {data.q7a_second}\n"
-        f"Q7-B 1순위: {json.dumps(data.q7b_first, ensure_ascii=False)}\n"
-        f"Q7-B 2순위: {json.dumps(data.q7b_second, ensure_ascii=False)}\n"
-        f"Q7 career_pool 참고: {json.dumps(data.career_pool if data.career_pool is not None else [], ensure_ascii=False)}\n"
-        f"Q8 선택/직접입력: {json.dumps(data.q8, ensure_ascii=False)}\n"
-        f"Q9 선택/직접입력: {json.dumps(data.q9, ensure_ascii=False)}\n"
-        "\n위 입력으로 페르소나 이름 후보 3개를 생성해 JSON으로만 출력하라."
-    )
-    return [
-        {"role": "system", "content": _Q10_SYSTEM},
-        {"role": "user", "content": user},
-    ]

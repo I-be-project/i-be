@@ -1,16 +1,35 @@
-"""관리자 인증·조회 서비스."""
+"""관리자 인증·조회·삭제 서비스."""
 
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import timedelta
+from uuid import UUID
 
 from app.adapters.storage_client import StorageClient
 from app.config import Settings
-from app.core.errors import UnauthorizedError
+from app.core.errors import NotFoundError, UnauthorizedError
 from app.core.security import TokenKind, create_token
+from app.repositories.session_repo import (
+    SessionContent,
+    SessionRepository,
+    StudentProgressRow,
+)
 from app.repositories.student_repo import StudentRepository
-from app.schemas.admin import AdminStudentItem, AdminStudentList
+from app.schemas.admin import (
+    AdminAnswer,
+    AdminBulkDeleteResponse,
+    AdminDeleteResponse,
+    AdminSessionDetail,
+    AdminStudentDetail,
+    AdminStudentItem,
+    AdminStudentList,
+    AdminStudentProgress,
+)
+from app.schemas.students import PersonaSummary
+
+logger = logging.getLogger(__name__)
 
 
 class AdminService:
@@ -18,10 +37,12 @@ class AdminService:
         self,
         *,
         students: StudentRepository,
+        sessions: SessionRepository,
         storage: StorageClient,
         settings: Settings,
     ) -> None:
         self._students = students
+        self._sessions = sessions
         self._storage = storage
         self._settings = settings
 
@@ -39,8 +60,19 @@ class AdminService:
             settings=self._settings,
         )
 
-    # 사진 presigned URL 유효시간 (1시간) — 관리자 조회 세션에 충분.
+    # 사진/카드 presigned URL 유효시간 (1시간) — 관리자 조회 세션에 충분.
     _PHOTO_URL_TTL_SECONDS = 3600
+
+    async def _signed_url(self, key: str | None) -> str | None:
+        """key가 있으면 presigned URL 생성. 실패·부재 시 None(개별 graceful)."""
+        if not key:
+            return None
+        try:
+            return await self._storage.create_signed_url(
+                key, ttl_seconds=self._PHOTO_URL_TTL_SECONDS
+            )
+        except Exception:
+            return None
 
     async def list_students(
         self,
@@ -55,16 +87,10 @@ class AdminService:
         total, records = await self._students.list_students(
             q=q, school=school, grade=grade, class_no=class_no, limit=limit, offset=offset
         )
+        progress = await self._sessions.get_progress_for_students([r.id for r in records])
         items: list[AdminStudentItem] = []
         for r in records:
-            photo_url: str | None = None
-            if r.photo_key:
-                try:
-                    photo_url = await self._storage.create_signed_url(
-                        r.photo_key, ttl_seconds=self._PHOTO_URL_TTL_SECONDS
-                    )
-                except Exception:  # noqa: BLE001 — 사진 1건 실패가 목록 전체를 막지 않도록.
-                    photo_url = None
+            photo_url = await self._signed_url(r.photo_key)
             items.append(
                 AdminStudentItem(
                     id=r.id,
@@ -77,6 +103,117 @@ class AdminService:
                     photo_url=photo_url,
                     consent_privacy=r.consent_privacy,
                     created_at=r.created_at,
+                    progress=_to_progress(progress.get(r.id)),
                 )
             )
         return AdminStudentList(total=total, items=items)
+
+    async def get_student_detail(self, student_id: UUID) -> AdminStudentDetail:
+        """학생 상세 — 기본 정보 + 모든 세션(최신순) 답변·페르소나·카드."""
+        student = await self._students.get_by_id(student_id)
+        if student is None:
+            raise NotFoundError("학생을 찾을 수 없습니다.")
+
+        contents = await self._sessions.list_sessions_with_content(student_id)
+        sessions: list[AdminSessionDetail] = []
+        for c in contents:
+            sessions.append(
+                AdminSessionDetail(
+                    id=c.id,
+                    status=c.status,
+                    created_at=c.created_at,
+                    completed_at=c.completed_at,
+                    answers=[
+                        AdminAnswer(
+                            stage=a.stage, payload=a.payload, created_at=a.created_at
+                        )
+                        for a in c.answers
+                    ],
+                    persona=_to_persona_summary(c),
+                    card_image_url=await self._signed_url(c.card_image_key),
+                )
+            )
+
+        return AdminStudentDetail(
+            id=student.id,
+            school=student.school,
+            grade=student.grade,
+            class_no=student.class_no,
+            student_no=student.student_no,
+            name=student.name,
+            password=student.password,
+            photo_url=await self._signed_url(student.photo_key),
+            consent_privacy=student.consent_privacy,
+            created_at=student.created_at,
+            sessions=sessions,
+        )
+
+    async def _purge_student(self, student_id: UUID) -> tuple[bool, int]:
+        """학생 1명 하드 삭제 + S3 정리. (삭제됨?, S3에서 지운 객체 수) 반환.
+
+        관리자 명시 삭제이므로 사진도 폐기한다(자동 폐기 금지 정책의 예외).
+        cascade로 카드 행이 사라지기 전에 카드 키를 먼저 수집한다.
+        S3 정리는 best-effort(개별 실패해도 DB 삭제 자체는 성공).
+        """
+        card_keys = await self._sessions.list_card_image_keys(student_id)
+        found, photo_key = await self._students.hard_delete(student_id)
+        if not found:
+            return False, 0
+        removed = 0
+        for key in [k for k in [photo_key, *card_keys] if k]:
+            try:
+                await self._storage.delete(key)
+                removed += 1
+            except Exception:
+                logger.warning("S3 객체 삭제 실패(무시): %s", key, exc_info=True)
+        return True, removed
+
+    async def delete_student(self, student_id: UUID) -> AdminDeleteResponse:
+        """학생을 하드 삭제 — DB(cascade) + S3 사진/카드 이미지까지 완전 제거."""
+        found, removed = await self._purge_student(student_id)
+        if not found:
+            raise NotFoundError("학생을 찾을 수 없습니다.")
+        return AdminDeleteResponse(student_id=student_id, removed_storage_objects=removed)
+
+    async def delete_students(self, ids: list[UUID]) -> AdminBulkDeleteResponse:
+        """여러 학생을 순차 삭제. 없는 id는 not_found로 모아 반환(중단하지 않음)."""
+        deleted: list[UUID] = []
+        not_found: list[UUID] = []
+        removed_total = 0
+        # 중복 id는 한 번만 처리.
+        for student_id in dict.fromkeys(ids):
+            found, removed = await self._purge_student(student_id)
+            if found:
+                deleted.append(student_id)
+                removed_total += removed
+            else:
+                not_found.append(student_id)
+        return AdminBulkDeleteResponse(
+            deleted=deleted,
+            not_found=not_found,
+            removed_storage_objects=removed_total,
+        )
+
+
+def _to_progress(row: StudentProgressRow | None) -> AdminStudentProgress:
+    """진행도 행 → 응답 모델. 세션이 없으면 not_started 기본값."""
+    if row is None:
+        return AdminStudentProgress()
+    # abandoned 등 알 수 없는 상태는 in_progress로 수렴.
+    status = row.status if row.status in ("in_progress", "completed") else "in_progress"
+    return AdminStudentProgress(
+        status=status,
+        stages_done=list(row.stages),
+        has_persona=row.has_persona,
+        has_card=row.has_card,
+        last_activity_at=row.completed_at or row.created_at,
+    )
+
+
+def _to_persona_summary(content: SessionContent) -> PersonaSummary | None:
+    if content.persona is None:
+        return None
+    p = content.persona
+    return PersonaSummary(
+        name=p.name, tagline=p.tagline, keywords=p.keywords, fields=p.fields
+    )

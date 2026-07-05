@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { IdentityFields, type IdentityValues } from "@/components/auth/IdentityFields";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, loginStudent } from "@/lib/api";
+import { resumeScreen, resumePath } from "@/lib/explore/flow";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
 
@@ -59,8 +60,16 @@ export default function LoginPage() {
         password,
       });
       setAuth(res.student_token, res.student_id);
-      // 로그인 후엔 프로필 화면으로. 설문 완료 여부 분기는 프로필에서 처리한다.
-      router.push(`/profile/${res.student_id}`);
+      // 같은 학생의 재로그인이면 진행상황이 보존된다(setAuth). 진행 중이던 설문이
+      // 있거나 이미 완료했으면 그 화면으로 바로 이어가고(완료 시 공개 대기 화면),
+      // 아직 시작 전(신규/다른 학생)이면 프로필로 간다.
+      const s = useSessionStore.getState();
+      const screen = resumeScreen(s);
+      if (screen === "explore") {
+        router.push(`/profile/${res.student_id}`);
+      } else {
+        router.replace(resumePath(s));
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         // 백엔드가 학번/비밀번호 중 무엇이 틀렸는지 구분해주지 않으므로 묶어서 안내.
@@ -98,7 +107,7 @@ export default function LoginPage() {
           다시 만나서<br />반가워
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
-          가입할 때 입력한 학교 정보와 비밀번호로 다시 승선해줘.
+          나로섬 선착장으로 다시 올라타. 가입할 때 적었던 학교 정보와 비밀번호를 입력해줘.
         </p>
       </div>
 
@@ -148,7 +157,7 @@ export default function LoginPage() {
           {/* 하단 고정 액션 */}
           <div className="mt-auto pt-8">
             <CtaButton type="submit" disabled={loading}>
-              {loading ? "들어가는 중..." : "로그인"}
+              {loading ? "승선하는 중..." : "다시 승선하기"}
             </CtaButton>
 
             <p className="mt-5 text-center text-sm font-medium text-zinc-500">

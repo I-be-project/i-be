@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -26,11 +27,17 @@ interface ChoiceRowProps {
   first?: string | null;
   second?: string | null;
   onRankChange?: (first: string | null, second: string | null) => void;
+  /** Q1~6 파스텔 테마 — 아이콘 없이 텍스트+체크, 장면 CSS 변수(--scene-*)로 색을 입힌다 */
+  themed?: boolean;
 }
 
 const itemVariants = {
   hidden: { opacity: 0, y: 12 },
-  visible: { opacity: 1, y: 0, transition: { duration: 0.3, ease: "easeOut" as const } },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.3, ease: "easeOut" as const },
+  },
 };
 
 export function ChoiceRow({
@@ -41,6 +48,7 @@ export function ChoiceRow({
   first = null,
   second = null,
   onRankChange,
+  themed = false,
 }: ChoiceRowProps) {
   const handleRankClick = (id: string) => {
     if (!onRankChange) return;
@@ -58,26 +66,55 @@ export function ChoiceRow({
       initial="hidden"
       animate="visible"
       variants={{ visible: { transition: { staggerChildren: 0.05 } } }}
-      className="flex flex-col gap-2.5"
+      className={cn("flex flex-col", themed ? "gap-3" : "gap-2.5")}
     >
       {options.map((opt) => {
-        const Icon = opt.icon ?? getPictogramForRiasec(opt.riasec);
         const rank = rankMode === "rank" ? rankOf(opt.id) : null;
         const selected =
           rankMode === "rank" ? rank !== null : selectedId === opt.id;
 
+        // Q1~6 파스텔 테마 — 왼쪽 아이콘 없이 텍스트만, 선택 시 accent 테두리 + 체크로 표시.
+        if (themed) {
+          return (
+            <motion.button
+              key={opt.id}
+              type="button"
+              variants={itemVariants}
+              aria-pressed={selected}
+              onClick={() =>
+                rankMode === "rank"
+                  ? handleRankClick(opt.id)
+                  : onSelect?.(opt.id)
+              }
+              className={cn(
+                "flex min-h-[58px] w-full items-center justify-between gap-3 rounded-[18px] px-4 py-3 text-left text-[14px] font-medium leading-[1.55] text-ink backdrop-blur-[8px] transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scene-accent)]",
+                selected
+                  ? "border-2 border-[var(--scene-accent)] bg-[var(--scene-option-selected)] shadow-[0_6px_18px_rgba(13,48,71,0.10)]"
+                  : "border border-[var(--scene-option-border)] bg-[var(--scene-option-bg)] shadow-[0_2px_10px_rgba(13,48,71,0.06)] hover:border-[var(--scene-accent)] active:scale-[0.99]",
+              )}
+            >
+              <span className="min-w-0 flex-1 break-keep">{opt.label}</span>
+              {selected && (
+                <Check
+                  className="h-5 w-5 flex-shrink-0 text-[var(--scene-accent)]"
+                  strokeWidth={2.6}
+                />
+              )}
+            </motion.button>
+          );
+        }
+
+        const Icon = opt.icon ?? getPictogramForRiasec(opt.riasec);
         return (
           <motion.button
             key={opt.id}
             type="button"
             variants={itemVariants}
             onClick={() =>
-              rankMode === "rank"
-                ? handleRankClick(opt.id)
-                : onSelect?.(opt.id)
+              rankMode === "rank" ? handleRankClick(opt.id) : onSelect?.(opt.id)
             }
             className={cn(
-              "flex w-full items-center gap-3 rounded-2xl border border-solid p-3.5 text-left text-[15px] font-medium backdrop-blur-xl transition-all",
+              "flex w-full items-center gap-3 rounded-2xl border border-solid p-3.5 text-left text-[14px] font-medium backdrop-blur-xl transition-all",
               selected
                 ? "border-transparent bg-gradient-to-r from-sky-500 to-blue-600 text-white shadow-[0_12px_28px_rgba(37,99,235,0.35)]"
                 : "border-white/70 bg-white/80 text-ink shadow-[0_8px_24px_rgba(37,99,235,0.08)] hover:border-sky-300 active:scale-[0.99]",
