@@ -13,20 +13,20 @@ const JOURNEY_STEPS = [
   {
     step: 1,
     Icon: MapPin,
-    title: "섬에 도착",
-    desc: "팀과 함께 나로섬 캠프에 왔어요",
+    title: "선착장 · 브리핑",
+    desc: "캠프 지도를 펼치고, 오늘 코스를 들어요",
   },
   {
     step: 2,
     Icon: Sun,
-    title: "낮 탐험 6번",
-    desc: "장면마다 하나씩 고르면 돼요. 정답은 없어요",
+    title: "낮 탐험 6장면",
+    desc: "팀과 함께 섬을 돌며, 장면마다 하나를 골라요. 정답은 없어요",
   },
   {
     step: 3,
     Icon: Moon,
-    title: "밤 별빛 프로그램",
-    desc: "낮에 고른 걸 이어서, 캠프가 밤에 열려요",
+    title: "별빛 프로그램",
+    desc: "해가 지면 등불이 켜지고, 캠프 12곳이 하나씩 열려요",
   },
 ] as const;
 
@@ -54,15 +54,15 @@ export default function ExplorePage() {
         >
           <div className="glass-card mb-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-ink">
             <Compass className="h-4 w-4 text-sky-500" />
-            처음 오는 친구도 괜찮아요
+            탐험 브리핑 · 입항
           </div>
           <h1 className="text-[1.9rem] font-black leading-tight tracking-tight text-ink drop-shadow-sm">
             나로섬에 도착했어!
           </h1>
           <p className="mt-2 max-w-xs text-[15px] font-semibold leading-relaxed text-ink-soft">
-            오늘은 팀과 함께 섬을 탐험하고,
+            바닷바람과 함께 캠프가 보여. 오늘은 팀과 섬을 돌고,
             <br />
-            밤에는 특별한 프로그램이 열려요
+            밤에는 별빛 프로그램이 열려.
           </p>
         </motion.div>
       </FullBleedScene>
@@ -74,7 +74,7 @@ export default function ExplorePage() {
         className="relative z-10 -mt-5 flex flex-1 flex-col rounded-t-[1.75rem] bg-sand px-6 pb-10 pt-7"
       >
         <p className="mb-4 text-center text-sm font-bold text-ink-muted">
-          오늘 이렇게 진행돼요
+          오늘의 탐험 루트
         </p>
 
         <div className="mb-6 flex flex-col gap-2.5">
@@ -102,7 +102,7 @@ export default function ExplorePage() {
 
         <p className="mb-8 inline-flex items-center justify-center gap-1.5 text-center text-sm font-bold text-ink-muted">
           <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
-          지금부터 낮 탐험 6번을 시작해 볼까요?
+          준비됐다면, 낮 탐험 첫 장면으로!
         </p>
 
         <div className="mt-auto">

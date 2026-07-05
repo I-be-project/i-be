@@ -121,7 +121,7 @@ export default function SignupPhotoPage() {
           사진을 담아줘
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
-          탐험이 끝나면 받게 될 탐험대원증에 들어갈 사진이야.
+          별빛이 내린 밤, 탐험대원증에 네 얼굴이 빛날 거야. 한마당에서 친구들에게 보여줄 나만의 표식이야.
         </p>
       </div>
 

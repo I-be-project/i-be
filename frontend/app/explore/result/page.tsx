@@ -45,10 +45,10 @@ export default function ResultPage() {
         >
           <div className="glass-card mb-5 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-ink shadow-[0_4px_20px_rgba(14,58,79,0.15)]">
             <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
-            나로섬 탐험 완료
+            나로섬 탐험 · 클리어
           </div>
           <p className="mb-2 text-sm font-bold text-ink-muted">
-            아침 해가 뜨고, 탐험이 찾아낸 너의 미래 역할
+            새벽 바닷바람과 함께, 너의 미래 역할이 모습을 드러냈어
           </p>
           <h1 className="mb-3 break-keep text-4xl font-black leading-tight tracking-tight text-ink">
             {persona.name}
@@ -67,7 +67,7 @@ export default function ResultPage() {
       >
         <div className="rounded-3xl border border-solid border-white/70 bg-white/85 p-6 shadow-[0_12px_32px_rgba(37,99,235,0.12)] backdrop-blur-xl">
           <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-ink-muted">
-            핵심 키워드
+            오늘의 탐험 키워드
           </h3>
           <div className="mb-8 flex flex-wrap gap-2">
             {persona.keywords.map((kw, i) => (
@@ -83,7 +83,7 @@ export default function ResultPage() {
             <motion.div variants={fadeInVariants}>
               <div className="mb-3 flex items-center gap-2">
                 <LayoutGrid className="h-5 w-5 text-sky-600" />
-                <h4 className="font-bold text-ink">관련 분야</h4>
+                <h4 className="font-bold text-ink">탐험에서 드러난 재능</h4>
               </div>
               <div className="flex flex-col space-y-2">
                 {persona.fields.map((field) => (
@@ -101,18 +101,12 @@ export default function ResultPage() {
             <motion.div variants={fadeInVariants}>
               <div className="mb-3 flex items-center gap-2">
                 <MapPin className="h-5 w-5 text-amber-500" />
-                <h4 className="font-bold text-ink">추천 체험 부스</h4>
+                <h4 className="font-bold text-ink">한마당에서 이어질 여정</h4>
               </div>
-              <div className="flex flex-col space-y-2">
-                {persona.recommendedBooths.map((booth) => (
-                  <div
-                    key={booth}
-                    className="flex items-center gap-3 rounded-xl border border-solid border-amber-100 bg-amber-50/80 p-3"
-                  >
-                    <div className="h-2 w-2 rounded-full bg-amber-400" />
-                    <span className="text-sm font-bold text-ink-soft">{booth}</span>
-                  </div>
-                ))}
+              <div className="rounded-xl border border-solid border-amber-100 bg-amber-50/80 p-4">
+                <p className="break-keep text-sm font-medium leading-relaxed text-ink-soft">
+                  오늘 고른 방식과 관심을 기억해 둬. 나Be한마당 곳곳의 체험 부스에서, 이 이야기가 이어질 거야.
+                </p>
               </div>
             </motion.div>
           </div>

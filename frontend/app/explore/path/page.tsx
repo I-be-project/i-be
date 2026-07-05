@@ -118,7 +118,7 @@ export default function PathPage() {
         const json = await generateStage(apiStage, body as Record<string, unknown>);
         onOk(json);
       } catch {
-        setError("생성에 실패했어요. 다시 시도해주세요.");
+        setError("섬의 안내가 잠시 끊겼어. 다시 시도해줄래?");
       } finally {
         setGenerating(false);
       }
@@ -300,7 +300,7 @@ export default function PathPage() {
       router.push("/explore/interpreting");
     } catch {
       pendingRetry.current = submitQ10; // "다시 시도" 시 저장을 재실행
-      setError("결과 저장에 실패했어요. 다시 시도해주세요.");
+      setError("탐험 기록을 저장하지 못했어. 다시 시도해줄래?");
     } finally {
       setGenerating(false);
     }
@@ -366,7 +366,7 @@ export default function PathPage() {
   let ctaDisabled = false;
 
   if (stage === "q7a") {
-    title = "섬을 둘러보다 마주친 장소들이에요. 더 가보고 싶은 곳을 1·2순위로 골라주세요.";
+    title = "등불이 켜진 캠프 공간 중, 오늘 밤 가장 먼저 들어가 보고 싶은 곳은?";
     body = (
       <RankSelect
         options={q7aOptions}
@@ -378,7 +378,7 @@ export default function PathPage() {
         }}
       />
     );
-    cta = "이 곳으로 가보기";
+    cta = "등불 아래로 들어가기";
     onCta = submitQ7a;
     ctaDisabled = !rankReady;
   } else if (stage === "q7b" && q7bData) {
@@ -398,7 +398,7 @@ export default function PathPage() {
         }}
       />
     );
-    cta = "이 길로 들어가기";
+    cta = "도구를 주머니에 넣기";
     onCta = submitQ7b;
     ctaDisabled = !rankReady;
   } else if (stage === "q8" && q8Data) {
@@ -413,7 +413,7 @@ export default function PathPage() {
         onFreeText={setFreeText}
       />
     );
-    cta = "다음";
+    cta = "이렇게 해볼래";
     onCta = submitQ8;
     ctaDisabled = !chipReady;
   } else if (stage === "q9" && q9Data) {
@@ -428,7 +428,7 @@ export default function PathPage() {
         onFreeText={setFreeText}
       />
     );
-    cta = "다음";
+    cta = "이걸 더 살펴볼래";
     onCta = submitQ9;
     ctaDisabled = !chipReady;
   } else if (stage === "q10" && q10Data) {
@@ -445,7 +445,7 @@ export default function PathPage() {
         onSelect={setNameId}
       />
     );
-    cta = "이 이름으로 결정하기";
+    cta = "탐험대원증 이름으로 결정하기";
     onCta = submitQ10;
     ctaDisabled = nameId === null;
   }
@@ -479,7 +479,7 @@ export default function PathPage() {
               <div className="mb-4 flex items-center justify-between">
                 <div className="glass-card inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
                   <Moon className="h-3 w-3 text-sky-600" />
-                  밤의 별빛 프로그램
+                  밤 · 별빛 프로그램
                 </div>
                 <div className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
                   {STAGE_INDEX[stage]}/10

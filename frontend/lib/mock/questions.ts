@@ -26,17 +26,17 @@ export interface Question {
 
 // 응답 안내문 (질문 시작 전 노출용)
 export const explorationIntro =
-  "친구들과 함께 나로섬 탐험 캠프에 참여했습니다. " +
-  "탐험을 하다 보면 여러 장면에서 선택을 해야 합니다. " +
-  "각 상황에서 내가 가장 자연스럽게 할 것 같은 행동을 하나씩 골라주세요. " +
-  "정답은 없습니다. 가장 “나답다”고 느껴지는 선택을 고르면 됩니다.";
+  "친구들과 함께 나로섬 탐험 캠프에 발을 디뎠어. " +
+  "낮에는 팀과 코스를 돌고, 해가 지면 ‘별빛 프로그램’으로 캠프 곳곳이 열려. " +
+  "정답은 없어. 지금 이 순간, 가장 너다운 선택을 하나씩 골라줘.";
 
 export const mockQuestions: Question[] = [
   {
     id: 1,
     scene: "선착장 도착",
-    story: "나로섬 선착장에 도착했다.",
-    text: "가장 먼저 눈이 가는 일은?",
+    story:
+      "배가 선착장에 닿자, 바닷소금 냄새와 깃발 소리가 섞여 들려온다. 멀리 캠프 광장엔 아직 낮 등불이 꺼져 있고, 안내단 선배가 손을 흔든다. 팀원들도 하나둘 내리기 시작했다.",
+    text: "가장 먼저 손이 가는 일은?",
     type: "choice",
     options: [
       { id: "q1-s", label: "친구들이 멀미는 없는지, 다들 괜찮은지 살핀다.", primary: "S" },
@@ -50,8 +50,9 @@ export const mockQuestions: Question[] = [
   {
     id: 2,
     scene: "역할 정하기",
-    story: "탐험대가 나뉘었다.",
-    text: "내가 자연스럽게 맡고 싶은 역할은?",
+    story:
+      "광장 한가운데, 너희 팀만의 이름표를 붙일 자리가 마련됐다. 안내단 선배가 말한다. “낮 코스는 팀이 함께할수록 재미있어. 각자 맡을 역할을 정해 볼까?”",
+    text: "자연스럽게 맡고 싶은 역할은?",
     type: "choice",
     options: [
       { id: "q2-c", label: "탐험 시간과 준비물을 체크하는 기록 담당", primary: "C" },
@@ -64,8 +65,9 @@ export const mockQuestions: Question[] = [
   },
   {
     id: 3,
-    scene: "날씨가 바뀐다",
-    story: "오후가 되자 날씨가 바뀌기 시작했다. 해가 지기 전 팀이 해야 할 일을 정해야 한다.",
+    scene: "코스가 바뀐다",
+    story:
+      "오후가 되자 안내소에서 코스를 조금 바꾸자고 했다. 바람이 세게 불어 전망대 쪽 길이 막혔다는 소식이다. 팀원들의 표정이 조금씩 달라진다 — 어떻게 맞출지 정해야 한다.",
     text: "나는 어떻게 할까?",
     type: "choice",
     options: [
@@ -73,14 +75,15 @@ export const mockQuestions: Question[] = [
       { id: "q3-a", label: "눈에 잘 띄는 표식을 그리고, 돌과 나뭇가지로 완성한다.", primary: "A", secondary: "R" },
       { id: "q3-s", label: "친구들 의견을 먼저 듣고, 다 같이 할 수 있는 방식으로 맞춘다.", primary: "S", secondary: "E" },
       { id: "q3-r", label: "머물 자리를 직접 만들면서 필요한 순서도 함께 잡는다.", primary: "R", secondary: "C" },
-      { id: "q3-e", label: "본부에 잘 보일 신호 아이디어를 내고 팀에 제안한다.", primary: "E", secondary: "A" },
+      { id: "q3-e", label: "팀이 따라오기 쉬운 새 코스 아이디어를 내고 제안한다.", primary: "E", secondary: "A" },
       { id: "q3-i", label: "어느 길이 안전한지 살피고, 친구들이 걱정하는 점도 확인한다.", primary: "I", secondary: "S" },
     ],
   },
   {
     id: 4,
-    scene: "부족한 탐험 키트",
-    story: "탐험 키트에 생각보다 물건이 부족하다.",
+    scene: "도구 창고 앞",
+    story:
+      "도구 창고 앞에서 팀 도구를 나눠 받았다. 생각보다 적어서, 한 사람당 하나씩만 들고 가야 한다. 창고 문 너머로 야외 작업장의 나뭇가지 더미가 보인다.",
     text: "나는 어떻게 할까?",
     type: "choice",
     options: [
@@ -95,7 +98,8 @@ export const mockQuestions: Question[] = [
   {
     id: 5,
     scene: "갈림길에서",
-    story: "탐험 경로를 두고 의견이 갈렸다.",
+    story:
+      "야외 작업장 근처 갈림길에서 의견이 갈렸다. 한쪽은 숲길, 다른 쪽은 해안 쪽 돌밭이다. 누군가는 빨리 가자고, 누군가는 조금 쉬자고 한다.",
     text: "나는 어떻게 할까?",
     type: "choice",
     options: [
@@ -109,17 +113,18 @@ export const mockQuestions: Question[] = [
   },
   {
     id: 6,
-    scene: "본부로 보내는 신호",
-    story: "마지막으로 탐험 본부에 위치를 알려야 한다.",
+    scene: "오늘의 기록",
+    story:
+      "해가 지기 전, 캠프로 돌아왔다. 게시판 앞에 오늘의 발견을 붙일 자리가 비어 있다. 멀리 저녁 하늘에 첫 별빛이 보이기 시작한다 — 오늘의 탐험을 어떻게 남길까?",
     text: "나는 어떻게 할까?",
     type: "choice",
     options: [
       { id: "q6-i", label: "바람, 지형, 이동 방향을 보고 성공 가능성이 높은 방법을 고른다.", primary: "I", secondary: "E" },
       { id: "q6-s", label: "친구들 상태를 확인하고, 안전하게 기다릴 위치를 정한다.", primary: "S", secondary: "I" },
       { id: "q6-r", label: "돌과 천으로 멀리서도 보이는 큰 안내 표식을 만든다.", primary: "R", secondary: "A" },
-      { id: "q6-c", label: "인원과 물품, 본부에 전달할 내용을 확인해 빠짐없이 정리한다.", primary: "C", secondary: "S" },
+      { id: "q6-c", label: "인원과 물품, 기록에 올릴 내용을 확인해 빠짐없이 정리한다.", primary: "C", secondary: "S" },
       { id: "q6-a", label: "색과 모양을 활용해 한눈에 들어오는 신호를 만든다.", primary: "A", secondary: "R" },
-      { id: "q6-e", label: "누가 무엇을 할지 나누고, 본부 연락 행동을 시작하게 한다.", primary: "E", secondary: "C" },
+      { id: "q6-e", label: "누가 무엇을 할지 나누고, 기록을 올리는 행동을 시작하게 한다.", primary: "E", secondary: "C" },
     ],
   },
 ];

@@ -146,12 +146,12 @@ export default function SignupPage() {
           탐험대 등록 · 1/2
         </p>
         <h1 className="text-[2rem] font-black leading-[1.2] tracking-tight text-ink">
-          먼저 너를
+          탐험대원
           <br />
-          알려줘
+          명단에 올려줘
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
-          나로섬 탐험 기록을 남기려면 탐험대원 정보가 필요해.
+          나로섬에 도착하면, 너의 이름이 탐험대 명단에 새겨져. 탐험이 끝나면 이 기록이 탐험대원증이 돼.
         </p>
       </div>
 
@@ -252,7 +252,7 @@ export default function SignupPage() {
           {/* 하단 고정 액션 */}
           <div className="mt-auto pt-8">
             <CtaButton type="submit" disabled={loading}>
-              {loading ? "등록하는 중..." : "다음"}
+              {loading ? "명단에 올리는 중..." : "다음"}
             </CtaButton>
 
             <p className="mt-5 text-center text-sm font-medium text-zinc-500">

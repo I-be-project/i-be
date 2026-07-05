@@ -98,7 +98,7 @@ export default function LoginPage() {
           다시 만나서<br />반가워
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
-          가입할 때 입력한 학교 정보와 비밀번호로 다시 승선해줘.
+          나로섬 선착장으로 다시 올라타. 가입할 때 적었던 학교 정보와 비밀번호를 입력해줘.
         </p>
       </div>
 
@@ -148,7 +148,7 @@ export default function LoginPage() {
           {/* 하단 고정 액션 */}
           <div className="mt-auto pt-8">
             <CtaButton type="submit" disabled={loading}>
-              {loading ? "들어가는 중..." : "로그인"}
+              {loading ? "승선하는 중..." : "다시 승선하기"}
             </CtaButton>
 
             <p className="mt-5 text-center text-sm font-medium text-zinc-500">

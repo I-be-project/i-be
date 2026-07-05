@@ -46,7 +46,7 @@ export default function CardPage() {
             나의 탐험대원증
           </h1>
           <p className="mt-2 text-sm font-medium text-ink-muted">
-            나로섬 탐험이 만들어 낸 너의 탐험대원증이야.
+            나로섬의 낮과 별빛, 그리고 네 선택이 하나의 이름으로 새겨진 증표야.
           </p>
         </div>
 
@@ -74,7 +74,7 @@ export default function CardPage() {
 
           <CtaButton onClick={() => router.push("/profile/me")}>
             <UserSquare2 className="h-5 w-5" />
-            내 탐험 기록 보기
+            탐험 기록 보기
           </CtaButton>
         </div>
       </motion.div>

@@ -63,9 +63,9 @@ export default function WelcomePage() {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mt-5 max-w-xs text-base font-semibold leading-relaxed text-[#1d4a5e] drop-shadow-[0_1px_6px_rgba(255,255,255,0.55)]"
         >
-          지도를 펼치듯, 너의 가능성을 발견하고
+          지도를 펼치듯, 섬 너머로 이어질
           <br />
-          꿈을 현실로 만들어가자!
+          너만의 이야기를 찾아가자.
         </motion.p>
       </div>
 

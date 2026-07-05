@@ -14,17 +14,17 @@ import { campTraditionIntro } from "@/lib/mock/campMap";
 const EVENING_SPOTS = [
   {
     title: "만들기 방",
-    desc: "손으로 직접 만들어 봐요",
+    desc: "손끝으로 무언가를 빚어 내는 밤",
     Icon: Hammer,
   },
   {
     title: "무대",
-    desc: "빛과 소리로 장면을 연습해요",
+    desc: "빛과 소리로 장면을 그려 보는 밤",
     Icon: Mic2,
   },
   {
     title: "꾸미기 방",
-    desc: "깃발·소품을 꾸며 봐요",
+    desc: "깃발과 소품으로 분위기를 입히는 밤",
     Icon: Palette,
   },
 ] as const;
@@ -49,7 +49,7 @@ export default function EveningPage() {
         <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between p-5 pt-12">
           <span className="glass-card inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
             <Moon className="h-3 w-3 text-amber-500" />
-            낮 탐험 완료
+            낮 탐험 · 클리어
           </span>
           <span className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
             6/10
@@ -75,10 +75,10 @@ export default function EveningPage() {
       >
         <div className="glass-card mb-5 rounded-2xl p-4 text-center">
           <p className="break-keep text-[15px] font-semibold leading-relaxed text-ink-soft">
-            아까 고른 6번이 <span className="font-extrabold text-sky-600">너의 탐험 기록</span>
-            이 됐어요.
+            오늘 고른 6번이 <span className="font-extrabold text-sky-600">탐험 일지</span>
+            에 새겨졌어.
             <br />
-            이제 밤에 열리는 특별한 시간이 시작돼요.
+            이제 별빛 프로그램 — 캠프만의 밤이 시작돼.
           </p>
         </div>
 
@@ -112,14 +112,14 @@ export default function EveningPage() {
           </span>
           <ArrowRight className="h-4 w-4 flex-shrink-0 text-ink-muted" />
           <p className="text-sm font-semibold leading-snug text-ink-soft">
-            다음은 <span className="font-extrabold text-ink">별빛 프로그램</span>에서
-            가고 싶은 곳과 도구를 고르는 시간이에요
+            다음 장면에서는 <span className="font-extrabold text-ink">별빛 아래 열린 공간</span>과,
+            그곳의 도구를 고르게 될 거야.
           </p>
         </div>
 
         <p className="mb-8 inline-flex items-center justify-center gap-1.5 text-sm font-bold text-ink-muted">
           <Sparkles className="h-4 w-4 text-amber-500" fill="currentColor" />
-          낮 탐험을 이어서, 밤 탐험을 시작해 볼까요?
+          낮의 기록을 이어, 밤 탐험을 시작해 볼까?
         </p>
 
         <div className="mt-auto">

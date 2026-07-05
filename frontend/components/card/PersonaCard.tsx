@@ -43,7 +43,7 @@ export function PersonaCard({ persona }: { persona: PersonaResult }) {
               <div>
                 <h3 className="mb-1 flex items-center gap-1 text-[9px] font-extrabold uppercase tracking-widest text-sky-300/80 sm:mb-1.5 sm:gap-1.5 sm:text-[10px] md:text-xs">
                   <Sparkles className="h-2.5 w-2.5 fill-sky-400 text-sky-400 sm:h-3 sm:w-3" />
-                  나Be 페르소나
+                  나Be 탐험대원증
                 </h3>
                 <h2 className="mt-0.5 break-keep text-base font-black leading-tight tracking-tight text-white sm:mt-1 sm:text-xl md:text-2xl">
                   {persona.name}

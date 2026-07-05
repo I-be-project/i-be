@@ -21,20 +21,20 @@ export interface GeneratingCopy {
 
 export const generatingCopy: Record<GeneratingStage, GeneratingCopy> = {
   q7b: {
-    main: "별빛 캠프에서 쓸 도구를 고르는 중…",
-    sub: "네가 고른 길을 따라 준비하고 있어",
+    main: "별빛 아래, 도구 선반을 펼치는 중…",
+    sub: "네가 고른 공간에 맞는 도구를 골라 두고 있어",
   },
   q8: {
-    main: "해보고 싶은 일을 만드는 중…",
-    sub: "조금만 기다려줘",
+    main: "도구를 손에 쥔 채, 상상하는 중…",
+    sub: "어떤 방식으로 써 볼지 그려 보고 있어",
   },
   q9: {
-    main: "살펴볼 것을 정리하는 중…",
-    sub: "거의 다 됐어",
+    main: "마음이 가는 대상을 찾는 중…",
+    sub: "오늘 밤, 특히 더 살펴보고 싶은 것을 모으는 중",
   },
   q10: {
-    main: "탐험대원증 이름을 짓는 중…",
-    sub: "너만의 역할이 곧 나와",
+    main: "탐험대원증에 새길 이름을 짓는 중…",
+    sub: "지금까지의 선택이 하나의 역할 이름으로 모이고 있어",
   },
 };
 

@@ -28,7 +28,7 @@ export function GeneratingScreen({ error, onRetry, stage = "q7b" }: GeneratingSc
           <AlertCircle className="h-12 w-12 text-rose-400" />
           <p className="break-keep text-lg font-bold text-ink">{error}</p>
           <CtaButton onClick={onRetry} className="w-auto px-8">
-            다시 시도
+            다시 시도해줄래?
           </CtaButton>
         </div>
       </div>
