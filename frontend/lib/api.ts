@@ -126,37 +126,56 @@ function parseErrorMessage(
   return { message: fallback };
 }
 
-async function request<T>(path: string, init: RequestInit): Promise<T> {
-  let res: Response;
+// fetch 자체엔 타임아웃이 없어, 연결이 "매달리면"(hang) 무한 대기한다(스피너가 영영 안 끝남).
+// AbortController로 상한을 두고, 초과 시 status 0 ApiError로 전환한다(→ 화면에 재시도 UI 노출).
+// 기본 20초. LLM 생성처럼 정상적으로 오래 걸리는 요청은 호출부에서 timeoutMs로 늘린다.
+async function request<T>(
+  path: string,
+  init: RequestInit,
+  timeoutMs = 20_000
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    res = await fetch(`${API_BASE_URL}${path}`, init);
-  } catch {
-    // 네트워크 단절·CORS·서버 다운 등 (status 0으로 구분)
+    // fetch(응답 헤더 수신)와 본문 읽기(res.text())를 모두 상한 안에서 수행한다.
+    // 헤더만 오고 본문이 멈추는 경우까지 abort로 끊어, 무한 대기를 완전히 막는다.
+    const res = await fetch(`${API_BASE_URL}${path}`, {
+      ...init,
+      signal: controller.signal,
+    });
+
+    let body: unknown = null;
+    const text = await res.text();
+    if (text) {
+      try {
+        body = JSON.parse(text);
+      } catch {
+        // JSON이 아니면 그대로 무시 (fallback 메시지 사용)
+      }
+    }
+
+    if (!res.ok) {
+      const { message, code } = parseErrorMessage(
+        body,
+        "요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요."
+      );
+      throw new ApiError(message, res.status, code);
+    }
+
+    return body as T;
+  } catch (e) {
+    // 위에서 만든 도메인/검증 에러(ApiError)는 그대로 전파한다.
+    if (e instanceof ApiError) throw e;
+    // 그 외(타임아웃 abort·네트워크 단절·CORS·서버 다운·본문 읽기 중단)는 status 0으로 통일.
     throw new ApiError(
-      "서버에 연결할 수 없어요. 백엔드가 켜져 있는지 확인해주세요.",
+      controller.signal.aborted
+        ? "응답이 너무 오래 걸려요. 잠시 후 다시 시도해주세요."
+        : "서버에 연결할 수 없어요. 백엔드가 켜져 있는지 확인해주세요.",
       0
     );
+  } finally {
+    clearTimeout(timer);
   }
-
-  let body: unknown = null;
-  const text = await res.text();
-  if (text) {
-    try {
-      body = JSON.parse(text);
-    } catch {
-      // JSON이 아니면 그대로 무시 (fallback 메시지 사용)
-    }
-  }
-
-  if (!res.ok) {
-    const { message, code } = parseErrorMessage(
-      body,
-      "요청을 처리하지 못했어요. 잠시 후 다시 시도해주세요."
-    );
-    throw new ApiError(message, res.status, code);
-  }
-
-  return body as T;
 }
 
 export function registerStudent(
@@ -191,11 +210,16 @@ export function uploadPhoto(
   const form = new FormData();
   form.append("file", file);
   // multipart는 브라우저가 Content-Type(boundary 포함)을 자동 설정하므로 직접 넣지 않는다.
-  return request<PhotoUploadResponse>("/api/students/me/photo", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${token}` },
-    body: form,
-  });
+  // 사진은 수 MB 멀티파트라 느린 업링크에서 기본 20초를 넘길 수 있어 상한을 넉넉히 준다.
+  return request<PhotoUploadResponse>(
+    "/api/students/me/photo",
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+      body: form,
+    },
+    60_000
+  );
 }
 
 export interface AdminLoginResponse {
@@ -358,11 +382,16 @@ export function generateStage(
   stage: "q7b" | "q8" | "q9",
   input: Record<string, unknown>
 ): Promise<unknown> {
-  return request<unknown>(`/api/generate/${stage}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(input),
-  });
+  // LLM 생성은 정상적으로 수십 초가 걸릴 수 있어 기본 20초보다 넉넉한 상한을 준다.
+  return request<unknown>(
+    `/api/generate/${stage}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    },
+    60_000
+  );
 }
 
 // 진행 중(Q7~9) 답변을 단계별로 저장. 인증 필요. Q1~6은 저장하지 않는다.

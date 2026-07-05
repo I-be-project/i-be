@@ -5,8 +5,9 @@ import type { ReactNode, CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
-import { generateStage, completeSurvey, saveAnswer } from "@/lib/api";
+import { ApiError, generateStage, completeSurvey } from "@/lib/api";
 import type { AnswerStage } from "@/lib/api";
+import { persistStage, reconcileAllAnswers } from "@/lib/answerSync";
 import { getQ7AOptions } from "@/lib/mock/q7a";
 import { Moon } from "lucide-react";
 import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
@@ -156,15 +157,14 @@ export default function PathPage() {
   };
 
   // Q7~9 답변을 백엔드에 단계별 저장(진행 중). 생성 흐름과 독립 — 실패해도 설문은 막지 않는다.
-  // 첫 저장 때 발급받은 sessionId를 스토어에 보관해 다음 저장·완료에서 재사용한다.
+  // persistStage가 재시도 + sessionId single-flight(세션 분할 방지)를 담당한다.
+  // 여기서 실패해도 완료 시 reconcileAllAnswers가 스토어에서 재전송하므로 최종 유실은 없다.
   const persistAnswer = (stage: AnswerStage, answer: Record<string, unknown>) => {
-    const { studentToken, sessionId, setSessionId } = useSessionStore.getState();
+    const { studentToken } = useSessionStore.getState();
     if (!studentToken) return; // 정상 흐름에선 항상 로그인 상태
-    void saveAnswer(studentToken, { sessionId: sessionId ?? undefined, stage, answer })
-      .then((res) => {
-        if (!sessionId) setSessionId(res.session_id);
-      })
-      .catch((e) => console.error("답변 저장 실패", stage, e));
+    void persistStage(studentToken, stage, answer).catch((e) =>
+      console.error("답변 저장 실패(완료 시 재동기화로 보장됨)", stage, e),
+    );
   };
 
   const baseInput = {
@@ -241,8 +241,7 @@ export default function PathPage() {
     freeTextValue: string,
   ) => {
     // 완료 저장은 인증 필요. 토큰 없으면 로그인으로.
-    const { studentToken, sessionId, setSessionId, setSurveyCompleted } =
-      useSessionStore.getState();
+    const { studentToken, setSurveyCompleted } = useSessionStore.getState();
     if (!studentToken) {
       router.push("/login");
       return;
@@ -250,21 +249,25 @@ export default function PathPage() {
     setGenerating(true);
     setError(null);
     try {
-      // Q9 답변을 먼저 확정 저장한 뒤(세션이 completed로 바뀌기 전) 완료로 승격한다.
-      let sid = sessionId ?? undefined;
-      const saved = await saveAnswer(studentToken, {
-        sessionId: sid,
-        stage: "q9",
-        answer: { chips: chips.map((c) => c.text), freeText: freeTextValue },
-      });
-      if (!sid) {
-        setSessionId(saved.session_id);
-        sid = saved.session_id;
-      }
+      // 완료 직전, 스토어의 전체 답변(q1to6~q9)을 세션에 재전송해 앞선 저장의 누락을 메운다.
+      // insert가 (session_id, stage) 기준 멱등이라 재전송은 안전하며, 이로써 완료 세션은
+      // 항상 온전한 답변을 갖는다("완료"가 데이터 무결성의 단일 관문). 그 뒤 completed로 승격.
+      const sid = await reconcileAllAnswers(studentToken);
       await completeSurvey(studentToken, null, sid);
       setSurveyCompleted(true);
       router.push("/explore/pending-card");
-    } catch {
+    } catch (e) {
+      // 완료 흐름의 409는 "서버가 이미 이 학생을 완료로 본다"는 뜻이다:
+      //  - completeSurvey → "이미 설문을 완료했습니다"
+      //  - reconcile 중 saveAnswer → "이미 종료된 세션입니다"(sessionId가 완료 세션을 가리킴)
+      // 세션 상태는 현재 in_progress/completed 둘뿐이라(abandoned 전이 미사용) '이미 종료'는
+      // 곧 완료를 의미한다. 응답 유실·이미 완료로 인한 무한 409 재시도(막다른 길)를 피하려면
+      // 성공으로 간주해 종료 화면으로 보낸다. (향후 abandoned 도입 시 이 분기 재검토 필요)
+      if (e instanceof ApiError && e.status === 409) {
+        setSurveyCompleted(true);
+        router.push("/explore/pending-card");
+        return;
+      }
       pendingRetry.current = () => finalizeSurvey(chips, freeTextValue); // "다시 시도" 시 완료 저장을 재실행
       setError("탐험 기록을 저장하지 못했어. 다시 시도해줄래?");
     } finally {

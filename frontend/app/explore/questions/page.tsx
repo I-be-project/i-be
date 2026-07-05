@@ -20,7 +20,7 @@ import { SceneAssetImage } from "@/components/voyage/SceneAssetImage";
 import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { ChoiceRow, type ChoiceOption } from "@/components/explore/ChoiceRow";
 import { computeScores, derivePairCode } from "@/lib/scoring";
-import { saveAnswer } from "@/lib/api";
+import { persistStage } from "@/lib/answerSync";
 import { sceneAssets } from "@/lib/assets/sceneManifest";
 import { useFlowGuard } from "@/lib/explore/flow";
 
@@ -302,18 +302,20 @@ export default function QuestionsPage() {
       const pairCode = derivePairCode(scores);
 
       // Q1~6 결과를 한 번에 저장(= in_progress 세션 생성). 이후 Q7~9 저장이 이 세션을 재사용한다.
-      // pairCode를 스토어에 반영하면 흐름 가드가 evening으로 넘기므로, 세션 id를 먼저 확보한다.
-      const { studentToken, sessionId, setSessionId } = useSessionStore.getState();
+      // persistStage가 재시도 + sessionId single-flight를 담당한다.
+      const { studentToken } = useSessionStore.getState();
       if (studentToken) {
         try {
-          const res = await saveAnswer(studentToken, {
-            sessionId: sessionId ?? undefined,
-            stage: "q1to6",
-            answer: { answers: nextAnswers, optionIds, riasec: scores, pairCode },
+          await persistStage(studentToken, "q1to6", {
+            answers: nextAnswers,
+            optionIds,
+            riasec: scores,
+            pairCode,
           });
-          if (!sessionId) setSessionId(res.session_id);
         } catch (e) {
-          console.error("Q1~6 결과 저장 실패", e);
+          // 저장이 최종 실패해도 진행은 막지 않는다. answers/riasec/pairCode는
+          // 스토어(localStorage)에 남고, 완료 시 reconcileAllAnswers가 세션에 재전송해 보장한다.
+          console.error("Q1~6 저장 실패(완료 시 재동기화로 보장됨)", e);
         }
       }
 

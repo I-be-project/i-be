@@ -9,7 +9,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from app.config import get_settings
-from app.core.errors import ConflictError
+from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.repositories.card_repo import CardRecord
 from app.repositories.persona_repo import PersonaRecord
 from app.repositories.session_repo import SessionRecord
@@ -30,6 +30,10 @@ class FakeSessionRepo:
     def __init__(self, latest: SessionRecord | None = None) -> None:
         self.latest = latest
         self.created: list[SessionRecord] = []
+        self.inserted: list[tuple[UUID, str, dict[str, Any]]] = []
+        # 원자성 검증용 — create/insert_answer가 받은 conn(동일 트랜잭션인지 확인).
+        self.create_conn: Any = None
+        self.insert_conn: Any = None
 
     async def get_by_id(self, session_id: UUID) -> SessionRecord | None:
         for rec in (self.latest, *self.created):
@@ -50,6 +54,7 @@ class FakeSessionRepo:
     async def create(
         self, student_id: UUID, *, status: str = "in_progress", conn: Any = None
     ) -> SessionRecord:
+        self.create_conn = conn
         rec = SessionRecord(
             id=uuid4(),
             student_id=student_id,
@@ -78,6 +83,8 @@ class FakeSessionRepo:
     async def insert_answer(
         self, session_id: UUID, stage: str, payload: dict[str, Any], *, conn: Any = None
     ) -> object:
+        self.insert_conn = conn
+        self.inserted.append((session_id, stage, payload))
         return object()
 
 
@@ -134,11 +141,12 @@ class FakeStorage:
 class FakeDBPool:
     def __init__(self) -> None:
         self.entered = False
+        self.conn = object()  # 트랜잭션이 넘기는 커넥션 식별용 sentinel
 
     @asynccontextmanager
     async def transaction(self):
         self.entered = True
-        yield object()  # 더미 conn (fake repo는 conn을 사용하지 않음)
+        yield self.conn
 
 
 def _student() -> StudentRecord:
@@ -383,3 +391,106 @@ async def test_complete_survey_without_persona_conflict_when_completed_and_retry
     service, _, _ = _build(latest=_session("completed"), retry=False)
     with pytest.raises(ConflictError):
         await service.complete_survey(uuid4(), None)
+
+
+# --- submit_answer ---
+
+
+async def test_submit_answer_creates_session_atomically_when_no_session_id() -> None:
+    # session_id=None → 세션 생성 + 답변 삽입이 한 트랜잭션 안에서 일어나야 한다.
+    service, _, db_pool = _build(latest=None)
+    student = uuid4()
+
+    sid = await service.submit_answer(student, None, "q1to6", {"a": 1})
+
+    assert db_pool.entered is True
+    created = service._sessions.created  # type: ignore[attr-defined]
+    assert len(created) == 1
+    assert created[0].status == "in_progress"
+    assert sid == created[0].id
+    # 답변은 방금 만든 그 세션에 삽입된다(세션 분산/유실 없음).
+    assert service._sessions.inserted == [(sid, "q1to6", {"a": 1})]  # type: ignore[attr-defined]
+
+
+async def test_submit_answer_uses_given_in_progress_session() -> None:
+    # session_id가 주어지면 새 세션·트랜잭션 없이 그 세션에 저장한다.
+    student = uuid4()
+    existing = SessionRecord(
+        id=uuid4(),
+        student_id=student,
+        status="in_progress",
+        created_at=datetime.now(UTC),
+        completed_at=None,
+    )
+    service, _, db_pool = _build(latest=existing)
+
+    sid = await service.submit_answer(student, existing.id, "q7a", {"x": 1})
+
+    assert sid == existing.id
+    assert service._sessions.created == []  # type: ignore[attr-defined]
+    assert db_pool.entered is False
+    assert service._sessions.inserted == [(existing.id, "q7a", {"x": 1})]  # type: ignore[attr-defined]
+
+
+async def test_submit_answer_not_found_when_session_missing() -> None:
+    import pytest
+
+    service, _, _ = _build(latest=None)
+    with pytest.raises(NotFoundError):
+        await service.submit_answer(uuid4(), uuid4(), "q7a", {})
+
+
+async def test_submit_answer_forbidden_for_other_student() -> None:
+    import pytest
+
+    owner = uuid4()
+    existing = SessionRecord(
+        id=uuid4(),
+        student_id=owner,
+        status="in_progress",
+        created_at=datetime.now(UTC),
+        completed_at=None,
+    )
+    service, _, _ = _build(latest=existing)
+    with pytest.raises(ForbiddenError):
+        await service.submit_answer(uuid4(), existing.id, "q7a", {})  # 다른 학생
+
+
+async def test_submit_answer_conflict_when_session_completed() -> None:
+    import pytest
+
+    student = uuid4()
+    existing = SessionRecord(
+        id=uuid4(),
+        student_id=student,
+        status="completed",
+        created_at=datetime.now(UTC),
+        completed_at=datetime.now(UTC),
+    )
+    service, _, _ = _build(latest=existing)
+    with pytest.raises(ConflictError):
+        await service.submit_answer(student, existing.id, "q9", {})
+
+
+async def test_submit_answer_uses_same_connection_for_create_and_insert() -> None:
+    # 원자성의 핵심: 세션 생성과 답변 삽입이 '같은 트랜잭션 커넥션'으로 실행돼야 한다.
+    # (insert를 트랜잭션 밖으로 옮기거나 conn 전달을 빼면 이 단언이 깨진다.)
+    service, _, db_pool = _build(latest=None)
+    await service.submit_answer(uuid4(), None, "q1to6", {"a": 1})
+    repo = service._sessions  # type: ignore[attr-defined]
+    assert repo.create_conn is db_pool.conn
+    assert repo.insert_conn is db_pool.conn
+
+
+async def test_submit_answer_propagates_insert_failure() -> None:
+    # 삽입이 실패하면 예외가 전파돼야 한다(실제 asyncpg 트랜잭션이라면 세션 생성도 롤백).
+    import pytest
+
+    service, _, _ = _build(latest=None)
+
+    async def _boom(*args: object, **kwargs: object) -> object:
+        raise RuntimeError("insert failed")
+
+    service._sessions.insert_answer = _boom  # type: ignore[attr-defined,assignment]
+    with pytest.raises(RuntimeError):
+        await service.submit_answer(uuid4(), None, "q1to6", {})

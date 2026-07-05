@@ -145,21 +145,29 @@ class SessionService:
     ) -> UUID:
         """진행 중(Q7~9) 답변 저장. 세션이 없으면 새 in_progress 세션을 만든다.
 
-        - session_id가 None: 새 in_progress 세션 생성 후 그 세션에 저장.
+        - session_id가 None: 새 in_progress 세션 생성 + 첫 답변 삽입을 한 트랜잭션으로
+          원자화한다. 삽입이 실패/취소되면 세션 생성도 함께 롤백되어, '답변 없는
+          유령 세션'이 남거나 그 stage 답변만 유실되는 일이 없다.
         - session_id가 있으면: 소유·상태 검증(내 세션 + in_progress) 후 저장.
         반환값은 이후 저장/완료에서 재사용할 세션 id.
         """
         if session_id is None:
-            session = await self._sessions.create(student_id, status="in_progress")
-            session_id = session.id
-        else:
-            session = await self._sessions.get_by_id(session_id)
-            if session is None:
-                raise NotFoundError("세션을 찾을 수 없습니다.")
-            if session.student_id != student_id:
-                raise ForbiddenError("이 세션에 접근할 수 없습니다.")
-            if session.status != "in_progress":
-                raise ConflictError("이미 종료된 세션입니다.")
+            async with self._db_pool.transaction() as conn:
+                session = await self._sessions.create(
+                    student_id, status="in_progress", conn=conn
+                )
+                await self._sessions.insert_answer(
+                    session.id, stage, answer, conn=conn
+                )
+            return session.id
+
+        existing = await self._sessions.get_by_id(session_id)
+        if existing is None:
+            raise NotFoundError("세션을 찾을 수 없습니다.")
+        if existing.student_id != student_id:
+            raise ForbiddenError("이 세션에 접근할 수 없습니다.")
+        if existing.status != "in_progress":
+            raise ConflictError("이미 종료된 세션입니다.")
 
         await self._sessions.insert_answer(session_id, stage, answer)
         return session_id
