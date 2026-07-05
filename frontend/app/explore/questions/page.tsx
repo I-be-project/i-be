@@ -10,6 +10,7 @@ import { ExpeditionBackdrop, type SceneId } from "@/components/voyage/Expedition
 import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { SceneAssetImage } from "@/components/voyage/SceneAssetImage";
+import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { ChoiceRow } from "@/components/explore/ChoiceRow";
 import { computeScores, derivePairCode } from "@/lib/scoring";
 import { saveAnswer } from "@/lib/api";
@@ -176,8 +177,9 @@ export default function QuestionsPage() {
       riasec: o.primary,
     })) ?? [];
 
-  // 복원 전이거나 진행상황에 맞지 않는 진입이면 가드가 리다이렉트할 때까지 그리지 않는다.
-  if (!ready) return null;
+  // 복원 전이거나 진행상황에 맞지 않는 진입이면 가드가 리다이렉트할 때까지 로딩 화면을
+  // 보여준다(null이면 AppFrame의 빈 하늘색 프레임만 노출돼 "하늘에 갇힌" 것처럼 보인다).
+  if (!ready) return <FlowLoading />;
 
   return (
     <main className="relative min-h-[100dvh] bg-sand font-sans">

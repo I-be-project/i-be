@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Compass, ScrollText, Sparkles } from "lucide-react";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { FullBleedScene } from "@/components/voyage/FullBleedScene";
+import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { useSessionStore } from "@/store/useSessionStore";
 import { briefingCampMapAsset } from "@/lib/assets/sceneManifest";
 
@@ -19,10 +20,10 @@ export default function ExplorePage() {
   useEffect(() => {
     if (hasHydrated && !studentToken) router.replace("/login");
   }, [hasHydrated, studentToken, router]);
-  if (!hasHydrated || !studentToken) return null;
+  if (!hasHydrated || !studentToken) return <FlowLoading />;
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col bg-sand font-sans">
+    <main className="relative h-[100dvh] overflow-hidden bg-sand font-sans">
       <FullBleedScene
         asset={briefingCampMapAsset}
         heightClass="h-[62vh] min-h-[320px]"
@@ -30,34 +31,34 @@ export default function ExplorePage() {
       >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-white/65 via-white/20 to-transparent" />
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
+          initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.15 }}
-          className="absolute inset-x-0 bottom-6 z-10 flex flex-col items-center px-6 text-center"
+          className="absolute inset-x-0 top-0 z-10 flex flex-col items-start px-6 pt-12 text-left"
         >
           <div className="glass-card mb-3 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-ink">
             <Compass className="h-4 w-4 text-sky-500" />
             탐험 브리핑 · 입항
           </div>
-          <h1 className="text-[1.9rem] font-black leading-tight tracking-tight text-ink drop-shadow-sm">
+          <h1 className="max-w-[80%] text-[1.9rem] font-black leading-tight tracking-tight text-ink drop-shadow-sm">
             나로섬에 도착했어!
           </h1>
-          <p className="mt-2 max-w-xs text-[15px] font-semibold leading-relaxed text-ink-soft">
+          <p className="mt-2 max-w-[80%] text-[15px] font-semibold leading-relaxed text-ink-soft">
             바닷바람 너머, 탐험 캠프가 보여.
           </p>
         </motion.div>
       </FullBleedScene>
 
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.25 }}
-        className="relative z-10 -mt-5 flex flex-1 flex-col rounded-t-[1.75rem] bg-sand px-6 pb-10 pt-7"
+        initial={{ y: "45%", opacity: 0 }}
+        animate={{ y: "0%", opacity: 1 }}
+        transition={{ duration: 0.55, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+        className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100dvh-4.5rem)] flex-col rounded-t-[1.75rem] bg-sand px-6 pt-7 shadow-[0_-12px_32px_rgba(14,58,79,0.14)]"
       >
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.5 }}
           className="glass-card mb-4 rounded-2xl p-5 text-left"
         >
           <div className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1.5 text-sm font-bold text-sky-600">
@@ -94,8 +95,8 @@ export default function ExplorePage() {
         <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.38 }}
-          className="mb-8 rounded-2xl bg-amber-50 px-5 py-4 text-left ring-1 ring-amber-200/60"
+          transition={{ delay: 0.58 }}
+          className="mb-6 rounded-2xl bg-amber-50 px-5 py-4 text-left ring-1 ring-amber-200/60"
         >
           <p className="text-[15px] font-bold leading-relaxed text-ink">
             탐험이 끝나면 탐험대원증이 완성돼. 한마당에서 공개되는 날, 네가 고른
@@ -103,12 +104,12 @@ export default function ExplorePage() {
           </p>
         </motion.div>
 
-        <p className="mb-8 inline-flex items-center justify-center gap-1.5 text-center text-sm font-bold text-ink-muted">
+        <p className="mb-2 inline-flex items-center justify-center gap-1.5 text-center text-sm font-bold text-ink-muted">
           <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
           준비됐다면, 낮 탐험 첫 장면으로!
         </p>
 
-        <div className="mt-auto">
+        <div className="mt-auto shrink-0 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
           <CtaButton onClick={() => router.push("/explore/questions")}>
             <Compass className="h-5 w-5" />낮 탐험 시작하기
           </CtaButton>

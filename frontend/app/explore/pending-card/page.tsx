@@ -5,6 +5,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { Copy, Check } from "lucide-react";
 import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
+import { FlowLoading } from "@/components/voyage/FlowLoading";
 
 const SUPPORT_EMAIL = "ibesupport.2026@gmail.com";
 
@@ -27,7 +28,7 @@ export default function PendingCardPage() {
     }
   };
 
-  if (!ready) return null;
+  if (!ready) return <FlowLoading mood="night" />;
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 py-12 font-sans">

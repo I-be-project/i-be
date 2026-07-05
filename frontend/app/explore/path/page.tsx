@@ -10,6 +10,7 @@ import type { AnswerStage } from "@/lib/api";
 import { getQ7AOptions } from "@/lib/mock/q7a";
 import { Moon } from "lucide-react";
 import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
+import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { RankSelect } from "@/components/explore/RankSelect";
@@ -349,7 +350,7 @@ export default function PathPage() {
 
   // 복원 전이거나 진입 조건 미충족이면 가드가 리다이렉트할 때까지 그리지 않는다.
   // (pairCode/riasecScores 널 체크로 아래 렌더의 타입도 좁힌다)
-  if (!ready || !pairCode || !riasecScores) return null;
+  if (!ready || !pairCode || !riasecScores) return <FlowLoading mood="night" />;
 
   // 현재 단계의 제목/본문/하단버튼 구성
   const rankReady = first !== null && second !== null;
