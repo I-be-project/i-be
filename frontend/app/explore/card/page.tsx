@@ -72,7 +72,7 @@ export default function CardPage() {
             </Button>
           </div>
 
-          <CtaButton onClick={() => router.push("/profile/me")}>
+          <CtaButton onClick={() => router.push("/explore/pending-card")}>
             <UserSquare2 className="h-5 w-5" />
             탐험 기록 보기
           </CtaButton>
