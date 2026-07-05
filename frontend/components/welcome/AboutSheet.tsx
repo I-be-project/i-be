@@ -8,33 +8,10 @@ import {
   useTransform,
   useDragControls,
 } from "framer-motion";
-import { Info, X } from "lucide-react";
+import { X } from "lucide-react";
 import { welcomeAbout } from "@/lib/data/welcomeAbout";
 
 const SPRING = { type: "spring" as const, stiffness: 420, damping: 42 };
-
-// CTA 버튼 위에 두는 작은 "체험 안내" 칩. 탭하면 안내 시트가 올라온다.
-export function AboutChip({
-  onOpen,
-  className = "",
-}: {
-  onOpen: () => void;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label="체험 안내"
-      className={
-        "inline-flex items-center justify-center p-1 text-sky-600 drop-shadow-[0_1px_4px_rgba(255,255,255,0.85)] transition-all hover:text-sky-500 active:scale-[0.94] " +
-        className
-      }
-    >
-      <Info className="h-8 w-8" strokeWidth={2.4} />
-    </button>
-  );
-}
 
 // 아래에서 올라오는 "체험 안내" 바텀시트(controlled).
 // 손잡이를 아래로 쓸어내리면 손가락을 따라 연속적으로 닫힌다.

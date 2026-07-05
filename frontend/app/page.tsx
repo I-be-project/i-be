@@ -4,11 +4,11 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ChevronRight, Compass, LogOut } from "lucide-react";
+import { ChevronRight, Compass, LogOut, Sparkles } from "lucide-react";
 import { useSessionStore } from "@/store/useSessionStore";
 import { getMyProfile } from "@/lib/api";
 import { resumeScreen, resumePath } from "@/lib/explore/flow";
-import { AboutChip, AboutSheet } from "@/components/welcome/AboutSheet";
+import { AboutSheet } from "@/components/welcome/AboutSheet";
 
 export default function WelcomePage() {
   const router = useRouter();
@@ -74,21 +74,64 @@ export default function WelcomePage() {
         <div className="absolute inset-x-0 bottom-0 h-[42%] bg-gradient-to-t from-white/90 via-white/55 to-transparent" />
       </div>
 
-      {/* 우측 상단: 체험 안내 칩 */}
-      <div className="absolute right-4 top-[calc(0.75rem+env(safe-area-inset-top))] z-20">
-        <AboutChip onOpen={() => setAboutOpen(true)} />
-      </div>
-
-      {/* 상단: 배지 + 헤드라인 */}
+      {/* 상단: 배지(=체험 안내 버튼) + 헤드라인 */}
       <div className="relative z-10 flex flex-col items-center px-7 pt-14 text-center">
-        <motion.div
+        <motion.button
+          type="button"
+          onClick={() => setAboutOpen(true)}
+          aria-label="체험 안내 보기"
           initial={{ opacity: 0, y: -12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="glass-card mb-7 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#0e3a4f] shadow-[0_4px_20px_rgba(14,58,79,0.15)]"
+          animate={{
+            opacity: 1,
+            y: 0,
+            scale: [1, 1.045, 1],
+            boxShadow: [
+              "0 4px 20px rgba(14,58,79,0.15)",
+              "0 8px 30px rgba(56,189,248,0.4)",
+              "0 4px 20px rgba(14,58,79,0.15)",
+            ],
+          }}
+          transition={{
+            opacity: { duration: 0.5 },
+            y: { duration: 0.5 },
+            scale: { duration: 2.1, repeat: Infinity, ease: "easeInOut", delay: 1 },
+            boxShadow: {
+              duration: 2.1,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1,
+            },
+          }}
+          whileHover={{ scale: 1.08 }}
+          whileTap={{ scale: 0.9, rotate: -2 }}
+          className="glass-card group relative mb-7 inline-flex items-center gap-1.5 overflow-hidden rounded-full py-2 pl-4 pr-3 text-sm font-bold text-[#0e3a4f]"
         >
-          2026 나Be한마당
-        </motion.div>
+          {/* 반짝 스치는 하이라이트 — 주기적으로 왼쪽에서 오른쪽으로 훑고 지나간다 */}
+          <motion.span
+            aria-hidden
+            className="pointer-events-none absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-transparent via-white/80 to-transparent"
+            animate={{ x: ["-140%", "240%"] }}
+            transition={{
+              duration: 1.6,
+              repeat: Infinity,
+              repeatDelay: 1.8,
+              ease: "easeInOut",
+            }}
+          />
+          <span className="relative z-10">2026 나Be한마당</span>
+          <motion.span
+            className="relative z-10 flex"
+            animate={{ rotate: [0, 18, -12, 0], scale: [1, 1.25, 1] }}
+            transition={{
+              duration: 1.4,
+              repeat: Infinity,
+              repeatDelay: 1.2,
+              ease: "easeInOut",
+            }}
+          >
+            <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
+          </motion.span>
+        </motion.button>
 
         <motion.h1
           initial={{ opacity: 0, y: 16 }}
@@ -179,7 +222,7 @@ export default function WelcomePage() {
         )}
       </motion.div>
 
-      {/* "체험 안내" 시트 — 칩을 탭하면 아래에서 올라온다 */}
+      {/* "체험 안내" 시트 — 상단 배지를 탭하면 아래에서 올라온다 */}
       <AboutSheet open={aboutOpen} onOpenChange={setAboutOpen} />
     </main>
   );
