@@ -237,6 +237,7 @@ class SessionService:
             class_no=student.class_no,
             student_no=student.student_no,
             name=student.name,
+            gender=student.gender,
             photo_url=photo_url,
         )
 

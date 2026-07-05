@@ -108,7 +108,7 @@ async def test_students_lists_with_admin_token() -> None:
     app, repo, _, _ = _build()
     await repo.create(
         school="한마당고", grade=2, class_no=3, student_no=11,
-        name="홍길동", password="20100101", consent_privacy=True,
+        name="홍길동", password="20100101", gender="male", consent_privacy=True,
     )
     gen = _client(app)
     client = await anext(gen)
@@ -143,7 +143,7 @@ async def test_student_detail_returns_content() -> None:
     app, repo, _, sessions = _build()
     student = await repo.create(
         school="한마당고", grade=2, class_no=3, student_no=11,
-        name="홍길동", password="20100101", consent_privacy=True,
+        name="홍길동", password="20100101", gender="male", consent_privacy=True,
     )
     from datetime import UTC, datetime
     from uuid import uuid4
@@ -191,7 +191,7 @@ async def test_delete_student_removes_and_requires_token() -> None:
     app, repo, storage, _ = _build()
     student = await repo.create(
         school="한마당고", grade=2, class_no=3, student_no=11,
-        name="홍길동", password="20100101", consent_privacy=True,
+        name="홍길동", password="20100101", gender="male", consent_privacy=True,
     )
     await repo.update_photo_key(student.id, "uploads/photos/x/photo")
     gen = _client(app)

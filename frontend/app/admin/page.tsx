@@ -32,6 +32,7 @@ import {
 } from "@/lib/api";
 import { clearAdminToken, getAdminToken } from "@/lib/adminAuth";
 import { ProgressBadge } from "@/components/admin/ProgressBadge";
+import { genderLabel } from "@/lib/utils";
 
 function StudentAvatar({ student }: { student: AdminStudentItem }) {
   if (student.photo_url) {
@@ -274,6 +275,7 @@ export default function AdminStudentsPage() {
                 <TableHead>이름</TableHead>
                 <TableHead>학교</TableHead>
                 <TableHead>학년·반·번호</TableHead>
+                <TableHead>성별</TableHead>
                 <TableHead>진행도</TableHead>
                 <TableHead>가입일</TableHead>
                 <TableHead>비밀번호</TableHead>
@@ -290,7 +292,7 @@ export default function AdminStudentsPage() {
                     <TableCell>
                       <Skeleton className="size-10 rounded-full" />
                     </TableCell>
-                    {Array.from({ length: 7 }).map((__, j) => (
+                    {Array.from({ length: 8 }).map((__, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-20" />
                       </TableCell>
@@ -299,7 +301,7 @@ export default function AdminStudentsPage() {
                 ))
               ) : items.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={9} className="py-16">
+                  <TableCell colSpan={10} className="py-16">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <Inbox className="size-8" aria-hidden />
                       <p className="text-sm">
@@ -337,6 +339,9 @@ export default function AdminStudentsPage() {
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
                       {s.grade}학년 {s.class_no}반 {s.student_no}번
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {genderLabel(s.gender)}
                     </TableCell>
                     <TableCell>
                       <ProgressBadge progress={s.progress} />

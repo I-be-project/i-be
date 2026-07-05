@@ -25,6 +25,7 @@ _REGISTER_BODY = {
     "student_no": 11,
     "name": "홍길동",
     "password": "20100101",
+    "gender": "male",
     "consent_privacy": True,
 }
 

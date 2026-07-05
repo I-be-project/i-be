@@ -29,6 +29,7 @@ export default function SignupPage() {
     studentNo: "",
   });
   const [name, setName] = useState("");
+  const [gender, setGender] = useState<"male" | "female" | "">("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [consent, setConsent] = useState(false);
@@ -64,6 +65,7 @@ export default function SignupPage() {
       !identity.classNo ||
       !identity.studentNo ||
       !name.trim() ||
+      !gender ||
       !password ||
       !confirmPassword
     ) {
@@ -101,6 +103,7 @@ export default function SignupPage() {
         student_no: studentNo,
         name: name.trim(),
         password,
+        gender,
         consent_privacy: consent,
       });
       setAuth(res.student_token, res.student_id);
@@ -111,6 +114,7 @@ export default function SignupPage() {
         classNo,
         studentNo,
         name: name.trim(),
+        gender,
       });
       router.push("/signup/photo");
     } catch (err) {
@@ -193,6 +197,37 @@ export default function SignupPage() {
                 autoComplete="off"
                 className={inputClass}
               />
+            </div>
+
+            <div>
+              <span className={labelClass}>성별</span>
+              <div className="grid grid-cols-2 gap-3" role="group" aria-label="성별">
+                {(
+                  [
+                    { value: "male", label: "남" },
+                    { value: "female", label: "여" },
+                  ] as const
+                ).map((opt) => {
+                  const selected = gender === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setGender(opt.value)}
+                      disabled={loading}
+                      aria-pressed={selected}
+                      className={
+                        "h-13 rounded-2xl border text-base font-bold transition-colors disabled:opacity-60 " +
+                        (selected
+                          ? "border-sky-400 bg-sky-50 text-sky-700 ring-4 ring-sky-100"
+                          : "border-transparent bg-zinc-100 text-zinc-500 hover:bg-zinc-200")
+                      }
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
             <div>

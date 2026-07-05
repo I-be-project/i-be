@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -26,6 +27,7 @@ class RegisterRequest(BaseModel):
     student_no: int = _STUDENT_NO
     name: str = Field(..., min_length=1, max_length=50, description="이름")
     password: str = _PASSWORD
+    gender: Literal["male", "female"] = Field(..., description="성별 (male=남, female=여)")
     consent_privacy: bool = Field(
         ..., description="개인정보 수집·이용 동의 (가입 필수, false면 거부됨)"
     )

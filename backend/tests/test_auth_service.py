@@ -39,6 +39,7 @@ class FakeStudentRepo:
         student_no: int,
         name: str,
         password: str,
+        gender: str,
         consent_privacy: bool,
     ) -> StudentRecord:
         key = self._key(school, grade, class_no, student_no)
@@ -52,6 +53,7 @@ class FakeStudentRepo:
             student_no=student_no,
             name=name,
             password=password,
+            gender=gender,
             photo_key=None,
             consent_privacy=consent_privacy,
             created_at=datetime.now(UTC),
@@ -146,6 +148,7 @@ def _register_req(**overrides: object) -> RegisterRequest:
         "student_no": 11,
         "name": "홍길동",
         "password": "20100101",
+        "gender": "male",
         "consent_privacy": True,
     }
     base.update(overrides)

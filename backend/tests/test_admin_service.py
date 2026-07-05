@@ -44,11 +44,11 @@ class FakeSessionRepo:
 async def _seed(repo: FakeStudentRepo) -> None:
     await repo.create(
         school="한마당고", grade=2, class_no=3, student_no=11,
-        name="홍길동", password="20100101", consent_privacy=True,
+        name="홍길동", password="20100101", gender="male", consent_privacy=True,
     )
     s2 = await repo.create(
         school="한마당고", grade=1, class_no=1, student_no=5,
-        name="김영희", password="20110202", consent_privacy=True,
+        name="김영희", password="20110202", gender="female", consent_privacy=True,
     )
     await repo.update_photo_key(s2.id, "uploads/photos/x/photo")
 
