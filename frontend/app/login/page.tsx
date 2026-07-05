@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { IdentityFields, type IdentityValues } from "@/components/auth/IdentityFields";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, loginStudent } from "@/lib/api";
+import { resumeScreen, resumePath } from "@/lib/explore/flow";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
 
@@ -59,8 +60,15 @@ export default function LoginPage() {
         password,
       });
       setAuth(res.student_token, res.student_id);
-      // 로그인 후엔 프로필 화면으로. 설문 완료 여부 분기는 프로필에서 처리한다.
-      router.push(`/profile/${res.student_id}`);
+      // 같은 학생의 재로그인이면 진행상황이 보존된다(setAuth). 진행 중이던 설문이
+      // 있으면 그 화면으로 바로 이어가고, 없으면(신규/다른 학생/완료) 프로필로 간다.
+      const s = useSessionStore.getState();
+      const screen = resumeScreen(s);
+      if (screen !== "explore" && screen !== "done") {
+        router.replace(resumePath(s));
+      } else {
+        router.push(`/profile/${res.student_id}`);
+      }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         // 백엔드가 학번/비밀번호 중 무엇이 틀렸는지 구분해주지 않으므로 묶어서 안내.

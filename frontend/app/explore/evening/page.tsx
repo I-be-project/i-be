@@ -1,15 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Moon, Sparkles, Hammer, Mic2, Palette, ArrowRight } from "lucide-react";
 import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { FullBleedScene } from "@/components/voyage/FullBleedScene";
-import { useSessionStore } from "@/store/useSessionStore";
 import { eveningBridgeAsset } from "@/lib/assets/sceneManifest";
 import { campTraditionIntro } from "@/lib/mock/campMap";
+import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
 
 const EVENING_SPOTS = [
   {
@@ -31,14 +30,11 @@ const EVENING_SPOTS = [
 
 export default function EveningPage() {
   const router = useRouter();
-  const pairCode = useSessionStore((s) => s.pairCode);
-  const riasecScores = useSessionStore((s) => s.riasecScores);
+  // evening은 Q6 완료 후 밤(Q7) 직전 브릿지 — 여기부터는 뒤로가기를 막는다.
+  const { ready } = useFlowGuard("evening");
+  useBlockBack();
 
-  useEffect(() => {
-    if (!pairCode || !riasecScores) router.replace("/explore");
-  }, [pairCode, riasecScores, router]);
-
-  if (!pairCode || !riasecScores) return null;
+  if (!ready) return null;
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col bg-sand font-sans">

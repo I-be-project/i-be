@@ -1,26 +1,21 @@
 "use client";
 
-import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Sun, Sparkles, HelpCircle, UserSquare2 } from "lucide-react";
-import { useSessionStore } from "@/store/useSessionStore";
 import { ExpeditionBackdrop } from "@/components/voyage/ExpeditionScene";
 import { CtaButton } from "@/components/voyage/CtaButton";
+import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
 
 // 공개 대기함 — Q9까지 응답을 마치면 도착하는 종료 화면.
 // 탐험대원증 이름·카드는 한마당에서 공개하므로, 여기서는 "만들어지는 중"만 보여준다.
 export default function PendingCardPage() {
   const router = useRouter();
-  const hasHydrated = useSessionStore((s) => s.hasHydrated);
-  const studentToken = useSessionStore((s) => s.studentToken);
+  // 종료 화면 — 완료하지 않았으면 진행 화면으로 되돌리고, 완료 후엔 뒤로가기를 막는다.
+  const { ready } = useFlowGuard("done");
+  useBlockBack();
 
-  // 로그인 토큰이 없으면 로그인으로. 복원(hasHydrated) 전에는 판단 보류.
-  useEffect(() => {
-    if (hasHydrated && !studentToken) router.replace("/login");
-  }, [hasHydrated, studentToken, router]);
-
-  if (!hasHydrated || !studentToken) return null;
+  if (!ready) return null;
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 py-12 font-sans">
