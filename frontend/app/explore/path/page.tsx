@@ -17,6 +17,7 @@ import { ChipSelect } from "@/components/explore/ChipSelect";
 import { GeneratingScreen } from "@/components/explore/GeneratingScreen";
 import type { GeneratingStage } from "@/lib/assets/sceneManifest";
 import type { Q7BOption, Q8Chip, Q9Chip } from "@/store/useSessionStore";
+import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
 
 // 별빛 프로그램은 Q9가 마지막 — 응답을 마치면 세션을 완료하고 공개 대기로 간다.
 type Stage = "q7a" | "q7b" | "q8" | "q9";
@@ -44,6 +45,10 @@ interface Q9Data {
 
 export default function PathPage() {
   const router = useRouter();
+  // 밤 프로그램(Q7~9) — 여기부터는 뒤로가기를 막고, 재진입 시 완료한 질문 다음 단계로 이어간다.
+  const { ready } = useFlowGuard("path");
+  useBlockBack();
+
   const store = useSessionStore();
   const {
     riasecScores,
@@ -69,11 +74,6 @@ export default function PathPage() {
   const [second, setSecond] = useState<string | null>(null);
   const [chipIds, setChipIds] = useState<string[]>([]);
   const [freeText, setFreeText] = useState("");
-
-  // pairCode 없으면 비정상 진입 — 처음으로
-  useEffect(() => {
-    if (!pairCode || !riasecScores) router.replace("/explore");
-  }, [pairCode, riasecScores, router]);
 
   // 다음 단계로 넘어가면 맨 위부터 다시 보이게
   useEffect(() => {
@@ -117,6 +117,23 @@ export default function PathPage() {
     setFreeText("");
   };
 
+  // 생성 결과를 화면에 반영하는 공통 핸들러 — 제출·재시도·이어하기가 함께 쓴다.
+  const showQ7b = (json: unknown) => {
+    setQ7bData((json as { q7b: Q7BData }).q7b);
+    resetSelection();
+    setStage("q7b");
+  };
+  const showQ8 = (json: unknown) => {
+    setQ8Data((json as { q8: Q8Data }).q8);
+    resetSelection();
+    setStage("q8");
+  };
+  const showQ9 = (json: unknown) => {
+    setQ9Data((json as { q9: Q9Data }).q9);
+    resetSelection();
+    setStage("q9");
+  };
+
   // Q7~9 답변을 백엔드에 단계별 저장(진행 중). 생성 흐름과 독립 — 실패해도 설문은 막지 않는다.
   // 첫 저장 때 발급받은 sessionId를 스토어에 보관해 다음 저장·완료에서 재사용한다.
   const persistAnswer = (stage: AnswerStage, answer: Record<string, unknown>) => {
@@ -145,11 +162,7 @@ export default function PathPage() {
     callGenerate(
       "q7b",
       { ...baseInput, q7aFirst: firstOpt.label, q7aSecond: secondOpt.label },
-      (json) => {
-        setQ7bData((json as { q7b: Q7BData }).q7b);
-        resetSelection();
-        setStage("q7b");
-      },
+      showQ7b,
     );
   };
 
@@ -173,11 +186,7 @@ export default function PathPage() {
         q7bFirst: firstOpt,
         q7bSecond: secondOpt,
       },
-      (json) => {
-        setQ8Data((json as { q8: Q8Data }).q8);
-        resetSelection();
-        setStage("q8");
-      },
+      showQ8,
     );
   };
 
@@ -199,24 +208,20 @@ export default function PathPage() {
         q7bSecond: b?.second,
         q8: { chips, freeText },
       },
-      (json) => {
-        setQ9Data((json as { q9: Q9Data }).q9);
-        resetSelection();
-        setStage("q9");
-      },
+      showQ9,
     );
   };
 
-  // Q9 확정 → 세션 완료 → 공개 대기 화면. Q9가 마지막 질문이다.
-  // 탐험대원증 이름·카드는 한마당에서 공개하므로 여기서는 페르소나를 만들지 않고
-  // 세션만 completed로 승격한다.
-  const submitQ9 = async () => {
-    if (!q9Data) return;
-    const chips = q9Data.topic_chips.filter((c) => chipIds.includes(c.chip_id));
-    setQ9Selection({ chips, freeText });
-
+  // Q9 답변으로 세션을 완료 저장하고 공개 대기 화면으로 이동한다. Q9가 마지막 질문이다.
+  // 탐험대원증 이름·카드는 한마당에서 공개하므로 페르소나 없이 세션만 completed로 승격한다.
+  // 제출(submitQ9)과 이어하기(재진입 시 Q9까지 답했지만 완료 저장 전) 양쪽에서 재사용한다.
+  const finalizeSurvey = async (
+    chips: { text: string }[],
+    freeTextValue: string,
+  ) => {
     // 완료 저장은 인증 필요. 토큰 없으면 로그인으로.
-    const { studentToken, sessionId, setSessionId } = useSessionStore.getState();
+    const { studentToken, sessionId, setSessionId, setSurveyCompleted } =
+      useSessionStore.getState();
     if (!studentToken) {
       router.push("/login");
       return;
@@ -229,20 +234,28 @@ export default function PathPage() {
       const saved = await saveAnswer(studentToken, {
         sessionId: sid,
         stage: "q9",
-        answer: { chips: chips.map((c) => c.text), freeText },
+        answer: { chips: chips.map((c) => c.text), freeText: freeTextValue },
       });
       if (!sid) {
         setSessionId(saved.session_id);
         sid = saved.session_id;
       }
       await completeSurvey(studentToken, null, sid);
+      setSurveyCompleted(true);
       router.push("/explore/pending-card");
     } catch {
-      pendingRetry.current = submitQ9; // "다시 시도" 시 완료 저장을 재실행
+      pendingRetry.current = () => finalizeSurvey(chips, freeTextValue); // "다시 시도" 시 완료 저장을 재실행
       setError("탐험 기록을 저장하지 못했어. 다시 시도해줄래?");
     } finally {
       setGenerating(false);
     }
+  };
+
+  const submitQ9 = () => {
+    if (!q9Data) return;
+    const chips = q9Data.topic_chips.filter((c) => chipIds.includes(c.chip_id));
+    setQ9Selection({ chips, freeText });
+    void finalizeSurvey(chips, freeText);
   };
 
   // "다시 시도" — 저장 재시도 핸들러가 있으면 우선, 없으면 마지막 생성 요청 재실행
@@ -256,25 +269,74 @@ export default function PathPage() {
     const req = lastReq.current;
     if (!req) return;
     const apiStage = req.stage as "q7b" | "q8" | "q9";
-    const onOkMap = {
-      q7b: (json: unknown) => {
-        setQ7bData((json as { q7b: Q7BData }).q7b);
-        resetSelection();
-        setStage("q7b");
-      },
-      q8: (json: unknown) => {
-        setQ8Data((json as { q8: Q8Data }).q8);
-        resetSelection();
-        setStage("q8");
-      },
-      q9: (json: unknown) => {
-        setQ9Data((json as { q9: Q9Data }).q9);
-        resetSelection();
-        setStage("q9");
-      },
-    };
+    const onOkMap = { q7b: showQ7b, q8: showQ8, q9: showQ9 };
     callGenerate(apiStage, req.body, onOkMap[apiStage]);
   };
+
+  // 재진입/새로고침 이어하기 — 저장된 선택으로 "완료한 질문 다음 단계"를 다시 생성해 보여준다.
+  // 밤 프로그램 선택지는 LLM이 실시간 생성하므로, 이전 답변을 입력으로 다음 단계를 재생성한다.
+  const resumedRef = useRef(false);
+  useEffect(() => {
+    if (!ready || resumedRef.current) return;
+    resumedRef.current = true;
+    const s = useSessionStore.getState();
+    const base = {
+      riasecScores: s.riasecScores ?? {},
+      pairCode: s.pairCode ?? "",
+      q1to6: s.answers
+        .map((a) => a.value)
+        .filter((v): v is string => typeof v === "string"),
+    };
+    const a = s.q7aSelection;
+    const b = s.q7bSelection;
+    // Q9까지 답했지만 완료 저장 전에 이탈 → 완료 저장부터 다시.
+    if (s.q9Selection && !s.surveyCompleted) {
+      void finalizeSurvey(s.q9Selection.chips, s.q9Selection.freeText);
+      return;
+    }
+    // Q8 완료 → Q9 재생성.
+    if (s.q8Selection) {
+      callGenerate(
+        "q9",
+        {
+          ...base,
+          q7aFirst: a?.first.label ?? "",
+          q7aSecond: a?.second.label ?? "",
+          q7bFirst: b?.first,
+          q7bSecond: b?.second,
+          q8: { chips: s.q8Selection.chips, freeText: s.q8Selection.freeText },
+        },
+        showQ9,
+      );
+      return;
+    }
+    // Q7-B 완료 → Q8 재생성.
+    if (b) {
+      callGenerate(
+        "q8",
+        {
+          ...base,
+          q7aFirst: a?.first.label ?? "",
+          q7aSecond: a?.second.label ?? "",
+          q7bFirst: b.first,
+          q7bSecond: b.second,
+        },
+        showQ8,
+      );
+      return;
+    }
+    // Q7-A 완료 → Q7-B 재생성.
+    if (a) {
+      callGenerate(
+        "q7b",
+        { ...base, q7aFirst: a.first.label, q7aSecond: a.second.label },
+        showQ7b,
+      );
+      return;
+    }
+    // 저장된 밤 선택이 없으면 신규 진입 — q7a 그대로 시작.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready]);
 
   const toggleChip = (id: string) =>
     setChipIds((prev) =>
@@ -285,7 +347,9 @@ export default function PathPage() {
           : [...prev, id],
     );
 
-  if (!pairCode || !riasecScores) return null;
+  // 복원 전이거나 진입 조건 미충족이면 가드가 리다이렉트할 때까지 그리지 않는다.
+  // (pairCode/riasecScores 널 체크로 아래 렌더의 타입도 좁힌다)
+  if (!ready || !pairCode || !riasecScores) return null;
 
   // 현재 단계의 제목/본문/하단버튼 구성
   const rankReady = first !== null && second !== null;
