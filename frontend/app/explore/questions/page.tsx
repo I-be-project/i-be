@@ -115,8 +115,12 @@ export default function QuestionsPage() {
   }, []);
 
   // Q1~6은 앞뒤로 오갈 수 있다. 뒤로 갈 때도 지금 선택을 저장해 두면 다시 왔을 때 유지된다.
+  // 첫 질문에서 뒤로 가면 질문 흐름 이전 화면(브리핑)으로 돌아간다.
   const handleBack = () => {
-    if (currentIndex === 0) return;
+    if (currentIndex === 0) {
+      router.push("/explore");
+      return;
+    }
     if (currentAnswer.trim().length > 0) {
       upsertAnswer({ questionId: currentQuestion.id, value: currentAnswer });
     }
@@ -185,30 +189,25 @@ export default function QuestionsPage() {
     <main className="relative min-h-[100dvh] bg-sand font-sans">
       <ExpeditionBackdrop mood={sceneId} />
 
-      {/* 상단 고정 바 — 진행도 + 장면명 + 진행 단계. 스크롤해도 항상 보인다(프레임 폭에 맞춰 가운데 고정). */}
+      {/* 상단 고정 바 — 진행도 + 장면명 + 진행 단계 + 뒤로가기. 스크롤해도 항상 보인다
+          (프레임 폭에 맞춰 가운데 고정 — 뒤로가기 버튼도 이 컨테이너 기준 좌측에 둔다). */}
       <div className="fixed left-1/2 top-0 z-30 w-full max-w-2xl -translate-x-1/2">
         <TrailBar step={currentIndex + 1} total={JOURNEY_TOTAL} />
-        <div className="flex items-start justify-between px-6 pt-[calc(env(safe-area-inset-top)+2.5rem)]">
+        <div className="relative flex items-start justify-end px-6 pt-[calc(env(safe-area-inset-top)+2.5rem)]">
+          {/* Q1~6은 앞뒤 이동 가능 — 첫 질문에서는 브리핑 화면으로 돌아간다 */}
+          <button
+            type="button"
+            onClick={handleBack}
+            aria-label="이전 질문"
+            className="absolute left-4 top-[calc(env(safe-area-inset-top)+1.75rem)] flex h-10 w-10 items-center justify-center rounded-full bg-white/70 text-ink shadow-[0_2px_10px_rgba(14,58,79,0.15)] backdrop-blur transition-colors hover:bg-white/90 active:scale-95"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
           <span className="glass-card rounded-full px-3 py-1.5 text-[11px] font-bold text-ink">
             장면 {currentIndex + 1} · {currentQuestion.scene}
           </span>
-          <span className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
-            {currentIndex + 1}/{JOURNEY_TOTAL}
-          </span>
         </div>
       </div>
-
-      {/* Q1~6은 앞뒤 이동 가능 — 첫 질문이 아닐 때만 뒤로 버튼 노출 */}
-      {currentIndex > 0 && (
-        <button
-          type="button"
-          onClick={handleBack}
-          aria-label="이전 질문"
-          className="fixed left-4 top-[max(1.5rem,env(safe-area-inset-top))] z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/70 text-ink shadow-[0_2px_10px_rgba(14,58,79,0.15)] backdrop-blur transition-colors hover:bg-white/90 active:scale-95"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-      )}
 
       <AnimatePresence mode="wait">
         <motion.div
