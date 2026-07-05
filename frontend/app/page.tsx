@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ChevronRight, Compass, Sparkles, LogOut } from "lucide-react";
+import { ChevronRight, Compass, LogOut } from "lucide-react";
 import { useSessionStore } from "@/store/useSessionStore";
 import { getMyProfile } from "@/lib/api";
 import { resumeScreen, resumePath } from "@/lib/explore/flow";
