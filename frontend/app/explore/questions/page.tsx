@@ -138,7 +138,7 @@ export default function QuestionsPage() {
             />
           </div>
 
-          <div className="fixed bottom-0 left-0 right-0 z-20 flex justify-center bg-gradient-to-t from-sand via-sand/90 to-transparent p-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
+          <div className="fixed bottom-0 left-1/2 z-20 flex w-full max-w-2xl -translate-x-1/2 justify-center bg-gradient-to-t from-sand via-sand/90 to-transparent p-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
             <CtaButton
               onClick={handleNext}
               disabled={isNextDisabled}

@@ -120,7 +120,25 @@ export const useSessionStore = create<SessionStore>()(
   q9Selection: null,
   q10Selection: null,
 
-  setAuth: (token, id) => set({ studentToken: token, studentId: id }),
+  // 새 인증 주체로 전환(로그인/가입) — 이전 사용자의 진행 중 세션·답변이 남아
+  // 교차 오염(다른 학생의 sessionId를 내 토큰으로 전송 → 403)되지 않도록 함께 초기화한다.
+  setAuth: (token, id) =>
+    set({
+      studentToken: token,
+      studentId: id,
+      inputMode: null,
+      answers: [],
+      sessionId: null,
+      persona: null,
+      cardId: null,
+      riasecScores: null,
+      pairCode: null,
+      q7aSelection: null,
+      q7bSelection: null,
+      q8Selection: null,
+      q9Selection: null,
+      q10Selection: null,
+    }),
   setStudentInfo: (info) => set({ studentInfo: info }),
   setInputMode: (mode) => set({ inputMode: mode }),
   addAnswer: (answer) =>
