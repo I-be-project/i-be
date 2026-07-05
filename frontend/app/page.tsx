@@ -55,18 +55,17 @@ export default function WelcomePage() {
 
   return (
     <main className="relative flex min-h-[100dvh] flex-col overflow-hidden font-sans">
-      {/* 배경 이미지 (히어로) — 16:9. 세로는 항상 화면 높이에 꽉 차고(세로 확대/크롭 없음),
-          가로는 중앙 기준. 화면을 넓히면 전체가 드러나고, 더 넓어지면 좌우에 여백이 생긴다
-          (여백은 배경색으로 채움). 좁히면 좌우가 중앙 기준으로 점점 잘림. 비율 유지. */}
+      {/* 배경 이미지 (히어로) — 항상 화면을 여백 없이 꽉 채운다(object-cover, 중앙 기준).
+          세로가 긴 화면(좁은 화면)에서는 세로 기준으로 채워지며 좌우가 잘리고,
+          가로가 긴 화면(넓은 화면)에서는 가로 기준으로 채워지며 위아래가 잘린다. */}
       <div className="absolute inset-0 overflow-hidden bg-[#49a7e0]">
         <Image
           src="/welcome.webp"
           alt=""
-          width={1600}
-          height={976}
+          fill
           priority
-          sizes="1600px"
-          className="absolute left-1/2 top-0 h-full w-auto max-w-none -translate-x-1/2"
+          sizes="100vw"
+          className="object-cover"
         />
         {/* 상단 스크림 — 헤드라인 가독성 */}
         <div className="absolute inset-x-0 top-0 h-[55%] bg-gradient-to-b from-white/70 via-white/25 to-transparent" />
@@ -94,7 +93,12 @@ export default function WelcomePage() {
           transition={{
             opacity: { duration: 0.5 },
             y: { duration: 0.5 },
-            scale: { duration: 2.1, repeat: Infinity, ease: "easeInOut", delay: 1 },
+            scale: {
+              duration: 2.1,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1,
+            },
             boxShadow: {
               duration: 2.1,
               repeat: Infinity,
@@ -146,7 +150,7 @@ export default function WelcomePage() {
           </span>
           를
           <br />
-          살아보고 싶니?
+          꿈꾸고 있니?
         </motion.h1>
 
         <motion.p
