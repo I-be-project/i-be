@@ -292,6 +292,10 @@ export default function PathPage() {
   const chipReady = chipIds.length > 0 || freeText.trim().length > 0;
 
   const q7aOptions = getQ7AOptions(pairCode);
+  const selectedQ7aLocation = q7aOptions
+    .find((option) => option.id === first)
+    ?.label.split(/\s*[·•]\s*/)[0]
+    .trim();
 
   let title = "";
   let body: ReactNode = null;
@@ -306,6 +310,7 @@ export default function PathPage() {
         options={q7aOptions}
         first={first}
         second={second}
+        variant="location"
         onChange={(f, s) => {
           setFirst(f);
           setSecond(s);
@@ -367,6 +372,12 @@ export default function PathPage() {
     ctaDisabled = !chipReady;
   }
 
+  if (stage === "q7a") {
+    cta = selectedQ7aLocation
+      ? `${selectedQ7aLocation}(으)로 들어가기`
+      : "장소를 선택해줘";
+  }
+
   const showGenerating = generating || error !== null;
   // 생성 대기 화면 아트는 지금 생성 중인 단계(마지막 요청) 기준.
   const generatingStage =
@@ -374,12 +385,22 @@ export default function PathPage() {
 
   return (
     // overflow-hidden은 배경 컴포넌트가 자체 처리 — main에 걸면 sticky CTA가 죽는다
-    <main className="relative flex min-h-[100dvh] flex-col font-sans">
+    <main className="relative flex min-h-[100dvh] flex-col overflow-x-hidden font-sans">
       {/* Q6 해질녘 신호 이후 — 밤이 깊어진 섬에서 심화 탐험이 이어진다 */}
       <ExpeditionBackdrop mood="night" />
+      {stage === "q7a" && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(circle at 78% 12%, rgba(255,245,205,0.18), transparent 24%), linear-gradient(to bottom, rgba(120,136,181,0.92) 0%, rgba(156,155,192,0.9) 36%, rgba(214,194,190,0.88) 68%, rgba(247,229,195,0.96) 100%)",
+          }}
+        />
+      )}
       <TrailBar step={STAGE_INDEX[stage]} total={10} />
 
-      <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-grow flex-col px-6 pb-8 pt-7">
+      <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-grow flex-col px-5 pb-0 pt-6 sm:px-6">
         {showGenerating ? (
           <GeneratingScreen error={error} onRetry={retry} stage={generatingStage} />
         ) : (
@@ -393,21 +414,26 @@ export default function PathPage() {
               className="flex flex-grow flex-col"
             >
               {/* 컴팩트 진행 칩 — 진행 헤더 블록 대신 한 줄로 */}
-              <div className="mb-4 flex items-center justify-between">
-                <div className="glass-card inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
+              <div className="mb-6 flex items-center justify-between">
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/35 px-3 py-1.5 text-[11px] font-bold text-ink shadow-sm backdrop-blur-md">
                   <Moon className="h-3 w-3 text-sky-600" />
                   밤 · 별빛 프로그램
                 </div>
-                <div className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
+                <div className="rounded-full border border-white/40 bg-white/35 px-2.5 py-1.5 text-[11px] font-bold tabular-nums text-ink shadow-sm backdrop-blur-md">
                   {STAGE_INDEX[stage]}/10
                 </div>
               </div>
 
-              <h2 className="mb-7 break-keep text-2xl font-extrabold leading-snug text-ink">
+              <h2 className="mb-3 max-w-xl break-keep text-[clamp(27px,6vw,34px)] font-black leading-[1.25] tracking-[-0.025em] text-ink">
                 {title}
               </h2>
-              <div className="flex-grow pb-32">{body}</div>
-              <div className="sticky bottom-0 z-10 -mx-6 flex justify-center bg-gradient-to-t from-sand via-sand/80 to-transparent p-6 pb-[max(2rem,env(safe-area-inset-bottom))]">
+              {stage === "q7a" && (
+                <p className="mb-6 break-keep text-[14px] font-medium leading-relaxed text-ink/65">
+                  끌리는 장소를 두 개 골라봐.
+                </p>
+              )}
+              <div className={stage === "q7a" ? "flex-grow pb-5" : "flex-grow pb-32"}>{body}</div>
+              <div className="sticky bottom-0 z-10 -mx-5 flex justify-center bg-gradient-to-t from-[#f7e5c3] via-[#f7e5c3]/95 to-transparent px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-7 sm:-mx-6 sm:px-6">
                 <CtaButton
                   onClick={onCta}
                   disabled={ctaDisabled}

@@ -87,10 +87,6 @@ export default function SignupPhotoPage() {
     }
   };
 
-  const handleSkip = () => {
-    router.push("/explore");
-  };
-
   // 복원 전이거나 토큰이 없으면 빈 화면 (복원 대기 또는 리다이렉트 진행 중)
   if (!hasHydrated || !studentToken) return null;
 
@@ -122,6 +118,9 @@ export default function SignupPhotoPage() {
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
           별빛이 내린 밤, 탐험대원증에 네 얼굴이 빛날 거야. 한마당에서 친구들에게 보여줄 나만의 표식이야.
+        </p>
+        <p className="mt-2 text-sm font-bold leading-relaxed text-sky-600">
+          너의 사진을 선택해줘.
         </p>
       </div>
 
@@ -196,15 +195,6 @@ export default function SignupPhotoPage() {
           <CtaButton onClick={handleUpload} disabled={!file || uploading}>
             {uploading ? "올리는 중..." : "탐험 준비 완료"}
           </CtaButton>
-
-          <button
-            type="button"
-            onClick={handleSkip}
-            disabled={uploading}
-            className="mt-4 w-full text-center text-sm font-medium text-zinc-500 transition-colors hover:text-zinc-700 disabled:opacity-50"
-          >
-            사진 건너뛰기
-          </button>
         </div>
       </motion.section>
 

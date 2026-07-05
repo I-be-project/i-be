@@ -37,7 +37,6 @@ export default function WelcomePage() {
           transition={{ duration: 0.5 }}
           className="glass-card mb-7 inline-flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-bold text-[#0e3a4f] shadow-[0_4px_20px_rgba(14,58,79,0.15)]"
         >
-          <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
           2026 나Be한마당
         </motion.div>
 
@@ -89,7 +88,6 @@ export default function WelcomePage() {
           onClick={() => router.push("/signup")}
           className="group flex h-16 w-full max-w-md items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-lg font-bold text-white shadow-[0_14px_34px_rgba(37,99,235,0.42)] transition-all hover:shadow-[0_18px_44px_rgba(37,99,235,0.52)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/70"
         >
-          <Sparkles className="h-5 w-5" fill="currentColor" />
           내 탐험 시작하기
           <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
         </button>
