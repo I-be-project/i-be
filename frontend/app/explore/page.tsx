@@ -49,7 +49,11 @@ export default function ExplorePage() {
         initial={{ y: "45%", opacity: 0 }}
         animate={{ y: "0%", opacity: 1 }}
         transition={{ duration: 0.55, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-        className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100dvh-4.5rem)] flex-col rounded-t-[1.75rem] bg-sand px-6 pt-7 shadow-[0_-12px_32px_rgba(14,58,79,0.14)]"
+        className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100dvh-3rem)] flex-col px-6 pt-28"
+        style={{
+          background:
+            "linear-gradient(to bottom, rgba(253,243,224,0) 0px, rgba(253,243,224,0.6) 52px, #fdf3e0 104px, #fffbf3 100%)",
+        }}
       >
         <motion.div
           initial={{ opacity: 0, y: 12 }}

@@ -479,13 +479,10 @@ export default function PathPage() {
               className="flex flex-grow flex-col"
             >
               {/* 컴팩트 진행 칩 — 진행 헤더 블록 대신 한 줄로 */}
-              <div className="mb-6 flex items-center justify-between">
+              <div className="mb-6 flex items-center">
                 <div className="inline-flex items-center gap-1.5 rounded-full border border-white/40 bg-white/35 px-3 py-1.5 text-[11px] font-bold text-ink shadow-sm backdrop-blur-md">
                   <Moon className="h-3 w-3 text-sky-600" />
                   밤 · 별빛 프로그램
-                </div>
-                <div className="rounded-full border border-white/40 bg-white/35 px-2.5 py-1.5 text-[11px] font-bold tabular-nums text-ink shadow-sm backdrop-blur-md">
-                  {STAGE_INDEX[stage]}/10
                 </div>
               </div>
 
