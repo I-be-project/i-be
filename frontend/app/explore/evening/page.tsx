@@ -6,6 +6,7 @@ import { Moon, Sparkles, Hammer, Mic2, Palette, ArrowRight } from "lucide-react"
 import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { FullBleedScene } from "@/components/voyage/FullBleedScene";
+import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { eveningBridgeAsset } from "@/lib/assets/sceneManifest";
 import { campTraditionIntro } from "@/lib/mock/campMap";
 import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
@@ -34,40 +35,42 @@ export default function EveningPage() {
   const { ready } = useFlowGuard("evening");
   useBlockBack();
 
-  if (!ready) return null;
+  if (!ready) return <FlowLoading mood="night" />;
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col bg-sand font-sans">
+    <main className="relative h-[100dvh] overflow-hidden bg-sand font-sans">
       <TrailBar step={6} total={10} />
 
-      <FullBleedScene asset={eveningBridgeAsset} heightClass="h-[58vh] min-h-[300px]" priority>
+      <FullBleedScene
+        asset={eveningBridgeAsset}
+        heightClass="h-[58vh] min-h-[300px]"
+        priority
+      >
         <div className="pointer-events-none absolute inset-x-0 top-0 h-[35%] bg-gradient-to-b from-white/50 via-white/15 to-transparent" />
-        <div className="absolute inset-x-0 top-0 z-10 flex items-start justify-between p-5 pt-12">
-          <span className="glass-card inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-bold text-ink">
-            <Moon className="h-3 w-3 text-amber-500" />
-            낮 탐험 · 클리어
-          </span>
-          <span className="glass-card rounded-full px-2.5 py-1 text-[11px] font-bold tabular-nums text-ink">
-            6/10
-          </span>
-        </div>
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: -12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="absolute inset-x-0 bottom-6 z-10 px-6 text-center"
+          className="absolute inset-x-0 top-0 z-10 flex max-w-[80%] flex-col px-6 pt-12 text-left"
         >
-          <h2 className="text-[1.75rem] font-black leading-tight text-ink drop-shadow-sm">
-            해가 지고, 캠프에 등불이 켜졌어
+          <h2 className="text-[2.4rem] font-black leading-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]">
+            캠프의 밤
           </h2>
+          <p className="mt-2 text-[15px] font-semibold leading-relaxed text-white/90 drop-shadow-[0_1px_6px_rgba(0,0,0,0.5)]">
+            해가 지고, 캠프에 등불이 켜졌어
+          </p>
         </motion.div>
       </FullBleedScene>
 
       <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="relative z-10 -mt-5 flex flex-1 flex-col rounded-t-[1.75rem] bg-sand px-6 pb-10 pt-7"
+        initial={{ y: "45%", opacity: 0 }}
+        animate={{ y: "0%", opacity: 1 }}
+        transition={{ duration: 0.55, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
+        className="absolute inset-x-0 bottom-0 z-10 flex max-h-[calc(100dvh-3rem)] flex-col px-6 pt-28"
+        style={{
+          background:
+            "linear-gradient(to bottom, rgba(253,243,224,0) 0px, rgba(253,243,224,0.6) 52px, #fdf3e0 104px, #fffbf3 100%)",
+        }}
       >
         <div className="glass-card mb-5 rounded-2xl p-4 text-center">
           <p className="break-keep text-[15px] font-semibold leading-relaxed text-ink-soft">
@@ -108,17 +111,18 @@ export default function EveningPage() {
           </span>
           <ArrowRight className="h-4 w-4 flex-shrink-0 text-ink-muted" />
           <p className="text-sm font-semibold leading-snug text-ink-soft">
-            다음 장면에서는 <span className="font-extrabold text-ink">별빛 아래 열린 공간</span>과,
+            다음 장면에서는{" "}
+            <span className="font-extrabold text-ink">별빛 아래 열린 공간</span>과,
             그곳의 도구를 고르게 될 거야.
           </p>
         </div>
 
-        <p className="mb-8 inline-flex items-center justify-center gap-1.5 text-sm font-bold text-ink-muted">
+        <p className="mb-2 inline-flex items-center justify-center gap-1.5 text-sm font-bold text-ink-muted">
           <Sparkles className="h-4 w-4 text-amber-500" fill="currentColor" />
           낮의 기록을 이어, 밤 탐험을 시작해 볼까?
         </p>
 
-        <div className="mt-auto">
+        <div className="mt-auto shrink-0 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-4">
           <CtaButton onClick={() => router.push("/explore/path")}>
             <Moon className="h-5 w-5" />
             별빛 프로그램 시작

@@ -51,11 +51,18 @@ export interface FlowState {
 // 저장된 진행상황으로 "지금 있어야 할 화면"을 계산한다(마지막으로 완료한 지점의 다음).
 export function resumeScreen(s: FlowState): FlowScreen {
   if (s.surveyCompleted) return "done";
-  // 밤 프로그램에 진입해 하나라도 답했으면 밤(path)에서 이어서 진행/완료한다.
-  if (s.q9Selection || s.q8Selection || s.q7bSelection || s.q7aSelection)
-    return "path";
-  // Q6까지 마쳐 RIASEC/PairCode가 산출됐으면 밤 브릿지(evening)로.
-  if (s.pairCode && s.riasecScores) return "evening";
+  // evening/path(밤)는 RIASEC/PairCode가 있어야 성립한다(canAccess와 동일 전제).
+  // 이 값이 없는데 밤 선택(q7~9)만 남은 불일치 상태면 밤으로 보내면 안 된다
+  // (가드가 canAccess=false로 되돌려 자기 자신으로 무한 리다이렉트 → 영구 로딩).
+  // 그런 경우엔 Q1~6부터 다시 이어받아 RIASEC/PairCode를 재산출한다.
+  const hasVoyageBase = Boolean(s.pairCode && s.riasecScores);
+  if (hasVoyageBase) {
+    // 밤 프로그램에 진입해 하나라도 답했으면 밤(path)에서 이어서 진행/완료한다.
+    if (s.q9Selection || s.q8Selection || s.q7bSelection || s.q7aSelection)
+      return "path";
+    // Q6까지 마쳐 RIASEC/PairCode가 산출됐으면 밤 브릿지(evening)로.
+    return "evening";
+  }
   // Q1~6 진행 중.
   if (s.answers.length > 0) return "questions";
   return "explore";
@@ -122,6 +129,9 @@ export function useFlowGuard(screen: FlowScreen): { ready: boolean } {
     }
     const state = pickFlowState();
     const target = resumeScreen(state);
+    // 이미 목표 화면에 있으면(같은 경로) 리다이렉트하지 않는다 — 어떤 상태에서도
+    // 자기 자신으로 되미는 무한 리다이렉트(→ 영구 로딩/하늘 배경)를 원천 차단한다.
+    if (SCREEN_PATH[target] === SCREEN_PATH[screen]) return;
     // 진행이 이 화면보다 앞서면 앞으로 민다(= 뒤로가기 무효).
     if (screenIndex(target) > screenIndex(screen)) {
       router.replace(SCREEN_PATH[target]);

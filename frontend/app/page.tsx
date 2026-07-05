@@ -43,7 +43,6 @@ export default function WelcomePage() {
   // 라벨은 기존 문구("내 탐험 시작하기") 그대로, 목적지만 진행상황에 따라 갈린다.
   const goSurvey = () => {
     const screen = resumeScreen(useSessionStore.getState());
-    if (screen === "done") return router.push("/profile/me");
     if (screen !== "explore")
       return router.push(resumePath(useSessionStore.getState()));
     return router.push("/explore");
