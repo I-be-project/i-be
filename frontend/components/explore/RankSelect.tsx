@@ -1,7 +1,5 @@
 "use client";
 
-import { Check } from "lucide-react";
-
 import { cn } from "@/lib/utils";
 
 interface RankOption {
@@ -19,8 +17,9 @@ interface RankSelectProps {
 }
 
 const splitLocationLabel = (label: string) => {
-  const [name, ...description] = label.split(/\s*[·•]\s*/);
-  return { name: name.trim(), description: description.join(" · ").trim() };
+  // "장소이름 — 설명" (긴 줄표) 또는 "장소이름 · 설명" 형식을 이름/설명으로 분리한다.
+  const [name, ...description] = label.split(/\s*[—–·•]\s*/);
+  return { name: name.trim(), description: description.join(" ").trim() };
 };
 
 export function RankSelect({
@@ -57,14 +56,15 @@ export function RankSelect({
               aria-pressed={selected}
               onClick={() => handleClick(opt.id)}
               className={cn(
-                "flex min-h-[74px] w-full items-center justify-between gap-4 rounded-[21px] border px-5 py-3.5 text-left backdrop-blur-[8px] transition-[transform,background-color,border-color,box-shadow] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7FA6D9] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
+                // 선택 색상은 부모가 주입한 CSS 변수(--scene-*)로 단계별 팔레트를 따른다.
+                "flex min-h-[74px] w-full items-center justify-between gap-4 rounded-[21px] border px-5 py-3.5 text-left backdrop-blur-[8px] transition-[transform,background-color,border-color,box-shadow] duration-150 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--scene-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
                 selected
-                  ? "border-[#7FA6D9] bg-[#E9ECFA]/95 shadow-[0_8px_22px_rgba(61,82,132,0.16)]"
-                  : "border-white/55 bg-white/80 shadow-[0_5px_16px_rgba(46,58,96,0.08)] hover:bg-white/90",
+                  ? "border-2 border-[var(--scene-accent)] bg-[var(--scene-option-selected)] shadow-[0_6px_18px_rgba(13,48,71,0.10)]"
+                  : "border-white/55 bg-white/80 shadow-[0_5px_16px_rgba(46,58,96,0.08)] hover:border-[var(--scene-accent)] hover:bg-white/90",
               )}
             >
               <span className="min-w-0">
-                <span className="block break-keep text-[17px] font-extrabold leading-tight text-ink">
+                <span className="block break-keep text-[15px] font-extrabold leading-tight text-ink">
                   {location.name}
                 </span>
                 {(location.description || opt.description) && (
@@ -73,15 +73,15 @@ export function RankSelect({
                   </span>
                 )}
               </span>
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#5E82C3] text-white shadow-sm transition-[opacity,transform]",
-                  selected ? "scale-100 opacity-100" : "scale-75 opacity-0",
-                )}
-              >
-                <Check className="h-4 w-4" strokeWidth={3} />
-              </span>
+              {selected && (
+                // Q1~6 선택 체크와 동일한 자리·톤 — 아이콘 대신 순위 숫자(1·2)를 우측에 표시.
+                <span
+                  aria-hidden="true"
+                  className="flex h-6 w-6 shrink-0 items-center justify-center text-[20px] font-black leading-none text-[var(--scene-check)]"
+                >
+                  {rank}
+                </span>
+              )}
             </button>
           );
         }

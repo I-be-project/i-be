@@ -132,7 +132,6 @@ export default function WelcomePage() {
         {loggedIn ? (
           <>
             <div className="mb-4 inline-flex items-center gap-1.5 text-sm font-bold text-[#1d4a5e] drop-shadow-[0_1px_6px_rgba(255,255,255,0.65)]">
-              <Sparkles className="h-4 w-4 text-sky-500" fill="currentColor" />
               {name ? `${name}님, 반가워요!` : "다시 만나서 반가워요!"}
             </div>
 
@@ -141,7 +140,6 @@ export default function WelcomePage() {
               onClick={goSurvey}
               className="group flex h-16 w-full max-w-md items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-lg font-bold text-white shadow-[0_14px_34px_rgba(37,99,235,0.42)] transition-all hover:shadow-[0_18px_44px_rgba(37,99,235,0.52)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/70"
             >
-              <Sparkles className="h-5 w-5" fill="currentColor" />
               내 탐험 시작하기
               <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </button>
@@ -167,7 +165,6 @@ export default function WelcomePage() {
               onClick={() => router.push("/signup")}
               className="group flex h-16 w-full max-w-md items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-lg font-bold text-white shadow-[0_14px_34px_rgba(37,99,235,0.42)] transition-all hover:shadow-[0_18px_44px_rgba(37,99,235,0.52)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/70"
             >
-              <Sparkles className="h-5 w-5" fill="currentColor" />
               내 탐험 시작하기
               <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </button>

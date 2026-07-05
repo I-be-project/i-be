@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import type { ReactNode } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
@@ -22,6 +22,26 @@ import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
 // 별빛 프로그램은 Q9가 마지막 — 응답을 마치면 세션을 완료하고 공개 대기로 간다.
 type Stage = "q7a" | "q7b" | "q8" | "q9";
 const STAGE_INDEX: Record<Stage, number> = { q7a: 7, q7b: 8, q8: 8, q9: 9 };
+
+// 단계별 답변 선택 색상 — CSS 변수로 주입하고 RankSelect/ChipSelect가 var()로 소비한다.
+// --scene-option-selected: 선택 배경, --scene-accent: 선택 테두리/포커스, --scene-check: 순위 뱃지.
+type SceneVars = CSSProperties & Record<`--${string}`, string>;
+const BLUE_THEME: SceneVars = {
+  "--scene-option-selected": "#E5EAF8",
+  "--scene-accent": "#7083C4",
+  "--scene-check": "#5369B1",
+};
+const WARM_THEME: SceneVars = {
+  "--scene-option-selected": "#E5EAF8",
+  "--scene-accent": "#7083C4",
+  "--scene-check": "#5369B1",
+};
+const STAGE_THEME: Record<Stage, SceneVars> = {
+  q7a: BLUE_THEME,
+  q7b: BLUE_THEME,
+  q8: BLUE_THEME,
+  q9: WARM_THEME,
+};
 
 interface Q7BData {
   title: string;
@@ -338,14 +358,9 @@ export default function PathPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready]);
 
+  // Q8·Q9는 1개만 선택 — 같은 칩을 다시 누르면 해제, 다른 칩을 누르면 교체.
   const toggleChip = (id: string) =>
-    setChipIds((prev) =>
-      prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : prev.length >= 2
-          ? prev // 최대 2개
-          : [...prev, id],
-    );
+    setChipIds((prev) => (prev.includes(id) ? [] : [id]));
 
   // 복원 전이거나 진입 조건 미충족이면 가드가 리다이렉트할 때까지 그리지 않는다.
   // (pairCode/riasecScores 널 체크로 아래 렌더의 타입도 좁힌다)
@@ -356,12 +371,9 @@ export default function PathPage() {
   const chipReady = chipIds.length > 0 || freeText.trim().length > 0;
 
   const q7aOptions = getQ7AOptions(pairCode);
-  const selectedQ7aLocation = q7aOptions
-    .find((option) => option.id === first)
-    ?.label.split(/\s*[·•]\s*/)[0]
-    .trim();
 
   let title = "";
+  let subtitle = "";
   let body: ReactNode = null;
   let cta = "";
   let onCta: () => void = () => {};
@@ -369,6 +381,7 @@ export default function PathPage() {
 
   if (stage === "q7a") {
     title = "등불이 켜진 캠프 공간 중, 오늘 밤 가장 먼저 들어가 보고 싶은 곳은?";
+    subtitle = "끌리는 장소를 두 개 골라봐.";
     body = (
       <RankSelect
         options={q7aOptions}
@@ -386,6 +399,7 @@ export default function PathPage() {
     ctaDisabled = !rankReady;
   } else if (stage === "q7b" && q7bData) {
     title = q7bData.title;
+    subtitle = "마음이 가는 두 가지를 골라봐.";
     body = (
       <RankSelect
         options={q7bData.options.map((o) => ({
@@ -395,6 +409,7 @@ export default function PathPage() {
         }))}
         first={first}
         second={second}
+        variant="location"
         onChange={(f, s) => {
           setFirst(f);
           setSecond(s);
@@ -406,6 +421,7 @@ export default function PathPage() {
     ctaDisabled = !rankReady;
   } else if (stage === "q8" && q8Data) {
     title = q8Data.title;
+    subtitle = "어울리는 낱말을 골라봐. 직접 적어도 좋아.";
     body = (
       <ChipSelect
         chips={q8Data.word_chips.map((c) => ({ id: c.chip_id, text: c.text }))}
@@ -421,6 +437,7 @@ export default function PathPage() {
     ctaDisabled = !chipReady;
   } else if (stage === "q9" && q9Data) {
     title = q9Data.title;
+    subtitle = "더 살펴보고 싶은 걸 골라봐. 직접 적어도 좋아.";
     body = (
       <ChipSelect
         chips={q9Data.topic_chips.map((c) => ({ id: c.chip_id, text: c.text }))}
@@ -434,12 +451,6 @@ export default function PathPage() {
     cta = "이걸 더 살펴볼래";
     onCta = submitQ9;
     ctaDisabled = !chipReady;
-  }
-
-  if (stage === "q7a") {
-    cta = selectedQ7aLocation
-      ? `${selectedQ7aLocation}(으)로 들어가기`
-      : "장소를 선택해줘";
   }
 
   const showGenerating = generating || error !== null;
@@ -475,6 +486,7 @@ export default function PathPage() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -32 }}
               transition={{ duration: 0.35, ease: "easeInOut" }}
+              style={STAGE_THEME[stage]}
               className="flex flex-grow flex-col"
             >
               {/* 컴팩트 진행 칩 — 진행 헤더 블록 대신 한 줄로 */}
@@ -491,25 +503,27 @@ export default function PathPage() {
               <h2 className="mb-3 max-w-xl break-keep text-[clamp(27px,6vw,34px)] font-black leading-[1.25] tracking-[-0.025em] text-ink">
                 {title}
               </h2>
-              {stage === "q7a" && (
+              {subtitle && (
                 <p className="mb-6 break-keep text-[14px] font-medium leading-relaxed text-ink/65">
-                  끌리는 장소를 두 개 골라봐.
+                  {subtitle}
                 </p>
               )}
-              <div className={stage === "q7a" ? "flex-grow pb-5" : "flex-grow pb-32"}>{body}</div>
-              <div className="sticky bottom-0 z-10 -mx-5 flex justify-center bg-gradient-to-t from-[#f7e5c3] via-[#f7e5c3]/95 to-transparent px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-7 sm:-mx-6 sm:px-6">
-                <CtaButton
-                  onClick={onCta}
-                  disabled={ctaDisabled}
-                  className="max-w-2xl"
-                >
-                  {cta}
-                </CtaButton>
-              </div>
+              {/* 하단 고정 CTA가 마지막 항목을 가리지 않도록 여백 확보 */}
+              <div className="flex-grow pb-32">{body}</div>
             </motion.div>
           </AnimatePresence>
         )}
       </div>
+
+      {/* 하단 고정 CTA — x 슬라이드되는 카드(motion.div) 밖, main 직속에 둬야 뷰포트 기준으로 고정된다.
+          (transform 조상 안에 두면 fixed가 그 조상 기준이 되어 하단 고정이 깨진다) */}
+      {!showGenerating && (
+        <div className="fixed bottom-0 left-1/2 z-20 flex w-full max-w-2xl -translate-x-1/2 justify-center bg-gradient-to-t from-[#f7e5c3] via-[#f7e5c3]/95 to-transparent px-5 pb-[max(2rem,env(safe-area-inset-bottom))] pt-7 sm:px-6">
+          <CtaButton onClick={onCta} disabled={ctaDisabled} className="max-w-2xl">
+            {cta}
+          </CtaButton>
+        </div>
+      )}
     </main>
   );
 }

@@ -131,10 +131,6 @@ export function AboutSheet({
 
         {/* 헤더 */}
         <div className="relative flex-shrink-0 border-b border-ink/10 px-6 pt-1 pb-4">
-          <div className="mb-1 inline-flex items-center gap-1.5 rounded-full bg-sky-100 px-3 py-1 text-xs font-bold text-sky-600">
-            <Info className="h-3.5 w-3.5" strokeWidth={2.4} />
-            {welcomeAbout.subtitle}
-          </div>
           <h2 className="text-xl font-black text-ink">{welcomeAbout.title}</h2>
           <p className="mt-0.5 text-sm font-medium text-ink-muted">
             {welcomeAbout.intro}
