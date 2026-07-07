@@ -135,7 +135,7 @@ export default function LoginPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="생일 4자리 (예: 1029)"
+                placeholder="비밀번호 4자리 (예: 1029)"
                 disabled={loading}
                 autoComplete="current-password"
                 className={inputClass}
