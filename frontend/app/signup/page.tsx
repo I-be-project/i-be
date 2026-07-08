@@ -165,7 +165,7 @@ export default function SignupPage() {
           명단에 올려줘
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
-          나로섬에 도착하면, 너의 이름이 탐험대 명단에 새겨져.   탐험이 끝나면 이 기록이 탐험대원증이 돼.
+          나로섬에 도착하면, 네 이름이 탐험대 명단에 새겨져.   탐험이 끝나면 이 기록이 탐험대원증이 돼.
         </p>
       </div>
 

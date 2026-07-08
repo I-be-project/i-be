@@ -6,7 +6,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "나Be한마당 탐험대원증",
-  description: "너는 어떤 미래를 살아보고 싶니?",
+  description: "어떤 미래를 살아보고 싶니?",
   icons: {
     icon: "/icon.png",
     shortcut: "/icon.png",

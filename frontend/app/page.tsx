@@ -143,7 +143,7 @@ export default function WelcomePage() {
           transition={{ duration: 0.6, delay: 0.05 }}
           className="text-[2.7rem] font-black leading-[1.14] tracking-tight text-[#0d3047] drop-shadow-[0_2px_10px_rgba(255,255,255,0.6)]"
         >
-          너는 어떤
+          어떤
           <br />
           <span className="bg-gradient-to-r from-sky-500 to-blue-600 bg-clip-text text-transparent">
             미래
@@ -161,7 +161,7 @@ export default function WelcomePage() {
         >
           지도를 펼치듯, 섬 너머로 이어질
           <br />
-          너만의 이야기를 찾아가자.
+          나만의 이야기를 찾아가자.
         </motion.p>
       </div>
 
@@ -186,7 +186,7 @@ export default function WelcomePage() {
               onClick={goSurvey}
               className="group flex h-16 w-full max-w-md items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-lg font-bold text-white shadow-[0_14px_34px_rgba(37,99,235,0.42)] transition-all hover:shadow-[0_18px_44px_rgba(37,99,235,0.52)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/70"
             >
-              내 탐험 시작하기
+              탐험 시작하기
               <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </button>
 
@@ -211,7 +211,7 @@ export default function WelcomePage() {
               onClick={() => router.push("/signup")}
               className="group flex h-16 w-full max-w-md items-center justify-center gap-2 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-lg font-bold text-white shadow-[0_14px_34px_rgba(37,99,235,0.42)] transition-all hover:shadow-[0_18px_44px_rgba(37,99,235,0.52)] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/70"
             >
-              내 탐험 시작하기
+              탐험 시작하기
               <ChevronRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
             </button>
 

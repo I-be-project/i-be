@@ -65,7 +65,7 @@ export default function ExplorePage() {
             <div>
               <p className="text-[15px] font-medium leading-relaxed text-ink-muted">
                 게임처럼 하루를 살아가며 선택해. <br />
-                정답을 맞히는 게 아니라, 네가 끌리는 쪽을 골라보면 돼.
+                정답을 맞히는 게 아니야. 네가 끌리는 쪽을 골라보면 돼.
               </p>
             </div>
             <div>
