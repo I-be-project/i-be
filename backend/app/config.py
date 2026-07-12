@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     jwt_secret: str = "change-me-in-production"
     jwt_card_share_secret: str = "change-me-share"
     jwt_issuer: str = "ibe"
-    student_token_ttl_hours: int = 6
+    student_token_ttl_hours: int = 12
     operator_token_ttl_hours: int = 12
     share_link_ttl_hours: int = 24
 
