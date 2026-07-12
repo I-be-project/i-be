@@ -199,6 +199,15 @@ export function loginStudent(payload: LoginPayload): Promise<AuthResponse> {
   });
 }
 
+// POST /api/auth/refresh — 아직 유효한 토큰을 같은 학생의 새 토큰(만료 6h 갱신)으로 교환.
+// 설문 도중 만료를 예방하는 데 쓴다. 이미 만료·무효인 토큰이면 401(→ 갱신 불가, 재로그인 필요).
+export function refreshStudentToken(token: string): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/auth/refresh", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export function getMyProfile(token: string): Promise<ProfileSummary> {
   return request<ProfileSummary>("/api/students/me", {
     method: "GET",
