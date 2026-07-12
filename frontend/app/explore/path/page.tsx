@@ -386,8 +386,8 @@ export default function PathPage() {
   let ctaDisabled = false;
 
   if (stage === "q7a") {
-    title = "등불이 켜진 캠프 공간 중, 오늘 밤 가장 먼저 들어가 보고 싶은 곳은?";
-    subtitle = "끌리는 장소를 두 개 골라봐.";
+    title = "캠프 공간에서 오늘 밤 다시 가보고 싶은 곳은?";
+    subtitle = "가장 끌리는 순서대로 두 곳을 골라봐. 먼저 고른 곳이 1순위야.";
     body = (
       <RankSelect
         options={q7aOptions}
@@ -427,7 +427,7 @@ export default function PathPage() {
     ctaDisabled = !rankReady;
   } else if (stage === "q8" && q8Data) {
     title = q8Data.title;
-    subtitle = "어울리는 낱말을 골라봐. 직접 적어도 좋아.";
+    subtitle = "어울리는 표현을 골라봐. 직접 적어도 좋아.";
     body = (
       <ChipSelect
         chips={q8Data.word_chips.map((c) => ({ id: c.chip_id, text: c.text }))}
@@ -514,7 +514,7 @@ export default function PathPage() {
                   {title}
                 </h2>
                 {subtitle && (
-                  <p className="mb-6 break-keep text-[14px] font-medium leading-relaxed text-ink/65">
+                  <p className="mb-6 break-keep text-[14px] font-semibold leading-relaxed text-ink/85 drop-shadow-[0_1px_4px_rgba(255,255,255,0.55)]">
                     {subtitle}
                   </p>
                 )}
