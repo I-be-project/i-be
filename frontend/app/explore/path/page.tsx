@@ -20,6 +20,7 @@ import { GeneratingScreen } from "@/components/explore/GeneratingScreen";
 import type { GeneratingStage } from "@/lib/assets/sceneManifest";
 import type { Q7BOption, Q8Chip, Q9Chip } from "@/store/useSessionStore";
 import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
+import { useKeepTokenFresh } from "@/hooks/useKeepTokenFresh";
 
 // 별빛 프로그램은 Q9가 마지막 — 응답을 마치면 세션을 완료하고 공개 대기로 간다.
 type Stage = "q7a" | "q7b" | "q8" | "q9";
@@ -70,6 +71,9 @@ export default function PathPage() {
   // 밤 프로그램(Q7~9) — 여기부터는 뒤로가기를 막고, 재진입 시 완료한 질문 다음 단계로 이어간다.
   const { ready } = useFlowGuard("path");
   useBlockBack();
+  // 밤 프로그램은 체류가 길고(생성 대기·선택 고민) 자리를 비웠다 오는 경우가 많아,
+  // 여기서 토큰을 주기적으로 갱신해 완료 시점에 6h 만료로 막히는 걸 예방한다.
+  useKeepTokenFresh();
 
   const store = useSessionStore();
   const {
@@ -118,20 +122,36 @@ export default function PathPage() {
       body: unknown,
       onOk: (data: unknown) => void,
     ) => {
+      const { studentToken } = useSessionStore.getState();
+      if (!studentToken) {
+        router.push("/login");
+        return;
+      }
       lastReq.current = { stage: apiStage, body };
       pendingRetry.current = null; // 생성 흐름으로 진입하면 저장 재시도는 무효화
       setGenerating(true);
       setError(null);
       try {
-        const json = await generateStage(apiStage, body as Record<string, unknown>);
+        const json = await generateStage(
+          studentToken,
+          apiStage,
+          body as Record<string, unknown>,
+        );
         onOk(json);
-      } catch {
+      } catch (e) {
+        // 토큰 만료/무효(401): 진행상황을 보존한 채 재로그인으로 유도(완료 처리와 동일 패턴).
+        // 재로그인하면 resume이 이 단계를 다시 생성/이어받으므로 재입력 없이 진행된다.
+        if (e instanceof ApiError && e.status === 401) {
+          setError("로그인 세션이 만료됐어. 다시 로그인하면 이어서 진행할게.");
+          setTimeout(() => router.replace("/login"), 1600);
+          return;
+        }
         setError("섬의 안내가 잠시 끊겼어. 다시 시도해줄래?");
       } finally {
         setGenerating(false);
       }
     },
-    [],
+    [router],
   );
 
   const resetSelection = () => {
@@ -268,6 +288,15 @@ export default function PathPage() {
       if (e instanceof ApiError && e.status === 409) {
         setSurveyCompleted(true);
         router.push("/explore/pending-card");
+        return;
+      }
+      // 토큰 만료/무효(401): 진행상황(답변·sessionId)을 스토어에 보존한 채 재로그인으로 보낸다.
+      // reset하지 않으므로 같은 학생으로 재로그인하면 setAuth가 진행상황을 유지하고,
+      // resumeScreen이 이 화면(path)으로 되돌려 → 재진입 이어하기(q9Selection && !completed)가
+      // 완료 저장을 자동 재시도한다. 즉 "처음부터 다시" 없이 이어서 끝낼 수 있다.
+      if (e instanceof ApiError && e.status === 401) {
+        setError("로그인 세션이 만료됐어. 다시 로그인하면 이어서 제출할게.");
+        setTimeout(() => router.replace("/login"), 1600);
         return;
       }
       pendingRetry.current = () => finalizeSurvey(chips, freeTextValue); // "다시 시도" 시 완료 저장을 재실행

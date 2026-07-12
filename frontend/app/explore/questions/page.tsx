@@ -23,6 +23,7 @@ import { computeScores, derivePairCode } from "@/lib/scoring";
 import { persistStage } from "@/lib/answerSync";
 import { sceneAssets } from "@/lib/assets/sceneManifest";
 import { useFlowGuard } from "@/lib/explore/flow";
+import { useKeepTokenFresh } from "@/hooks/useKeepTokenFresh";
 
 // 전체 여정은 10걸음(Q1~6 미션 + Q7~10 심화). 진행도는 항상 10 기준.
 const JOURNEY_TOTAL = 10;
@@ -279,6 +280,7 @@ const SCENE_THEMES: Record<"q1to4" | "q5" | "q6", SceneVars> = {
 export default function QuestionsPage() {
   const router = useRouter();
   const { ready } = useFlowGuard("questions");
+  useKeepTokenFresh(); // Q1~6 진행 중 토큰 6h 만료 예방(주기·탭 복귀 시 갱신)
   const hasHydrated = useSessionStore((state) => state.hasHydrated);
   const upsertAnswer = useSessionStore((state) => state.upsertAnswer);
   const setRiasec = useSessionStore((state) => state.setRiasec);
