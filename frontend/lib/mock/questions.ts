@@ -76,7 +76,7 @@ export const mockQuestions: Question[] = [
     scene: "역할 정하기",
     story:
       "광장 한가운데, 각 팀을 상징하는 깃발이 꽂혀 있다. 안내단 선배가 말한다. “앞으로의 탐험 코스는 함께해야 재미있어. 마음에 드는 깃발 아래에서 각자 맡을 역할을 정해볼까?”",
-    text: "내가 자연스럽게 맡고 싶은 역할은?",
+    text: "탐험대가 나뉘었다. 내가 자연스럽게 맡고 싶은 역할은?",
     type: "choice",
     options: [
       {
@@ -162,7 +162,7 @@ export const mockQuestions: Question[] = [
     scene: "도구 창고 앞",
     story:
       "탐험 도중 [도구 창고]가 나타났다. 하지만 창고 안에는 도구가 생각보다 많지 않아, 팀원들은 한 사람당 하나의 도구만 챙겨야 했다. 문 너머로 시선을 돌리자 도구를 대신해 사용할 만한 돌과 튼튼한 나뭇가지들이 보였다.",
-    text: "나는 어떤 행동을 할까?",
+    text: "탐험 키트에 생각보다 물건이 부족하다. 나는?",
     type: "choice",
     options: [
       {
@@ -197,7 +197,7 @@ export const mockQuestions: Question[] = [
       },
       {
         id: "q4-a",
-        label: "추가 도구를 요청하기 위해 주변 재료로 눈에 잘 띄는 신호 표시를 만든다.",
+        label: "추가 도구를 요청하기 위해 주변 재료를 이용해 눈에 잘 띄는 신호 표시를 만든다.",
         primary: "A",
         secondary: "E",
       },
