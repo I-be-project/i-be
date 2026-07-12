@@ -122,20 +122,36 @@ export default function PathPage() {
       body: unknown,
       onOk: (data: unknown) => void,
     ) => {
+      const { studentToken } = useSessionStore.getState();
+      if (!studentToken) {
+        router.push("/login");
+        return;
+      }
       lastReq.current = { stage: apiStage, body };
       pendingRetry.current = null; // 생성 흐름으로 진입하면 저장 재시도는 무효화
       setGenerating(true);
       setError(null);
       try {
-        const json = await generateStage(apiStage, body as Record<string, unknown>);
+        const json = await generateStage(
+          studentToken,
+          apiStage,
+          body as Record<string, unknown>,
+        );
         onOk(json);
-      } catch {
+      } catch (e) {
+        // 토큰 만료/무효(401): 진행상황을 보존한 채 재로그인으로 유도(완료 처리와 동일 패턴).
+        // 재로그인하면 resume이 이 단계를 다시 생성/이어받으므로 재입력 없이 진행된다.
+        if (e instanceof ApiError && e.status === 401) {
+          setError("로그인 세션이 만료됐어. 다시 로그인하면 이어서 진행할게.");
+          setTimeout(() => router.replace("/login"), 1600);
+          return;
+        }
         setError("섬의 안내가 잠시 끊겼어. 다시 시도해줄래?");
       } finally {
         setGenerating(false);
       }
     },
-    [],
+    [router],
   );
 
   const resetSelection = () => {
