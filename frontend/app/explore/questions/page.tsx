@@ -47,6 +47,8 @@ function QuestionScene({
   ctaDisabled,
   onCta,
   topInset,
+  open,
+  onOpenChange,
 }: {
   story?: string;
   title: string;
@@ -58,6 +60,9 @@ function QuestionScene({
   onCta: () => void;
   // 상단 고정 바(TrailBar 등) 높이 — 시트가 열렸을 때 이 아래로만 올라오게 제한한다.
   topInset: number;
+  // 시트 열림 상태는 부모가 소유한다(뒤로가기로 닫을 수 있어야 하므로).
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }) {
   const reduce = useReducedMotion();
   // 힌트+설명이 항상 보이는 상단부 — 이 높이를 알아야 열렸을 때 선택지 영역이
@@ -68,7 +73,6 @@ function QuestionScene({
   const hiddenRef = useRef<HTMLDivElement>(null);
   const inited = useRef(false);
   const [closedY, setClosedY] = useState(480);
-  const [open, setOpen] = useState(false);
   // ResizeObserver 콜백 안에서 최신 open 값을 읽기 위한 ref(이펙트 재구독 없이).
   const openRef = useRef(open);
   const y = useMotionValue(480);
@@ -138,7 +142,7 @@ function QuestionScene({
               : info.velocity.y > 650
                 ? false
                 : draggedUp > threshold;
-          setOpen(stayOpen);
+          onOpenChange(stayOpen);
           // 항상 열림(0)/접힘(closedY) 둘 중 하나로 스냅한다. setOpen이 같은 값이라 상태가
           // 안 바뀌어도(→ 스냅 effect 미발동) 여기서 직접 애니메이트해 중간에 걸리지 않게 한다.
           animate(y, stayOpen ? 0 : closedY, SHEET_SPRING);
@@ -288,6 +292,8 @@ export default function QuestionsPage() {
   const questions = mockQuestions;
   const [currentIndex, setCurrentIndex] = useState(0);
   const [currentAnswer, setCurrentAnswer] = useState<string>("");
+  // 시트 열림 상태를 부모가 소유 — 뒤로가기로 라우트 이동 대신 설명 화면으로 되돌릴 수 있게 한다.
+  const [sheetOpen, setSheetOpen] = useState(false);
 
   // 상단 고정 바 높이 — 시트가 열렸을 때 이 아래로만 올라오게 QuestionScene에 전달한다.
   const headerRef = useRef<HTMLDivElement>(null);
@@ -337,6 +343,11 @@ export default function QuestionsPage() {
   // Q1~6은 앞뒤로 오갈 수 있다. 뒤로 갈 때도 지금 선택을 저장해 두면 다시 왔을 때 유지된다.
   // 첫 질문에서 뒤로 가면 질문 흐름 이전 화면(브리핑)으로 돌아간다.
   const handleBack = () => {
+    // 시트가 열려 있으면(질문/선택지 노출) 라우트를 벗어나지 않고 설명 화면으로 되돌린다.
+    if (sheetOpen) {
+      setSheetOpen(false);
+      return;
+    }
     if (currentIndex === 0) {
       router.push("/explore");
       return;
@@ -344,6 +355,8 @@ export default function QuestionsPage() {
     if (currentAnswer.trim().length > 0) {
       upsertAnswer({ questionId: currentQuestion.id, value: currentAnswer });
     }
+    // 이전 질문도 설명 화면(접힌 상태)부터 다시 시작한다.
+    setSheetOpen(false);
     setCurrentIndex((prev) => prev - 1);
   };
 
@@ -353,6 +366,8 @@ export default function QuestionsPage() {
     }
 
     if (currentIndex < questions.length - 1) {
+      // 다음 질문은 설명 화면(접힌 상태)부터 시작한다.
+      setSheetOpen(false);
       setCurrentIndex((prev) => prev + 1);
     } else {
       // 뒤로 갔다 오며 답을 바꿨을 수 있으니 저장된 최종 답변을 다시 읽어 점수를 낸다.
@@ -421,7 +436,7 @@ export default function QuestionsPage() {
           <button
             type="button"
             onClick={handleBack}
-            aria-label="이전 질문"
+            aria-label={sheetOpen ? "설명 다시 보기" : "이전 질문"}
             className="absolute left-4 top-[calc(env(safe-area-inset-top)+1.75rem)] flex h-10 w-10 items-center justify-center rounded-full bg-white/70 text-ink shadow-[0_2px_10px_rgba(14,58,79,0.15)] backdrop-blur transition-colors hover:bg-white/90 active:scale-95"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -462,6 +477,8 @@ export default function QuestionsPage() {
             ctaDisabled={isNextDisabled}
             onCta={handleNext}
             topInset={headerHeight}
+            open={sheetOpen}
+            onOpenChange={setSheetOpen}
           />
         </motion.div>
       </AnimatePresence>

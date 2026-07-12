@@ -47,8 +47,7 @@ export default function EveningPage() {
       <DragSheet>
         <div className="glass-card mb-4 rounded-3xl p-5 text-left">
           <p className="break-keep text-[17px] font-extrabold leading-loose text-ink">
-            낮에는 코스를 따라가며 갈림길마다 누구와 어떻게 움직일지, 네 행동을
-            하나씩 골랐지.
+            낮에는 팀원들과 모험을 하면서 코스를 정하고, 네 행동을 골랐었지.
           </p>
 
           <div className="my-5 h-px bg-ink/10" />

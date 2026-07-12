@@ -66,4 +66,4 @@ export const eveningOpenHint =
 export const eveningProgramSpots = briefingCampMap.filter((s) => s.evening);
 
 export const q7aPromptHint =
-  "등불이 켜진 캠프 공간 중, 오늘 밤 가장 먼저 들어가 보고 싶은 곳은?";
+  "캠프 공간에서 오늘 밤 다시 가보고 싶은 곳은?";

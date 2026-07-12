@@ -22,7 +22,7 @@ export interface GeneratingCopy {
 export const generatingCopy: Record<GeneratingStage, GeneratingCopy> = {
   q7b: {
     main: "별빛 아래, 도구 선반을 펼치는 중…",
-    sub: "네가 고른 공간에 맞는 도구를 골라 두고 있어",
+    sub: "그 공간에서 네가 고를 멋진 도구가 궁금해",
   },
   q8: {
     main: "도구를 손에 쥔 채, 상상하는 중…",

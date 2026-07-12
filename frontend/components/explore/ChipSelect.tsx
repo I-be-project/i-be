@@ -57,14 +57,22 @@ export function ChipSelect({
           </button>
         );
       })}
-      <Textarea
-        value={freeText}
-        onChange={(e) => onFreeText(e.target.value)}
-        placeholder={placeholder}
-        // 포커스 강조를 답변 카드와 통일 — ring 대신 2px accent border(미선택 1px → 포커스 2px).
-        // 폰트는 16px — iOS Safari는 16px 미만 입력창에 포커스하면 화면을 자동 확대(줌)한다.
-        className="min-h-[58px] rounded-[18px] border border-solid border-white/70 bg-white/80 px-4 py-3 text-[16px] shadow-[0_5px_16px_rgba(46,58,96,0.08)] backdrop-blur-[8px] focus-visible:border-2 focus-visible:border-[var(--scene-accent)] focus-visible:ring-0"
-      />
+      {/* 직접 작성 — 칩과 구분되는 서술형 입력. 칩 중 어울리는 게 없어도 자기 말로 적을 수 있음을
+          분명히 드러낸다(칸을 더 크게 + 위에 안내 문구). */}
+      <div className="mt-2">
+        <p className="mb-2 break-keep text-[13px] font-semibold text-ink/70">
+          마음에 드는 게 없으면, 직접 적어도 좋아
+        </p>
+        <Textarea
+          value={freeText}
+          onChange={(e) => onFreeText(e.target.value)}
+          placeholder={placeholder}
+          rows={3}
+          // 포커스 강조를 답변 카드와 통일 — ring 대신 2px accent border(미선택 1px → 포커스 2px).
+          // 폰트는 16px — iOS Safari는 16px 미만 입력창에 포커스하면 화면을 자동 확대(줌)한다.
+          className="min-h-[96px] rounded-[18px] border border-solid border-white/70 bg-white/80 px-4 py-3 text-[16px] shadow-[0_5px_16px_rgba(46,58,96,0.08)] backdrop-blur-[8px] focus-visible:border-2 focus-visible:border-[var(--scene-accent)] focus-visible:ring-0"
+        />
+      </div>
     </div>
   );
 }
