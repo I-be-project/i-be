@@ -29,14 +29,12 @@ import { useKeepTokenFresh } from "@/hooks/useKeepTokenFresh";
 const JOURNEY_TOTAL = 10;
 
 const SHEET_SPRING = { type: "spring" as const, stiffness: 360, damping: 40 };
-// 접힌 상태에서는 하단 블록(제목+선택지+CTA)을 화면 밖으로 완전히 숨긴다(peek 0).
-// 살짝 보이는 빈 띠 없이 상단부(화살표+설명)만 남게 한다.
-const SHEET_PEEK = 0;
 
-// 힌트·설명·제목이 선택지 메뉴 바로 위에 "붙어" 있는 하나의 시트.
-// 평소엔 선택지+CTA 블록만 화면 아래로 접혀 숨어 있고(힌트·설명·제목은 그대로 보임),
-// 위로 밀어 일정 범위(threshold)를 넘기면 같은 하나의 몸으로 함께 부드럽게 올라가
-// 선택지가 드러난다. 그 아래로만 밀면 다시 접힘 위치로 되돌아간다.
+// 설명·제목·선택지·CTA가 하나의 시트에 담겨 있다.
+// 접힌 상태에서는 시트를 "설명글 높이만큼만" 남기고 화면 아래로 내려, 화살표 힌트와
+// 상황 설명만 보인다. 위로 밀어 일정 범위(threshold)를 넘기면 시트 전체가 올라오면서
+// 설명글이 사라지지 않고 제목·선택지와 함께 한 스크롤 영역 안에서 이어진다.
+// 그 아래로만 밀면 다시 접힘 위치로 되돌아간다.
 function QuestionScene({
   story,
   title,
@@ -65,12 +63,16 @@ function QuestionScene({
   onOpenChange: (open: boolean) => void;
 }) {
   const reduce = useReducedMotion();
-  // 힌트+설명이 항상 보이는 상단부 — 이 높이를 알아야 열렸을 때 선택지 영역이
-  // 헤더 아래 남은 공간을 정확히 채우도록(넘치면 스크롤) 계산할 수 있다.
+  // 화살표 힌트만 담은 상단부 — 이 높이를 알아야 열렸을 때 시트가 헤더 바로 아래까지
+  // 정확히 차오르도록(넘치면 스크롤) 계산할 수 있다.
   const topSectionRef = useRef<HTMLDivElement>(null);
   const [topSectionHeight, setTopSectionHeight] = useState(120);
-  // 선택지+CTA 블록 — 접힌 상태에서 이 높이만큼 화면 아래로 내려가 숨는다.
-  const hiddenRef = useRef<HTMLDivElement>(null);
+  // 시트 본문(설명+제목+선택지+CTA) — 접힌 상태에선 설명글 높이만 남기고 화면 아래로 내려간다.
+  const sheetRef = useRef<HTMLDivElement>(null);
+  // 설명글 블록 — 접힌 상태에서 화면에 남는 만큼(= 시트에서 덜 내리는 높이).
+  const storyRef = useRef<HTMLDivElement>(null);
+  // 설명+제목+선택지를 함께 담는 스크롤 영역 — 접을 때 맨 위로 되돌린다.
+  const scrollRef = useRef<HTMLDivElement>(null);
   const inited = useRef(false);
   const [closedY, setClosedY] = useState(480);
   // ResizeObserver 콜백 안에서 최신 open 값을 읽기 위한 ref(이펙트 재구독 없이).
@@ -93,15 +95,15 @@ function QuestionScene({
   }, []);
 
   useEffect(() => {
-    const el = hiddenRef.current;
-    if (!el) return;
+    const sheet = sheetRef.current;
+    if (!sheet) return;
     const update = () => {
-      // 열린 상태에선 hiddenRef가 남은 공간을 채우려고 커지므로(제목이 선택지와 함께
-      // 올라오며 설명 자리를 메움) 그 높이를 closedY로 쓰면 접힘 위치가 틀어진다.
-      // 접힌 상태(설명이 온전히 보이는 높이)일 때만 closedY를 갱신한다.
+      // 열린 상태에선 화살표가 접히며 시트가 그만큼 커지므로, 그 높이로 closedY를 잡으면
+      // 접힘 위치가 틀어진다. 접힌 상태(설명이 온전히 보이는 높이)일 때만 갱신한다.
       if (openRef.current) return;
-      // peek 높이만큼 덜 내려, 접혀도 라운드 상단이 살짝 보이고 제목이 바닥에 딱 붙지 않는다.
-      const cy = Math.max(el.offsetHeight - SHEET_PEEK, 80);
+      // 시트 높이에서 설명글 높이만큼을 뺀 만큼만 내린다 → 접혀도 설명글은 화면에 남는다.
+      const storyHeight = storyRef.current?.offsetHeight ?? 0;
+      const cy = Math.max(sheet.offsetHeight - storyHeight, 80);
       setClosedY(cy);
       if (!inited.current) {
         y.set(cy);
@@ -110,13 +112,16 @@ function QuestionScene({
     };
     update();
     const ro = new ResizeObserver(update);
-    ro.observe(el);
+    ro.observe(sheet);
+    if (storyRef.current) ro.observe(storyRef.current);
     return () => ro.disconnect();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // open 상태가 바뀌면 열림(0)/접힘(closedY)으로 스냅.
+  // 접을 때는 스크롤을 맨 위로 돌려놔야 설명글이 다시 온전히 보인다(열린 채 스크롤했을 수 있음).
   useEffect(() => {
+    if (!open && scrollRef.current) scrollRef.current.scrollTop = 0;
     if (!inited.current) return;
     const controls = animate(y, open ? 0 : closedY, SHEET_SPRING);
     return () => controls.stop();
@@ -149,27 +154,24 @@ function QuestionScene({
         }}
         className="flex w-full max-w-2xl flex-col"
       >
-        {/* 힌트 + 설명 — 메뉴(제목 포함) 바로 위에 붙어 항상 보이고, 여기서 드래그 시작.
-            그라데이션은 설명 위(힌트 위쪽)까지 이어져 이미지 위에서도 글씨가 잘 읽힌다. */}
+        {/* 위로 올리기 안내 화살표 — 접힌 상태에서만 보이는 "밀어 올리기" 손잡이.
+            펼치면 자리째 접혀(높이 0) 사라지고, 시트가 헤더 바로 아래까지 차오른다.
+            뒤에 깔리는 그라데이션은 아래 설명글 블록의 그라데이션으로 이어진다. */}
         <div
           ref={topSectionRef}
           onPointerDown={(e) => dragControls.start(e)}
           className={`relative isolate flex flex-shrink-0 cursor-grab touch-none select-none flex-col px-6 transition-[padding] duration-300 ease-out active:cursor-grabbing ${
-            open ? "pt-0 pb-0" : "pt-10 pb-6"
+            open ? "pt-0 pb-0" : "pt-10 pb-0"
           }`}
         >
-          {/* 뒤에 깔리는 그라데이션 — 힌트 위쪽(-top)부터 시작해 설명 부분 위까지 이어진다.
-              메뉴와 같은 부모 안에 있어 함께 움직인다(별도 정적 레이어가 아님). */}
           <div
             className="pointer-events-none absolute inset-x-0 -top-20 bottom-0 -z-10"
             style={{
               background:
-                "linear-gradient(to bottom, transparent 0%, rgb(var(--scene-rgb)/0.4) 28%, rgb(var(--scene-rgb)/0.82) 52%, rgb(var(--scene-rgb)/0.98) 74%, var(--scene-bg) 100%)",
+                "linear-gradient(to bottom, transparent 0%, rgb(var(--scene-rgb)/0.35) 55%, rgb(var(--scene-rgb)/0.6) 100%)",
             }}
           />
 
-          {/* 위로 올리기 안내 화살표 — 접힌 상태에서만 보이는 "밀어 올리기" 손잡이.
-              펼치면 자리째 접혀(높이 0) 완전히 사라지고, 제목이 헤더 바로 아래로 붙는다. */}
           <div
             className={`grid ${reduce ? "" : "transition-[grid-template-rows] duration-300 ease-out"}`}
             style={{ gridTemplateRows: open ? "0fr" : "1fr" }}
@@ -187,54 +189,72 @@ function QuestionScene({
               </div>
             </div>
           </div>
-
-          {/* 설명 — 접힌 상태에선 보이고, 펼치면 자리를 접어(높이 0) 사라진다. */}
-          {story && (
-            <div
-              className={`grid ${reduce ? "" : "transition-[grid-template-rows] duration-300 ease-out"}`}
-              style={{ gridTemplateRows: open ? "0fr" : "1fr" }}
-            >
-              <div className="overflow-hidden">
-                <p
-                  className="break-keep text-[15px] font-semibold leading-relaxed text-ink-soft drop-shadow-[0_1px_10px_rgba(255,255,255,0.6)] transition-opacity duration-200"
-                  style={{ opacity: open ? 0 : 1 }}
-                >
-                  {story}
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
-        {/* 제목 + 선택지 + CTA — 접힌 상태에선 이 블록 전체가 화면 아래로 숨어 있다가,
-            시트를 위로 올리면 제목이 선택지와 함께 자연스럽게 따라 올라온다(별도 애니메이션 불필요).
-            열렸을 때 항상 헤더 바로 아래까지 꽉 채우는 고정 높이 — 내용이 짧아도 하늘이 남지 않는다.
-            CTA는 바닥에 고정하고, 그 위(제목+선택지)만 필요하면 내부 스크롤된다. */}
+        {/* 시트 본문 — 설명 + 제목 + 선택지가 한 스크롤 영역에 담기고, CTA만 바닥에 고정된다.
+            접힌 상태에선 설명글 높이만 남기고 아래로 내려가 있어(closedY) 설명글만 보이고,
+            위로 올리면 설명글이 그대로 남은 채 제목·선택지가 이어서 드러난다.
+            열렸을 때 헤더 바로 아래까지 꽉 채우는 고정 높이 — 내용이 짧아도 하늘이 남지 않는다. */}
         <div
-          ref={hiddenRef}
+          ref={sheetRef}
           className="flex flex-col"
           style={{
             height: `calc(100dvh - ${topInset + topSectionHeight + 16}px)`,
-            background:
-              "linear-gradient(to bottom, var(--scene-bg), var(--scene-bg-soft))",
           }}
         >
-          <div className="flex-1 overflow-y-auto">
-            <h2 className="break-keep px-6 pb-3 pt-5 text-[1.9rem] font-black leading-[1.18] tracking-tight text-ink">
-              {title}
-            </h2>
-            <div className="px-6 pb-4">
-              <ChoiceRow
-                themed
-                options={options}
-                selectedId={selectedId}
-                onSelect={onSelect}
-              />
+          <div
+            ref={scrollRef}
+            className={`flex flex-1 flex-col ${open ? "overflow-y-auto" : "overflow-hidden"}`}
+          >
+            {/* 설명 — 접힌 상태에선 이 블록만 화면에 보이며 드래그 손잡이 역할도 한다.
+                열리면 스크롤 영역의 맨 위 콘텐츠가 되어 제목·선택지와 함께 스크롤된다.
+                배경은 위(화살표)의 반투명 그라데이션을 이어받아 시트 본색까지 내려간다. */}
+            {story && (
+              <div
+                ref={storyRef}
+                onPointerDown={(e) => {
+                  // 열린 상태에선 스크롤을 방해하지 않도록 드래그를 시작하지 않는다.
+                  if (!open) dragControls.start(e);
+                }}
+                className={`shrink-0 px-6 pb-5 pt-1 ${
+                  open
+                    ? ""
+                    : "cursor-grab touch-none select-none active:cursor-grabbing"
+                }`}
+                style={{
+                  background:
+                    "linear-gradient(to bottom, rgb(var(--scene-rgb)/0.6) 0%, rgb(var(--scene-rgb)/0.9) 40%, var(--scene-bg) 100%)",
+                }}
+              >
+                <p className="break-keep text-[15px] font-semibold leading-relaxed text-ink-soft drop-shadow-[0_1px_10px_rgba(255,255,255,0.6)]">
+                  {story}
+                </p>
+              </div>
+            )}
+
+            <div className="flex-1 bg-[var(--scene-bg)]">
+              <h2 className="break-keep px-6 pb-3 pt-1 text-[1.9rem] font-black leading-[1.18] tracking-tight text-ink">
+                {title}
+              </h2>
+              <div className="px-6 pb-4">
+                <ChoiceRow
+                  themed
+                  options={options}
+                  selectedId={selectedId}
+                  onSelect={onSelect}
+                />
+              </div>
             </div>
           </div>
 
           {/* CTA — 시트 하단에 고정 */}
-          <div className="shrink-0 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3">
+          <div
+            className="shrink-0 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-3"
+            style={{
+              background:
+                "linear-gradient(to bottom, var(--scene-bg), var(--scene-bg-soft))",
+            }}
+          >
             <CtaButton onClick={onCta} disabled={ctaDisabled} className="max-w-2xl">
               {ctaLabel}
             </CtaButton>
