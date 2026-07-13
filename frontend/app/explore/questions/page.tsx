@@ -30,6 +30,16 @@ const JOURNEY_TOTAL = 10;
 
 const SHEET_SPRING = { type: "spring" as const, stiffness: 360, damping: 40 };
 
+// 시트 배경 — 스크롤과 무관하게 고정된다. 배경을 스크롤하는 콘텐츠에 붙이면 그 배경의
+// 윗변이 그라데이션 한가운데를 지나며 "반투명 → 불투명"으로 뚝 끊기는 선을 만든다.
+// 그래서 배경은 전부 여기 한 겹으로 모으고, 콘텐츠(글자·선택지 카드)는 투명하게 둔다.
+// 설명글이 놓이는 높이(storyHeight)까지는 하늘이 비치는 그라데이션, 그 아래는 시트 본색.
+// 위쪽 화살표 영역의 그라데이션(투명 → 0.6)에서 0.6으로 이어받는다.
+const sheetBackground = (storyHeight: number) =>
+  storyHeight > 0
+    ? `linear-gradient(to bottom, rgb(var(--scene-rgb)/0.6) 0px, rgb(var(--scene-rgb)/0.9) ${Math.round(storyHeight * 0.4)}px, var(--scene-bg) ${storyHeight}px)`
+    : "var(--scene-bg)";
+
 // 설명·제목·선택지·CTA가 하나의 시트에 담겨 있다.
 // 접힌 상태에서는 시트를 "설명글 높이만큼만" 남기고 화면 아래로 내려, 화살표 힌트와
 // 상황 설명만 보인다. 위로 밀어 일정 범위(threshold)를 넘기면 시트 전체가 올라오면서
@@ -71,6 +81,7 @@ function QuestionScene({
   const sheetRef = useRef<HTMLDivElement>(null);
   // 설명글 블록 — 접힌 상태에서 화면에 남는 만큼(= 시트에서 덜 내리는 높이).
   const storyRef = useRef<HTMLDivElement>(null);
+  const [storyHeight, setStoryHeight] = useState(0);
   // 설명+제목+선택지를 함께 담는 스크롤 영역 — 접을 때 맨 위로 되돌린다.
   const scrollRef = useRef<HTMLDivElement>(null);
   const inited = useRef(false);
@@ -93,6 +104,17 @@ function QuestionScene({
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
+
+  // 설명글 높이 — 그라데이션 띠의 높이로 그대로 쓴다(설명글이 있던 자리를 정확히 대신한다).
+  useEffect(() => {
+    const el = storyRef.current;
+    if (!el) return;
+    const update = () => setStoryHeight(el.offsetHeight);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [story]);
 
   useEffect(() => {
     const sheet = sheetRef.current;
@@ -118,13 +140,32 @@ function QuestionScene({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 스크롤한 만큼 콘텐츠 위쪽을 투명하게 깎아낸다(리렌더 없이 DOM 스타일 직접 갱신).
+  // 깎이는 높이 = 스크롤량(설명글 높이가 상한). 설명글이 위로 빠져나가는 만큼만 정확히
+  // 깎이므로, 그 자리를 뒤에 고정된 그라데이션 띠가 그대로 이어받는다 →
+  // 제목·선택지도 하늘 이미지와 맞닿아 잘리는 대신 그라데이션 속으로 흐려지며 사라진다.
+  const applyFadeMask = (el: HTMLDivElement, scrollTop: number) => {
+    const fade = Math.min(Math.max(scrollTop, 0), storyHeight);
+    const mask =
+      fade > 0
+        ? `linear-gradient(to bottom, transparent 0px, black ${fade}px)`
+        : "";
+    el.style.maskImage = mask;
+    el.style.setProperty("-webkit-mask-image", mask);
+  };
+
   // open 상태가 바뀌면 열림(0)/접힘(closedY)으로 스냅.
   // 접을 때는 스크롤을 맨 위로 돌려놔야 설명글이 다시 온전히 보인다(열린 채 스크롤했을 수 있음).
+  // scrollTop을 코드로 되돌리면 scroll 이벤트가 안 뜰 수 있으니 마스크도 직접 걷어낸다.
   useEffect(() => {
-    if (!open && scrollRef.current) scrollRef.current.scrollTop = 0;
+    if (!open && scrollRef.current) {
+      scrollRef.current.scrollTop = 0;
+      applyFadeMask(scrollRef.current, 0);
+    }
     if (!inited.current) return;
     const controls = animate(y, open ? 0 : closedY, SHEET_SPRING);
     return () => controls.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, closedY, y]);
 
   return (
@@ -197,18 +238,23 @@ function QuestionScene({
             열렸을 때 헤더 바로 아래까지 꽉 채우는 고정 높이 — 내용이 짧아도 하늘이 남지 않는다. */}
         <div
           ref={sheetRef}
-          className="flex flex-col"
+          className="relative flex flex-col"
           style={{
             height: `calc(100dvh - ${topInset + topSectionHeight + 16}px)`,
+            background: sheetBackground(storyHeight),
           }}
         >
+          {/* 스크롤 영역. 배경은 투명하게 둔다 — 뒤에 깔린 그라데이션 띠가 비쳐야 하므로.
+              overscroll-none으로 iOS 고무줄 스크롤을 끈다(튕기는 순간 콘텐츠만 밀려나고
+              컨테이너에는 칠할 게 없어 뒤의 배경 씬이 드러나기 때문). */}
           <div
             ref={scrollRef}
-            className={`flex flex-1 flex-col ${open ? "overflow-y-auto" : "overflow-hidden"}`}
+            onScroll={(e) => applyFadeMask(e.currentTarget, e.currentTarget.scrollTop)}
+            className={`flex flex-1 flex-col overscroll-none ${open ? "overflow-y-auto" : "overflow-hidden"}`}
           >
             {/* 설명 — 접힌 상태에선 이 블록만 화면에 보이며 드래그 손잡이 역할도 한다.
                 열리면 스크롤 영역의 맨 위 콘텐츠가 되어 제목·선택지와 함께 스크롤된다.
-                배경은 위(화살표)의 반투명 그라데이션을 이어받아 시트 본색까지 내려간다. */}
+                배경은 갖지 않는다 — 뒤에 고정된 그라데이션 띠가 그 자리를 채운다. */}
             {story && (
               <div
                 ref={storyRef}
@@ -221,10 +267,6 @@ function QuestionScene({
                     ? ""
                     : "cursor-grab touch-none select-none active:cursor-grabbing"
                 }`}
-                style={{
-                  background:
-                    "linear-gradient(to bottom, rgb(var(--scene-rgb)/0.6) 0%, rgb(var(--scene-rgb)/0.9) 40%, var(--scene-bg) 100%)",
-                }}
               >
                 <p className="break-keep text-[15px] font-semibold leading-relaxed text-ink-soft drop-shadow-[0_1px_10px_rgba(255,255,255,0.6)]">
                   {story}
@@ -232,7 +274,8 @@ function QuestionScene({
               </div>
             )}
 
-            <div className="flex-1 bg-[var(--scene-bg)]">
+            {/* 제목·선택지 — 배경 없음. 시트의 고정 배경 위를 글자와 카드만 지나간다. */}
+            <div className="flex-1">
               <h2 className="break-keep px-6 pb-3 pt-1 text-[1.9rem] font-black leading-[1.18] tracking-tight text-ink">
                 {title}
               </h2>
