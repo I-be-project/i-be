@@ -308,6 +308,8 @@ export interface AdminBulkDeleteResponse {
   removed_storage_objects: number;
 }
 
+export type AdminStudentSort = "created_desc" | "created_asc" | "name_asc";
+
 export interface AdminStudentQuery {
   q?: string;
   school?: string;
@@ -315,6 +317,7 @@ export interface AdminStudentQuery {
   class_no?: number;
   limit?: number;
   offset?: number;
+  sort?: AdminStudentSort;
 }
 
 export function adminLogin(
@@ -339,11 +342,19 @@ export function fetchAdminStudents(
   if (params.class_no != null) sp.set("class_no", String(params.class_no));
   if (params.limit != null) sp.set("limit", String(params.limit));
   if (params.offset != null) sp.set("offset", String(params.offset));
+  if (params.sort) sp.set("sort", params.sort);
   const qs = sp.toString();
   return request<AdminStudentList>(
     `/api/admin/students${qs ? `?${qs}` : ""}`,
     { method: "GET", headers: { Authorization: `Bearer ${token}` } }
   );
+}
+
+export function fetchAdminSchools(token: string): Promise<string[]> {
+  return request<string[]>("/api/admin/students/schools", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
 }
 
 export function fetchAdminStudentDetail(
