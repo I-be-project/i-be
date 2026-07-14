@@ -5,13 +5,6 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { StudentDetailDialog } from "@/components/admin/StudentDetailDialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ApiError,
@@ -45,6 +38,51 @@ const LEGEND: { key: AdminProgressStatus | "missing"; label: string; swatch: str
   { key: "not_started", label: "미시작", swatch: "border-border bg-muted" },
   { key: "missing", label: "미가입", swatch: "border-dashed border-border/70 bg-transparent" },
 ];
+
+/** 라벨 + 카드 목록을 감싸는 선택 그룹. */
+function PickerGroup({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+        {label}
+      </p>
+      <div className="flex flex-wrap gap-2">{children}</div>
+    </div>
+  );
+}
+
+/** 선택 가능한 카드 버튼. selected면 강조된다. */
+function PickerCard({
+  selected,
+  onClick,
+  children,
+}: {
+  selected: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={selected}
+      className={cn(
+        "min-w-[72px] rounded-xl border px-4 py-2.5 text-left text-sm font-medium shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        selected
+          ? "border-primary bg-primary/10 text-foreground ring-1 ring-primary"
+          : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 export default function AdminSeatingPage() {
   const router = useRouter();
@@ -182,58 +220,64 @@ export default function AdminSeatingPage() {
           </p>
         </div>
 
-        {/* 학교 · 학년 · 반 선택 */}
-        <div className="mb-5 flex flex-wrap items-center gap-2">
-          <Select value={school} onValueChange={(v) => setSchool(v ?? "")}>
-            <SelectTrigger className="w-[180px]" aria-label="학교 선택">
-              <SelectValue>
-                {(v: string | null) => v || "학교 선택"}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {schools.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        {/* 학교 · 학년 · 반 선택 (카드형) */}
+        <div className="mb-6 flex flex-col gap-4">
+          <PickerGroup label="학교">
+            {schools.length === 0
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-11 w-28 rounded-xl" />
+                ))
+              : schools.map((s) => (
+                  <PickerCard
+                    key={s}
+                    selected={s === school}
+                    onClick={() => setSchool(s)}
+                  >
+                    {s}
+                  </PickerCard>
+                ))}
+          </PickerGroup>
 
-          <Select
-            value={grade === null ? "" : String(grade)}
-            onValueChange={(v) => v && setGrade(Number(v))}
-          >
-            <SelectTrigger className="w-[110px]" aria-label="학년 선택">
-              <SelectValue>
-                {(v: string | null) => (v ? `${v}학년` : "학년")}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
+          {grades.length > 0 && (
+            <PickerGroup label="학년">
               {grades.map((g) => (
-                <SelectItem key={g} value={String(g)}>
+                <PickerCard
+                  key={g}
+                  selected={g === grade}
+                  onClick={() => setGrade(g)}
+                >
                   {g}학년
-                </SelectItem>
+                </PickerCard>
               ))}
-            </SelectContent>
-          </Select>
+            </PickerGroup>
+          )}
 
-          <Select
-            value={classNo === null ? "" : String(classNo)}
-            onValueChange={(v) => v && setClassNo(Number(v))}
-          >
-            <SelectTrigger className="w-[110px]" aria-label="반 선택">
-              <SelectValue>
-                {(v: string | null) => (v ? `${v}반` : "반")}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {classes.map((c) => (
-                <SelectItem key={c} value={String(c)}>
-                  {c}반
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {classes.length > 0 && (
+            <PickerGroup label="반">
+              {classes.map((c) => {
+                const cs = students.filter(
+                  (s) => s.grade === grade && s.class_no === c
+                );
+                const done = cs.filter(
+                  (s) => s.progress.status === "completed"
+                ).length;
+                return (
+                  <PickerCard
+                    key={c}
+                    selected={c === classNo}
+                    onClick={() => setClassNo(c)}
+                  >
+                    <span className="flex items-center gap-2">
+                      {c}반
+                      <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                        {done}/{cs.length}
+                      </span>
+                    </span>
+                  </PickerCard>
+                );
+              })}
+            </PickerGroup>
+          )}
         </div>
 
         {error && (
