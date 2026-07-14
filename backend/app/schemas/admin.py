@@ -49,6 +49,9 @@ class AdminStudentItem(BaseModel):
     progress: AdminStudentProgress = Field(default_factory=AdminStudentProgress)
 
 
+AdminStudentSort = Literal["created_desc", "created_asc", "name_asc"]
+
+
 class AdminStudentList(BaseModel):
     total: int
     items: list[AdminStudentItem]

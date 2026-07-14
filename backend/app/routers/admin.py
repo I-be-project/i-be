@@ -15,6 +15,7 @@ from app.schemas.admin import (
     AdminLoginResponse,
     AdminStudentDetail,
     AdminStudentList,
+    AdminStudentSort,
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -36,11 +37,29 @@ async def list_students(
     class_no: int | None = None,
     limit: int = 50,
     offset: int = 0,
+    sort: AdminStudentSort | None = None,
 ) -> AdminStudentList:
-    """가입한 모든 학생 목록 — 검색/필터/페이지네이션, 사진 presigned URL 포함."""
+    """가입한 모든 학생 목록 — 검색/필터/정렬/페이지네이션, 사진 presigned URL 포함."""
     return await admin.list_students(
-        q=q, school=school, grade=grade, class_no=class_no, limit=limit, offset=offset
+        q=q,
+        school=school,
+        grade=grade,
+        class_no=class_no,
+        limit=limit,
+        offset=offset,
+        sort=sort,
     )
+
+
+# 주의: 아래 정적 경로는 /students/{student_id}보다 먼저 선언해야 한다.
+# (그렇지 않으면 "schools"가 UUID 경로 파라미터로 매칭되어 422가 난다.)
+@router.get("/students/schools", response_model=list[str])
+async def list_schools(
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> list[str]:
+    """학교 필터 드롭다운용 — 가입 학생이 있는 학교 이름 목록(가나다순)."""
+    return await admin.list_schools()
 
 
 @router.post("/students/bulk-delete", response_model=AdminBulkDeleteResponse)

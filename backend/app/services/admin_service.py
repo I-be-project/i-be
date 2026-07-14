@@ -83,9 +83,16 @@ class AdminService:
         class_no: int | None,
         limit: int,
         offset: int,
+        sort: str | None = None,
     ) -> AdminStudentList:
         total, records = await self._students.list_students(
-            q=q, school=school, grade=grade, class_no=class_no, limit=limit, offset=offset
+            q=q,
+            school=school,
+            grade=grade,
+            class_no=class_no,
+            limit=limit,
+            offset=offset,
+            sort=sort,
         )
         progress = await self._sessions.get_progress_for_students([r.id for r in records])
         items: list[AdminStudentItem] = []
@@ -108,6 +115,10 @@ class AdminService:
                 )
             )
         return AdminStudentList(total=total, items=items)
+
+    async def list_schools(self) -> list[str]:
+        """가입 학생이 있는 학교 목록 — 관리자 목록 화면의 학교 필터용."""
+        return await self._students.list_schools()
 
     async def get_student_detail(self, student_id: UUID) -> AdminStudentDetail:
         """학생 상세 — 기본 정보 + 모든 세션(최신순) 답변·페르소나·카드."""

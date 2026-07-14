@@ -88,6 +88,7 @@ class FakeStudentRepo:
         class_no: int | None,
         limit: int,
         offset: int,
+        sort: str | None = None,
     ) -> tuple[int, list[StudentRecord]]:
         records = [r for r in self._by_id.values() if r.deleted_at is None]
         if q:
@@ -98,8 +99,19 @@ class FakeStudentRepo:
             records = [r for r in records if r.grade == grade]
         if class_no is not None:
             records = [r for r in records if r.class_no == class_no]
-        records.sort(key=lambda r: (r.school, r.grade, r.class_no, r.student_no))
+        if sort == "name_asc":
+            records.sort(key=lambda r: (r.name, r.id))
+        elif sort == "created_asc":
+            records.sort(key=lambda r: (r.created_at, r.id))
+        elif sort == "created_desc":
+            records.sort(key=lambda r: (r.created_at, r.id), reverse=True)
+        else:
+            records.sort(key=lambda r: (r.school, r.grade, r.class_no, r.student_no))
         return len(records), records[offset : offset + limit]
+
+    async def list_schools(self) -> list[str]:
+        schools = {r.school for r in self._by_id.values() if r.deleted_at is None}
+        return sorted(schools)
 
     async def hard_delete(self, student_id: UUID) -> tuple[bool, str | None]:
         record = self._by_id.pop(student_id, None)
