@@ -1,6 +1,17 @@
 "use client";
 
-import { AlertTriangle, Eye, EyeOff, Inbox, Search, Trash2, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+  Inbox,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
@@ -15,6 +26,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -27,6 +45,7 @@ import {
 import {
   ApiError,
   bulkDeleteAdminStudents,
+  fetchAdminSchools,
   fetchAdminStudents,
   type AdminStudentItem,
 } from "@/lib/api";
@@ -34,22 +53,46 @@ import { clearAdminToken, getAdminToken } from "@/lib/adminAuth";
 import { ProgressBadge } from "@/components/admin/ProgressBadge";
 import { genderLabel } from "@/lib/utils";
 
-function StudentAvatar({ student }: { student: AdminStudentItem }) {
-  if (student.photo_url) {
+function StudentAvatar({
+  student,
+  revealed,
+  onToggle,
+}: {
+  student: AdminStudentItem;
+  revealed: boolean;
+  onToggle: () => void;
+}) {
+  if (!student.photo_url) {
     return (
-      // 외부 presigned URL — next/image 도메인 설정 회피 위해 img 사용.
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={student.photo_url}
-        alt={student.name}
-        className="size-10 rounded-full object-cover ring-1 ring-border"
-      />
+      <span className="grid size-10 place-items-center rounded-full bg-muted text-sm font-medium text-muted-foreground ring-1 ring-border">
+        {student.name.slice(0, 1)}
+      </span>
     );
   }
   return (
-    <span className="grid size-10 place-items-center rounded-full bg-muted text-sm font-medium text-muted-foreground ring-1 ring-border">
-      {student.name.slice(0, 1)}
-    </span>
+    <button
+      type="button"
+      aria-label={revealed ? `${student.name} 사진 숨기기` : `${student.name} 사진 보기`}
+      className="group relative block size-10 overflow-hidden rounded-full ring-1 ring-border"
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+    >
+      {revealed ? (
+        // 외부 presigned URL — next/image 도메인 설정 회피 위해 img 사용.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={student.photo_url}
+          alt={student.name}
+          className="size-full object-cover"
+        />
+      ) : (
+        <span className="grid size-full place-items-center bg-muted text-muted-foreground transition-colors group-hover:text-foreground">
+          <ImageIcon className="size-4" aria-hidden />
+        </span>
+      )}
+    </button>
   );
 }
 
@@ -71,60 +114,110 @@ function ConsentTag({ agreed }: { agreed: boolean }) {
   );
 }
 
+type SortKey = "name_asc" | "created_desc" | "created_asc";
+
+const SORT_OPTIONS: { value: SortKey; label: string }[] = [
+  { value: "created_desc", label: "최신 가입순" },
+  { value: "created_asc", label: "오래된 가입순" },
+  { value: "name_asc", label: "가나다순" },
+];
+
+// Select 값은 빈 문자열을 허용하지 않으므로 "전체"용 센티널을 쓴다.
+const ALL_SCHOOLS = "__all__";
+
 export default function AdminStudentsPage() {
   const router = useRouter();
   const [items, setItems] = useState<AdminStudentItem[]>([]);
   const [total, setTotal] = useState(0);
   const [query, setQuery] = useState("");
+  const [submittedQuery, setSubmittedQuery] = useState("");
+  const [schools, setSchools] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
+  const [photoRevealed, setPhotoRevealed] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<AdminStudentItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
   const [bulkConfirming, setBulkConfirming] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [bulkError, setBulkError] = useState<string | null>(null);
+  const [sortKey, setSortKey] = useState<SortKey>("created_desc");
+  const [schoolFilter, setSchoolFilter] = useState<string>(ALL_SCHOOLS);
+  const [pageSize, setPageSize] = useState(50);
+  const [page, setPage] = useState(0);
 
-  const load = useCallback(
-    async (q: string) => {
-      const token = getAdminToken();
-      if (!token) {
+  // 목록 로드 — 검색·필터·정렬·페이지네이션을 모두 서버에 위임한다.
+  const load = useCallback(async () => {
+    const token = getAdminToken();
+    if (!token) {
+      router.replace("/admin/login");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetchAdminStudents(token, {
+        q: submittedQuery || undefined,
+        school: schoolFilter === ALL_SCHOOLS ? undefined : schoolFilter,
+        sort: sortKey,
+        limit: pageSize,
+        offset: page * pageSize,
+      });
+      setTotal(res.total);
+      // 삭제 등으로 현재 페이지가 범위를 벗어나면 첫 페이지로 되돌린다.
+      if (page > 0 && res.items.length === 0 && res.total > 0) {
+        setPage(0);
+        return;
+      }
+      setItems(res.items);
+      setCheckedIds(new Set()); // 페이지가 바뀌면 선택 초기화
+      setError(null);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearAdminToken();
         router.replace("/admin/login");
         return;
       }
-      setLoading(true);
-      try {
-        const res = await fetchAdminStudents(token, {
-          q: q || undefined,
-          limit: 200,
-        });
-        setItems(res.items);
-        setTotal(res.total);
-        setCheckedIds(new Set()); // 목록이 바뀌면 선택 초기화
-        setError(null);
-      } catch (err) {
-        if (err instanceof ApiError && err.status === 401) {
-          clearAdminToken();
-          router.replace("/admin/login");
-          return;
-        }
-        setError(
-          err instanceof ApiError ? err.message : "목록을 불러오지 못했습니다."
-        );
-      } finally {
-        setLoading(false);
-      }
-    },
-    [router]
-  );
+      setError(
+        err instanceof ApiError ? err.message : "목록을 불러오지 못했습니다."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [router, submittedQuery, schoolFilter, sortKey, pageSize, page]);
 
   useEffect(() => {
-    // 마운트 시 1회 초기 로드. load는 router에만 의존하는 안정 콜백.
-    load("");
+    // 검색어·필터·정렬·페이지 크기·페이지가 바뀔 때마다 다시 로드한다.
+    load();
   }, [load]);
+
+  // 학교 필터 드롭다운 목록 — 마운트 시 1회, 삭제 후 갱신.
+  const loadSchools = useCallback(async () => {
+    const token = getAdminToken();
+    if (!token) return;
+    try {
+      setSchools(await fetchAdminSchools(token));
+    } catch {
+      // 필터 목록 로드 실패는 치명적이지 않으므로 조용히 무시한다.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSchools();
+  }, [loadSchools]);
+
+  const pageCount = Math.max(1, Math.ceil(total / pageSize));
 
   function toggleReveal(id: string) {
     setRevealed((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function togglePhoto(id: string) {
+    setPhotoRevealed((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
       else next.add(id);
@@ -141,13 +234,20 @@ export default function AdminStudentsPage() {
     });
   }
 
-  const allChecked = items.length > 0 && checkedIds.size === items.length;
-  const someChecked = checkedIds.size > 0 && !allChecked;
+  const allChecked =
+    items.length > 0 && items.every((s) => checkedIds.has(s.id));
+  const someChecked = items.some((s) => checkedIds.has(s.id)) && !allChecked;
 
   function toggleCheckAll() {
-    setCheckedIds((prev) =>
-      prev.size === items.length ? new Set() : new Set(items.map((s) => s.id))
-    );
+    setCheckedIds((prev) => {
+      const next = new Set(prev);
+      if (items.every((s) => next.has(s.id))) {
+        items.forEach((s) => next.delete(s.id));
+      } else {
+        items.forEach((s) => next.add(s.id));
+      }
+      return next;
+    });
   }
 
   async function handleBulkDelete() {
@@ -162,7 +262,8 @@ export default function AdminStudentsPage() {
       await bulkDeleteAdminStudents(token, [...checkedIds]);
       setBulkConfirming(false);
       setCheckedIds(new Set());
-      await load(query);
+      await load();
+      await loadSchools();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearAdminToken();
@@ -204,7 +305,8 @@ export default function AdminStudentsPage() {
           className="mb-4"
           onSubmit={(e) => {
             e.preventDefault();
-            load(query);
+            setPage(0);
+            setSubmittedQuery(query.trim());
           }}
         >
           <div className="relative max-w-sm">
@@ -218,6 +320,88 @@ export default function AdminStudentsPage() {
             />
           </div>
         </form>
+
+        {/* 정렬 · 페이지 크기 */}
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            {total > 0 ? (
+              <>
+                <span className="tabular-nums">
+                  {page * pageSize + 1}–
+                  {Math.min((page + 1) * pageSize, total)}
+                </span>{" "}
+                / 총 <span className="tabular-nums">{total}</span>명
+              </>
+            ) : (
+              "표시할 회원이 없습니다"
+            )}
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <Select
+              value={schoolFilter}
+              onValueChange={(v) => {
+                setSchoolFilter(v ?? ALL_SCHOOLS);
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="w-[160px]" aria-label="학교 필터">
+                <SelectValue>
+                  {(v: string | null) =>
+                    !v || v === ALL_SCHOOLS ? "전체 학교" : v
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_SCHOOLS}>전체 학교</SelectItem>
+                {schools.map((school) => (
+                  <SelectItem key={school} value={school}>
+                    {school}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={sortKey}
+              onValueChange={(v) => {
+                setSortKey(v as SortKey);
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="w-[140px]" aria-label="정렬 기준">
+                <SelectValue>
+                  {(v: string | null) =>
+                    SORT_OPTIONS.find((o) => o.value === v)?.label ??
+                    SORT_OPTIONS[0].label
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_OPTIONS.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(v) => {
+                setPageSize(Number(v));
+                setPage(0);
+              }}
+            >
+              <SelectTrigger className="w-[120px]" aria-label="페이지 크기">
+                <SelectValue>
+                  {(v: string | null) => `${v ?? pageSize}개씩 보기`}
+                </SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="50">50개씩 보기</SelectItem>
+                <SelectItem value="100">100개씩 보기</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
 
         {error && (
           <div className="mb-4 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
@@ -331,7 +515,11 @@ export default function AdminStudentsPage() {
                       />
                     </TableCell>
                     <TableCell>
-                      <StudentAvatar student={s} />
+                      <StudentAvatar
+                        student={s}
+                        revealed={photoRevealed.has(s.id)}
+                        onToggle={() => togglePhoto(s.id)}
+                      />
                     </TableCell>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell className="text-muted-foreground">
@@ -380,6 +568,37 @@ export default function AdminStudentsPage() {
             </TableBody>
           </Table>
         </div>
+
+        {/* 페이지네이션 */}
+        {!loading && pageCount > 1 && (
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              disabled={page === 0}
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+            >
+              <ChevronLeft className="size-4" aria-hidden />
+              이전
+            </Button>
+            <span className="px-2 text-sm text-muted-foreground tabular-nums">
+              {page + 1} / {pageCount}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1"
+              disabled={page >= pageCount - 1}
+              onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+            >
+              다음
+              <ChevronRight className="size-4" aria-hidden />
+            </Button>
+          </div>
+        )}
       </main>
 
       <StudentDetailDialog
@@ -387,7 +606,8 @@ export default function AdminStudentsPage() {
         onClose={() => setSelected(null)}
         onDeleted={() => {
           setSelected(null);
-          load(query);
+          load();
+          loadSchools();
         }}
       />
 

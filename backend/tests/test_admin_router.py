@@ -68,8 +68,10 @@ def _admin_token() -> str:
     from datetime import timedelta
 
     return create_token(
-        kind=TokenKind.ADMIN, subject="admin",
-        ttl=timedelta(hours=1), settings=settings,
+        kind=TokenKind.ADMIN,
+        subject="admin",
+        ttl=timedelta(hours=1),
+        settings=settings,
     )
 
 
@@ -92,8 +94,10 @@ async def test_students_rejects_student_token() -> None:
     client = await anext(gen)
     try:
         student_tok = create_token(
-            kind=TokenKind.STUDENT, subject="00000000-0000-0000-0000-000000000000",
-            ttl=timedelta(hours=1), settings=get_settings(),
+            kind=TokenKind.STUDENT,
+            subject="00000000-0000-0000-0000-000000000000",
+            ttl=timedelta(hours=1),
+            settings=get_settings(),
         )
         res = await client.get(
             "/api/admin/students",
@@ -107,8 +111,14 @@ async def test_students_rejects_student_token() -> None:
 async def test_students_lists_with_admin_token() -> None:
     app, repo, _, _ = _build()
     await repo.create(
-        school="한마당고", grade=2, class_no=3, student_no=11,
-        name="홍길동", password="20100101", gender="male", consent_privacy=True,
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
     )
     gen = _client(app)
     client = await anext(gen)
@@ -128,6 +138,92 @@ async def test_students_lists_with_admin_token() -> None:
         await gen.aclose()
 
 
+async def test_students_sort_by_name_orders_alphabetically() -> None:
+    app, repo, _, _ = _build()
+    for i, name in enumerate(("다현", "가은", "나연")):
+        await repo.create(
+            school="한마당고",
+            grade=1,
+            class_no=1,
+            student_no=i + 1,
+            name=name,
+            password="20100101",
+            gender="female",
+            consent_privacy=True,
+        )
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            "/api/admin/students?sort=name_asc",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        names = [it["name"] for it in res.json()["items"]]
+        assert names == ["가은", "나연", "다현"]
+    finally:
+        await gen.aclose()
+
+
+async def test_students_pagination_limit_offset() -> None:
+    app, repo, _, _ = _build()
+    for i in range(5):
+        await repo.create(
+            school="한마당고",
+            grade=1,
+            class_no=1,
+            student_no=i + 1,
+            name=f"학생{i}",
+            password="20100101",
+            gender="male",
+            consent_privacy=True,
+        )
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            "/api/admin/students?limit=2&offset=2&sort=name_asc",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        body = res.json()
+        # total은 필터 전체 개수, items는 페이지 조각.
+        assert body["total"] == 5
+        assert [it["name"] for it in body["items"]] == ["학생2", "학생3"]
+    finally:
+        await gen.aclose()
+
+
+async def test_schools_returns_distinct_sorted_and_requires_token() -> None:
+    app, repo, _, _ = _build()
+    for i, school in enumerate(("나로고", "가온고", "나로고")):
+        await repo.create(
+            school=school,
+            grade=1,
+            class_no=1,
+            student_no=i + 1,
+            name=f"학생{i}",
+            password="20100101",
+            gender="male",
+            consent_privacy=True,
+        )
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        # 토큰 없으면 401.
+        res = await client.get("/api/admin/students/schools")
+        assert res.status_code == 401
+
+        res = await client.get(
+            "/api/admin/students/schools",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        assert res.json() == ["가온고", "나로고"]
+    finally:
+        await gen.aclose()
+
+
 async def test_student_detail_requires_admin_token() -> None:
     app, _, _, _ = _build()
     gen = _client(app)
@@ -142,8 +238,14 @@ async def test_student_detail_requires_admin_token() -> None:
 async def test_student_detail_returns_content() -> None:
     app, repo, _, sessions = _build()
     student = await repo.create(
-        school="한마당고", grade=2, class_no=3, student_no=11,
-        name="홍길동", password="20100101", gender="male", consent_privacy=True,
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
     )
     from datetime import UTC, datetime
     from uuid import uuid4
@@ -153,8 +255,12 @@ async def test_student_detail_returns_content() -> None:
     now = datetime.now(UTC)
     sessions.contents[student.id] = [
         SessionContent(
-            id=uuid4(), status="completed", created_at=now, completed_at=now,
-            answers=[], persona=SessionPersona("탐험가", "새로움", ["호기심"], ["과학"]),
+            id=uuid4(),
+            status="completed",
+            created_at=now,
+            completed_at=now,
+            answers=[],
+            persona=SessionPersona("탐험가", "새로움", ["호기심"], ["과학"]),
             card_image_key=None,
         )
     ]
@@ -190,8 +296,14 @@ async def test_student_detail_missing_returns_404() -> None:
 async def test_delete_student_removes_and_requires_token() -> None:
     app, repo, storage, _ = _build()
     student = await repo.create(
-        school="한마당고", grade=2, class_no=3, student_no=11,
-        name="홍길동", password="20100101", gender="male", consent_privacy=True,
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
     )
     await repo.update_photo_key(student.id, "uploads/photos/x/photo")
     gen = _client(app)

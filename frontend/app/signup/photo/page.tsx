@@ -19,6 +19,7 @@ export default function SignupPhotoPage() {
   const router = useRouter();
   const hasHydrated = useSessionStore((state) => state.hasHydrated);
   const studentToken = useSessionStore((state) => state.studentToken);
+  const setHasPhoto = useSessionStore((state) => state.setHasPhoto);
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -80,6 +81,7 @@ export default function SignupPhotoPage() {
     setUploading(true);
     try {
       await uploadPhoto(studentToken, file);
+      setHasPhoto(true);
       router.push("/explore");
     } catch (err) {
       // TODO: storage 연동 완료되면 이 임시 처리(500/네트워크 시 그냥 진행) 제거.

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import ClassVar
 from uuid import UUID
 
 import asyncpg
@@ -154,6 +155,15 @@ class StudentRepository(BaseRepository):
         async with self._pool.acquire() as conn:
             await conn.execute(query, student_id, photo_key)
 
+    # 정렬 키 화이트리스트 — 사용자 입력을 ORDER BY에 직접 넣지 않는다.
+    # 안정적 페이지네이션을 위해 항상 id를 마지막 타이브레이커로 붙인다.
+    _SORT_CLAUSES: ClassVar[dict[str, str]] = {
+        "created_desc": "created_at desc, id",
+        "created_asc": "created_at asc, id",
+        "name_asc": "name asc, id",
+    }
+    _DEFAULT_ORDER = "school, grade, class_no, student_no, id"
+
     async def list_students(
         self,
         *,
@@ -163,10 +173,11 @@ class StudentRepository(BaseRepository):
         class_no: int | None,
         limit: int,
         offset: int,
+        sort: str | None = None,
     ) -> tuple[int, list[StudentRecord]]:
-        """관리자용 목록 — soft-delete 제외, 필터 AND 결합, (학교,학년,반,번호) 정렬.
+        """관리자용 목록 — soft-delete 제외, 필터 AND 결합, sort 기준 정렬.
 
-        반환: (조건에 맞는 전체 개수, 현재 페이지 레코드 목록).
+        sort가 없으면 (학교,학년,반,번호) 기본 정렬. 반환: (전체 개수, 현재 페이지 레코드).
         """
         conditions = ["deleted_at is null"]
         params: list[object] = []
@@ -184,19 +195,27 @@ class StudentRepository(BaseRepository):
         if class_no is not None:
             _add("class_no = ${n}", class_no)
 
+        order_by = self._SORT_CLAUSES.get(sort or "", self._DEFAULT_ORDER)
         where = " and ".join(conditions)
         count_query = f"select count(*) from pii.students where {where}"
         list_query = f"""
             select {_COLUMNS}
             from pii.students
             where {where}
-            order by school, grade, class_no, student_no
+            order by {order_by}
             limit ${len(params) + 1} offset ${len(params) + 2}
         """
         async with self._pool.acquire() as conn:
             total = await conn.fetchval(count_query, *params)
             rows = await conn.fetch(list_query, *params, limit, offset)
         return int(total), [_to_record(row) for row in rows]
+
+    async def list_schools(self) -> list[str]:
+        """가입 학생이 있는 학교 이름 목록(중복 제거, 가나다순) — 관리자 필터용."""
+        query = "select distinct school from pii.students where deleted_at is null order by school"
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query)
+        return [row["school"] for row in rows]
 
     async def hard_delete(self, student_id: UUID) -> tuple[bool, str | None]:
         """학생 행을 완전 삭제(관리자 전용). soft-delete 여부와 무관하게 지운다.
