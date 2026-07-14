@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation";
 import { useSessionStore } from "@/store/useSessionStore";
 
 export type FlowScreen =
+  | "photo"
   | "explore"
   | "questions"
   | "evening"
@@ -19,6 +20,7 @@ export type FlowScreen =
   | "done";
 
 const SCREEN_PATH: Record<FlowScreen, string> = {
+  photo: "/signup/photo",
   explore: "/explore",
   questions: "/explore/questions",
   evening: "/explore/evening",
@@ -28,6 +30,7 @@ const SCREEN_PATH: Record<FlowScreen, string> = {
 
 // 흐름 순서. 뒤로 못 가게 막을 때 "현재 화면보다 앞선 진행"이면 앞으로 민다.
 const SCREEN_ORDER: FlowScreen[] = [
+  "photo",
   "explore",
   "questions",
   "evening",
@@ -46,6 +49,7 @@ export interface FlowState {
   q8Selection: unknown;
   q9Selection: unknown;
   surveyCompleted: boolean;
+  hasPhoto: boolean;
 }
 
 // 저장된 진행상황으로 "지금 있어야 할 화면"을 계산한다(마지막으로 완료한 지점의 다음).
@@ -65,6 +69,9 @@ export function resumeScreen(s: FlowState): FlowScreen {
   }
   // Q1~6 진행 중.
   if (s.answers.length > 0) return "questions";
+  // 진행 전(신규) — 사진을 아직 안 올렸으면 가입 2단계(사진)부터 마치게 한다.
+  // (가입 직후 사진 화면을 건너뛰고 앱을 닫았다가 재진입하는 경로 차단.)
+  if (!s.hasPhoto) return "photo";
   return "explore";
 }
 
@@ -75,7 +82,10 @@ export function resumePath(s: FlowState): string {
 // 각 화면의 하드 진입 조건(뒤로 밀기와 별개로, 정상적으로 그 화면에 있을 수 있는가).
 function canAccess(screen: FlowScreen, s: FlowState): boolean {
   switch (screen) {
+    case "photo":
+      return true; // 토큰 유무만 별도 확인
     case "explore":
+      return s.hasPhoto; // 사진 업로드 전엔 탐험 시작 불가
     case "questions":
       return true; // 토큰 유무만 별도 확인
     case "evening":
@@ -99,6 +109,7 @@ function pickFlowState(): FlowState {
     q8Selection: s.q8Selection,
     q9Selection: s.q9Selection,
     surveyCompleted: s.surveyCompleted,
+    hasPhoto: s.hasPhoto,
   };
 }
 
@@ -120,6 +131,7 @@ export function useFlowGuard(screen: FlowScreen): { ready: boolean } {
   const q8 = useSessionStore((s) => s.q8Selection);
   const q9 = useSessionStore((s) => s.q9Selection);
   const completed = useSessionStore((s) => s.surveyCompleted);
+  const hasPhoto = useSessionStore((s) => s.hasPhoto);
 
   useEffect(() => {
     if (!hasHydrated) return; // 복원 전에는 판단 보류
@@ -152,6 +164,7 @@ export function useFlowGuard(screen: FlowScreen): { ready: boolean } {
     q8,
     q9,
     completed,
+    hasPhoto,
     screen,
     router,
   ]);

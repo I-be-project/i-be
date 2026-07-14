@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { Compass, ScrollText, Sparkles } from "lucide-react";
@@ -8,20 +7,15 @@ import { CtaButton } from "@/components/voyage/CtaButton";
 import { DragSheet } from "@/components/voyage/DragSheet";
 import { FullBleedScene } from "@/components/voyage/FullBleedScene";
 import { FlowLoading } from "@/components/voyage/FlowLoading";
-import { useSessionStore } from "@/store/useSessionStore";
+import { useFlowGuard } from "@/lib/explore/flow";
 import { briefingCampMapAsset } from "@/lib/assets/sceneManifest";
 
 // 탐험 브리핑 — 나로섬 도착 장면. Q1~6 스토리의 도입부를 여기서 연다.
 export default function ExplorePage() {
   const router = useRouter();
-  // 완료 저장은 인증이 필요하므로 설문 시작 전에 로그인 토큰이 있어야 한다.
-  // hasHydrated 전에는 localStorage 복원 중이므로 판단을 보류(성급한 /login 튕김 방지).
-  const hasHydrated = useSessionStore((s) => s.hasHydrated);
-  const studentToken = useSessionStore((s) => s.studentToken);
-  useEffect(() => {
-    if (hasHydrated && !studentToken) router.replace("/login");
-  }, [hasHydrated, studentToken, router]);
-  if (!hasHydrated || !studentToken) return <FlowLoading />;
+  // 미로그인·사진 미업로드·진행상황 불일치는 useFlowGuard가 알맞은 화면으로 보낸다.
+  const { ready } = useFlowGuard("explore");
+  if (!ready) return <FlowLoading />;
 
   return (
     <main className="relative h-[100dvh] overflow-hidden bg-sand font-sans">

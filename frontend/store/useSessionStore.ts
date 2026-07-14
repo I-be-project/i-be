@@ -62,6 +62,9 @@ interface SessionStore {
 
   inputMode: InputMode;
   answers: Answer[];
+  // 사진 업로드 성공 여부 — 가입 직후 /signup/photo를 건너뛰고 앱을 닫았다가 다시
+  // 들어와도 탐험을 시작할 수 없도록 흐름 가드(resumeScreen)가 이 값을 확인한다.
+  hasPhoto: boolean;
   // 진행 중 세션 id — Q7 첫 답변 저장 때 백엔드가 발급, 이후 저장·완료에 재사용.
   sessionId: string | null;
   // 설문(Q9)까지 마치고 완료 저장에 성공했는지. 재진입 시 종료 화면으로 라우팅하는 기준.
@@ -77,6 +80,7 @@ interface SessionStore {
 
   setAuth: (token: string, id: string) => void;
   setStudentInfo: (info: StudentInfo) => void;
+  setHasPhoto: (v: boolean) => void;
   setInputMode: (mode: InputMode) => void;
   addAnswer: (answer: Answer) => void;
   // questionId 기준 upsert — Q1~6에서 뒤로 갔다가 답을 바꿔도 중복 없이 갱신한다.
@@ -105,6 +109,7 @@ export const useSessionStore = create<SessionStore>()(
 
   inputMode: null,
   answers: [],
+  hasPhoto: false,
   sessionId: null,
   surveyCompleted: false,
   persona: null,
@@ -130,6 +135,7 @@ export const useSessionStore = create<SessionStore>()(
         studentId: id,
         inputMode: null,
         answers: [],
+        hasPhoto: false,
         sessionId: null,
         surveyCompleted: false,
         persona: null,
@@ -143,6 +149,7 @@ export const useSessionStore = create<SessionStore>()(
       };
     }),
   setStudentInfo: (info) => set({ studentInfo: info }),
+  setHasPhoto: (v) => set({ hasPhoto: v }),
   setInputMode: (mode) => set({ inputMode: mode }),
   addAnswer: (answer) =>
     set((state) => ({ answers: [...state.answers, answer] })),
@@ -172,6 +179,7 @@ export const useSessionStore = create<SessionStore>()(
       studentInfo: null,
       inputMode: null,
       answers: [],
+      hasPhoto: false,
       sessionId: null,
       surveyCompleted: false,
       persona: null,
@@ -196,6 +204,7 @@ export const useSessionStore = create<SessionStore>()(
         studentInfo: state.studentInfo,
         inputMode: state.inputMode,
         answers: state.answers,
+        hasPhoto: state.hasPhoto,
         sessionId: state.sessionId,
         surveyCompleted: state.surveyCompleted,
         riasecScores: state.riasecScores,
