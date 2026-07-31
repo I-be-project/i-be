@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:3000"
     log_level: str = "INFO"
 
+    # CORS 허용 오리진 — 기본 "*"는 전 오리진 개방(외부 시스템의 직접 호출 허용).
+    # 좁히려면 콤마로 나열: "https://나be한마당.kr,https://admin.example.com"
+    cors_allow_origins: str = "*"
+
     # DB
     database_enabled: bool = True
     database_url: str = Field(
@@ -99,6 +103,12 @@ class Settings(BaseSettings):
     job_poll_interval_seconds: float = 1.0
     job_max_retries: int = 2
     job_stuck_timeout_minutes: int = 10
+
+    @property
+    def cors_origin_list(self) -> list[str]:
+        """CORS_ALLOW_ORIGINS(콤마 구분) → 오리진 리스트. 비어 있으면 전체 개방."""
+        origins = [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
+        return origins or ["*"]
 
 
 @lru_cache(maxsize=1)
