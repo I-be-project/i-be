@@ -6,11 +6,11 @@ import { useEffect, useState } from "react";
 import { SURVEY_STAGES } from "@/components/admin/ProgressBadge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ApiError,
@@ -241,12 +241,36 @@ export function StudentDetailDialog({
   }
 
   return (
-    <Dialog open={student !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0 sm:max-w-3xl">
+    <Sheet
+      open={student !== null}
+      // 비모달 — 사이드바를 연 채로 뒤의 목록·좌석표를 그대로 클릭할 수 있다.
+      // 다른 학생을 누르면 닫히지 않고 내용만 교체된다.
+      modal={false}
+      onOpenChange={(open, details) => {
+        if (open) return;
+        // 바깥 클릭·포커스 이탈로는 닫지 않는다. 뒤의 목록에서 다른 학생을 누르는 것이
+        // 주된 사용 방식인데, 그 클릭이 "바깥 클릭 = 닫기"로도 해석되면 닫힘과 새 선택이
+        // 경쟁해 사이드바가 사라진다. 닫기는 ESC와 × 버튼으로만 한다.
+        if (details.reason === "outside-press" || details.reason === "focus-out") {
+          return;
+        }
+        onClose();
+      }}
+    >
+      <SheetContent
+        side="right"
+        showOverlay={false}
+        // 기본 폭이 sm:max-w-sm(384px)이라 좁다. 접두사 없는 sm:max-w-xl은
+        // data-[side=right]:sm:max-w-sm보다 특이도가 낮아 밀리므로 접두사를 맞춘다.
+        className="gap-0 overflow-y-auto p-0 data-[side=right]:sm:max-w-xl"
+      >
         {student && (
           <>
-            {/* 사진 헤더 — 목록은 사진 URL을 받지 않으므로 상세 응답에서 읽는다. */}
-            <div className="relative flex h-64 items-center justify-center bg-muted">
+            {/* 사진 — 목록은 사진 URL을 받지 않으므로 상세 응답에서 읽는다.
+                정사각 틀 + object-contain이라 어떤 비율이든 잘리지 않는다. 카메라로 찍은
+                사진은 720x720이라 여백 없이 맞고, 갤러리에서 고른 사진만 여백이 생긴다.
+                로딩·사진없음 상태도 같은 정사각 틀을 써서 전환 시 높이가 튀지 않게 한다. */}
+            <div className="relative flex aspect-square w-full items-center justify-center bg-muted">
               {detailError ? (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <ImageOff className="size-7" aria-hidden />
@@ -254,7 +278,7 @@ export function StudentDetailDialog({
                 </div>
               ) : loadingDetail || detail?.id !== student.id ? (
                 // detail이 아직 이전 학생 것이거나 로딩 중이면 스켈레톤을 보여준다.
-                // (학생을 바꿔도 다이얼로그가 언마운트되지 않으므로, id가 다르면
+                // (학생을 바꿔도 사이드바가 언마운트되지 않으므로, id가 다르면
                 // 이전 학생의 사진이 새 이름과 함께 잠깐 보이는 것을 막아야 한다.)
                 <Skeleton className="size-full rounded-none" />
               ) : detail.photo_url ? (
@@ -263,7 +287,7 @@ export function StudentDetailDialog({
                 <img
                   src={detail.photo_url}
                   alt={`${student.name} 사진`}
-                  className="size-full object-cover"
+                  className="size-full object-contain"
                 />
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -274,10 +298,10 @@ export function StudentDetailDialog({
             </div>
 
             <div className="p-6">
-              <DialogHeader className="mb-1 space-y-1 text-left">
-                <DialogTitle className="text-xl">{student.name}</DialogTitle>
+              <SheetHeader className="mb-1 gap-0.5 p-0 text-left">
+                <SheetTitle className="text-xl">{student.name}</SheetTitle>
                 <p className="text-sm text-muted-foreground">{student.school}</p>
-              </DialogHeader>
+              </SheetHeader>
 
               <dl className="mt-3 divide-y divide-border">
                 <Field label="학년·반·번호">
@@ -399,7 +423,7 @@ export function StudentDetailDialog({
             </div>
           </>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }
