@@ -26,9 +26,7 @@ class StudentRepo(Protocol):
 class SessionRepo(Protocol):
     async def get_by_id(self, session_id: UUID) -> SessionRecord | None: ...
     async def get_latest_for_student(self, student_id: UUID) -> SessionRecord | None: ...
-    async def get_latest_completed_for_student(
-        self, student_id: UUID
-    ) -> SessionRecord | None: ...
+    async def get_latest_completed_for_student(self, student_id: UUID) -> SessionRecord | None: ...
     async def create(
         self, student_id: UUID, *, status: str = ..., conn: Any = ...
     ) -> SessionRecord: ...
@@ -153,12 +151,8 @@ class SessionService:
         """
         if session_id is None:
             async with self._db_pool.transaction() as conn:
-                session = await self._sessions.create(
-                    student_id, status="in_progress", conn=conn
-                )
-                await self._sessions.insert_answer(
-                    session.id, stage, answer, conn=conn
-                )
+                session = await self._sessions.create(student_id, status="in_progress", conn=conn)
+                await self._sessions.insert_answer(session.id, stage, answer, conn=conn)
             return session.id
 
         existing = await self._sessions.get_by_id(session_id)
@@ -206,13 +200,9 @@ class SessionService:
 
         async with self._db_pool.transaction() as conn:
             if reuse is not None:
-                session = await self._sessions.update_status(
-                    reuse, "completed", conn=conn
-                )
+                session = await self._sessions.update_status(reuse, "completed", conn=conn)
             else:
-                session = await self._sessions.create(
-                    student_id, status="completed", conn=conn
-                )
+                session = await self._sessions.create(student_id, status="completed", conn=conn)
             # 이름 선택이 없는 완료(Q9가 마지막)면 persona는 저장하지 않는다.
             if persona is not None:
                 await self._personas.create(session.id, persona, conn=conn)

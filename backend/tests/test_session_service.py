@@ -44,9 +44,7 @@ class FakeSessionRepo:
     async def get_latest_for_student(self, student_id: UUID) -> SessionRecord | None:
         return self.latest
 
-    async def get_latest_completed_for_student(
-        self, student_id: UUID
-    ) -> SessionRecord | None:
+    async def get_latest_completed_for_student(self, student_id: UUID) -> SessionRecord | None:
         if self.latest is not None and self.latest.status == "completed":
             return self.latest
         return None
@@ -73,9 +71,7 @@ class FakeSessionRepo:
         updated = replace(
             self.latest,
             status=status,
-            completed_at=datetime.now(UTC)
-            if status == "completed"
-            else self.latest.completed_at,
+            completed_at=datetime.now(UTC) if status == "completed" else self.latest.completed_at,
         )
         self.latest = updated
         return updated

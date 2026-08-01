@@ -17,9 +17,7 @@ _PERSONA = Persona(
 
 
 def _chat_response(content: str) -> SimpleNamespace:
-    return SimpleNamespace(
-        choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
-    )
+    return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
 
 
 class _StubAI:

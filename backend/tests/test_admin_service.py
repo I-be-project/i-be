@@ -32,9 +32,7 @@ class FakeSessionRepo:
     ) -> dict[UUID, StudentProgressRow]:
         return {sid: self.progress[sid] for sid in student_ids if sid in self.progress}
 
-    async def list_sessions_with_content(
-        self, student_id: UUID
-    ) -> list[SessionContent]:
+    async def list_sessions_with_content(self, student_id: UUID) -> list[SessionContent]:
         return self.contents.get(student_id, [])
 
     async def list_card_image_keys(self, student_id: UUID) -> list[str]:
@@ -43,12 +41,24 @@ class FakeSessionRepo:
 
 async def _seed(repo: FakeStudentRepo) -> None:
     await repo.create(
-        school="한마당고", grade=2, class_no=3, student_no=11,
-        name="홍길동", password="20100101", gender="male", consent_privacy=True,
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
     )
     s2 = await repo.create(
-        school="한마당고", grade=1, class_no=1, student_no=5,
-        name="김영희", password="20110202", gender="female", consent_privacy=True,
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=5,
+        name="김영희",
+        password="20110202",
+        gender="female",
+        consent_privacy=True,
     )
     await repo.update_photo_key(s2.id, "uploads/photos/x/photo")
 
@@ -127,12 +137,22 @@ async def test_progress_maps_in_progress_and_completed() -> None:
     by_name = {r.name: r for r in repo._by_id.values()}
     now = datetime.now(UTC)
     sessions.progress[by_name["홍길동"].id] = StudentProgressRow(
-        student_id=by_name["홍길동"].id, status="in_progress", created_at=now,
-        completed_at=None, has_persona=False, has_card=False, stages=["q1to6", "q7a"],
+        student_id=by_name["홍길동"].id,
+        status="in_progress",
+        created_at=now,
+        completed_at=None,
+        has_persona=False,
+        has_card=False,
+        stages=["q1to6", "q7a"],
     )
     sessions.progress[by_name["김영희"].id] = StudentProgressRow(
-        student_id=by_name["김영희"].id, status="completed", created_at=now,
-        completed_at=now, has_persona=True, has_card=True, stages=["q1to6"],
+        student_id=by_name["김영희"].id,
+        status="completed",
+        created_at=now,
+        completed_at=now,
+        has_persona=True,
+        has_card=True,
+        stages=["q1to6"],
     )
     result = await _svc(repo, storage, sessions).list_students(
         q=None, school=None, grade=None, class_no=None, limit=50, offset=0
@@ -155,7 +175,10 @@ async def test_student_detail_assembles_sessions() -> None:
     now = datetime.now(UTC)
     sessions.contents[student.id] = [
         SessionContent(
-            id=uuid4(), status="completed", created_at=now, completed_at=now,
+            id=uuid4(),
+            status="completed",
+            created_at=now,
+            completed_at=now,
             answers=[AnswerRecord(uuid4(), uuid4(), "q1to6", {"riasec": "RIA"}, now)],
             persona=SessionPersona(
                 name="탐험가", tagline="새로움을 좇는", keywords=["호기심"], fields=["과학"]
@@ -186,7 +209,10 @@ async def test_student_detail_signs_student_photo_alongside_card() -> None:
     now = datetime.now(UTC)
     sessions.contents[student.id] = [
         SessionContent(
-            id=uuid4(), status="completed", created_at=now, completed_at=now,
+            id=uuid4(),
+            status="completed",
+            created_at=now,
+            completed_at=now,
             answers=[],
             persona=None,
             card_image_key="cards/y/card",
@@ -248,9 +274,7 @@ async def test_bulk_delete_removes_found_and_reports_missing() -> None:
     sessions.card_keys[younghee.id] = ["cards/a/card"]
     missing = uuid4()
 
-    res = await _svc(repo, storage, sessions).delete_students(
-        [younghee.id, gildong.id, missing]
-    )
+    res = await _svc(repo, storage, sessions).delete_students([younghee.id, gildong.id, missing])
 
     assert set(res.deleted) == {younghee.id, gildong.id}
     assert res.not_found == [missing]

@@ -40,9 +40,7 @@ async def submit_answer(
             f"저장할 수 없는 stage입니다: {body.stage}",
             details={"allowed": sorted(ANSWER_STAGES)},
         )
-    session_id = await sessions.submit_answer(
-        student_id, body.session_id, body.stage, body.answer
-    )
+    session_id = await sessions.submit_answer(student_id, body.session_id, body.stage, body.answer)
     return SaveAnswerResponse(session_id=session_id)
 
 
@@ -59,9 +57,7 @@ async def complete_survey(
     session_id가 있으면 그 in_progress 세션(진행 중 답변 포함)을 승격한다.
     이미 완료 + retry off → 409.
     """
-    return await sessions.complete_survey(
-        student_id, body.to_persona(), session_id=body.session_id
-    )
+    return await sessions.complete_survey(student_id, body.to_persona(), session_id=body.session_id)
 
 
 @router.get("/{session_id}/next-question")

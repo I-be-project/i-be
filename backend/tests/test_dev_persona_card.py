@@ -23,9 +23,7 @@ def _png() -> bytes:
 class _StubAI:
     async def chat(self, purpose, messages, **kwargs):
         body = json.dumps({"portrait_prompt": "p", "background_prompt": "b"})
-        return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content=body))]
-        )
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=body))])
 
     async def generate_image(self, purpose, prompt, *, size=None, n=1):
         return _png()

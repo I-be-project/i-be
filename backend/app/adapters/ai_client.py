@@ -84,7 +84,7 @@ def _model_info(model_id: str, name: Any, pricing: Any) -> dict[str, Any]:
 
 
 def _size_to_aspect_ratio(size: str) -> str:
-    """"1024x1536" → "2:3" 처럼 픽셀 크기를 OpenRouter aspect_ratio로 변환."""
+    """ "1024x1536" → "2:3" 처럼 픽셀 크기를 OpenRouter aspect_ratio로 변환."""
     try:
         w_str, h_str = size.lower().split("x")
         w, h = int(w_str), int(h_str)
@@ -151,11 +151,9 @@ class AIClient:
                 AIPurpose.ANALYZE: settings.ai_model_analyze or settings.ai_model,
                 AIPurpose.ADAPTIVE_QUESTIONS: settings.ai_model_adaptive_questions
                 or settings.ai_model,
-                AIPurpose.FINAL_QUESTION: settings.ai_model_final_question
-                or settings.ai_model,
+                AIPurpose.FINAL_QUESTION: settings.ai_model_final_question or settings.ai_model,
                 AIPurpose.PERSONA: settings.ai_model_persona or settings.ai_model,
-                AIPurpose.IMAGE_PROMPT: settings.ai_model_image_prompt
-                or settings.ai_model,
+                AIPurpose.IMAGE_PROMPT: settings.ai_model_image_prompt or settings.ai_model,
             },
             image_api_url=settings.ai_image_api_url,
             image_api_key=settings.openrouter_api_key,
@@ -237,7 +235,9 @@ class AIClient:
         try:
             resp = await self._http.get(url, headers=headers)
         except httpx.HTTPError as exc:
-            raise ExternalServiceError("모델 카탈로그 조회 실패.", details={"reason": str(exc)}) from exc
+            raise ExternalServiceError(
+                "모델 카탈로그 조회 실패.", details={"reason": str(exc)}
+            ) from exc
         if resp.status_code >= 400:
             raise ExternalServiceError(
                 "모델 카탈로그 API 오류.", details={"status": resp.status_code}

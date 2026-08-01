@@ -46,9 +46,7 @@ class _StubAIBadKey:
 
     async def chat(self, purpose: Any, messages: Any, **kwargs: Any) -> Any:
         content = json.dumps({"wrong_key": {}})
-        return SimpleNamespace(
-            choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
-        )
+        return SimpleNamespace(choices=[SimpleNamespace(message=SimpleNamespace(content=content))])
 
 
 def _build_app(stub_ai: Any) -> Any:

@@ -89,9 +89,7 @@ class AdminSessionDetail(BaseModel):
     completed_at: datetime | None
     answers: list[AdminAnswer]
     persona: PersonaSummary | None = None
-    card_image_url: str | None = Field(
-        None, description="카드 이미지 presigned URL (없으면 null)"
-    )
+    card_image_url: str | None = Field(None, description="카드 이미지 presigned URL (없으면 null)")
 
 
 class AdminStudentDetail(BaseModel):
