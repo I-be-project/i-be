@@ -58,12 +58,16 @@ function StudentAvatar({
   student,
   revealed,
   photoUrl,
+  loadFailed,
   onToggle,
 }: {
   student: AdminStudentItem;
   revealed: boolean;
   // 펼친 뒤 따로 받아온 presigned URL. 아직 로딩 중이면 null.
   photoUrl: string | null;
+  // 세션 만료가 아닌 사유로 URL 조회에 실패한 경우. 스켈레톤이 무한히
+  // 도는 것을 막고 실패했음을 알린다(재시도는 하지 않음 — 캐시된 실패).
+  loadFailed: boolean;
   onToggle: () => void;
 }) {
   if (!student.has_photo) {
@@ -76,7 +80,13 @@ function StudentAvatar({
   return (
     <button
       type="button"
-      aria-label={revealed ? `${student.name} 사진 숨기기` : `${student.name} 사진 보기`}
+      aria-label={
+        revealed && loadFailed
+          ? `${student.name} 사진을 불러오지 못했습니다`
+          : revealed
+            ? `${student.name} 사진 숨기기`
+            : `${student.name} 사진 보기`
+      }
       className="group relative block size-10 overflow-hidden rounded-full ring-1 ring-border"
       onClick={(e) => {
         e.stopPropagation();
@@ -91,6 +101,11 @@ function StudentAvatar({
           alt={student.name}
           className="size-full object-cover"
         />
+      ) : revealed && loadFailed ? (
+        // 조회 실패(세션 만료 제외) — 스켈레톤 대신 실패를 표시한다.
+        <span className="grid size-full place-items-center bg-destructive/10 text-destructive">
+          <AlertTriangle className="size-4" aria-hidden />
+        </span>
       ) : revealed ? (
         // 펼쳤지만 URL이 아직 안 온 상태.
         <Skeleton className="size-full rounded-full" />
@@ -144,6 +159,9 @@ export default function AdminStudentsPage() {
   const [photoRevealed, setPhotoRevealed] = useState<Set<string>>(new Set());
   // 펼친 학생의 사진 URL 캐시. 목록이 사진을 안 받으므로 클릭 시점에 1건씩 받는다.
   const [photoUrls, setPhotoUrls] = useState<Map<string, string | null>>(new Map());
+  // 세션 만료가 아닌 사유로 사진 URL 조회에 실패한 학생. 스켈레톤이 무한히
+  // 도는 것을 막는 용도 — 401은 여기 담지 않고 로그인 화면으로 보낸다.
+  const [photoLoadFailed, setPhotoLoadFailed] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<AdminStudentItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
@@ -240,7 +258,18 @@ export default function AdminStudentsPage() {
     if (!token) return;
     fetchAdminStudentPhotoUrl(token, id)
       .then((url) => setPhotoUrls((prev) => new Map(prev).set(id, url)))
-      .catch(() => setPhotoUrls((prev) => new Map(prev).set(id, null)));
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          // 세션 만료 — 캐시하지 않는다. 재로그인 후 다시 펼치면 재시도된다.
+          clearAdminToken();
+          router.replace("/admin/login");
+          return;
+        }
+        // 그 외 실패(404·네트워크 오류 등)는 기존처럼 null로 캐시하되,
+        // 스켈레톤이 무한히 돌지 않도록 실패 표시를 함께 남긴다.
+        setPhotoUrls((prev) => new Map(prev).set(id, null));
+        setPhotoLoadFailed((prev) => new Set(prev).add(id));
+      });
   }
 
   function toggleCheck(id: string) {
@@ -537,6 +566,7 @@ export default function AdminStudentsPage() {
                         student={s}
                         revealed={photoRevealed.has(s.id)}
                         photoUrl={photoUrls.get(s.id) ?? null}
+                        loadFailed={photoLoadFailed.has(s.id)}
                         onToggle={() => togglePhoto(s.id)}
                       />
                     </TableCell>
