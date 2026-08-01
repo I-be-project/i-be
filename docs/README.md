@@ -15,6 +15,8 @@
 ## 지금 읽을 문서
 
 - 백엔드 종합 설계: [`backend-design.md`](backend-design.md)
+- 관리자 API 사용 설명서(외부 전달용): [`2026-07-31-admin-api-usage.md`](2026-07-31-admin-api-usage.md)
+- 관리자 API 외부 개방 변경 기록: [`2026-07-31-external-admin-api-guide.md`](2026-07-31-external-admin-api-guide.md)
 - 프로젝트 비전 원본: `../frontend/docs/plan.md`
 - 프론트엔드 개발 계획: `../frontend/docs/dev-plan.md`
 

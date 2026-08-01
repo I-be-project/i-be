@@ -9,7 +9,6 @@ from typing import Any
 from uuid import UUID
 
 from app.repositories.base import BaseRepository
-from app.schemas.persona import Persona
 
 _COLUMNS = "id, session_id, name, tagline, keywords, fields, created_at"
 
@@ -37,8 +36,11 @@ class PersonaRepository(BaseRepository):
     async def create(
         self,
         session_id: UUID,
-        persona: Persona,
         *,
+        name: str,
+        tagline: str,
+        keywords: list[str],
+        fields: list[str],
         conn: Any = None,
     ) -> PersonaRecord:
         """세션에 연결된 페르소나 행 생성. keywords/fields는 jsonb로 저장."""
@@ -47,9 +49,13 @@ class PersonaRepository(BaseRepository):
             values ($1, $2, $3, $4::jsonb, $5::jsonb)
             returning {_COLUMNS}
         """
-        keywords = json.dumps(list(persona.keywords), ensure_ascii=False)
-        fields = json.dumps(list(persona.fields), ensure_ascii=False)
-        args = (session_id, persona.name, persona.tagline, keywords, fields)
+        args = (
+            session_id,
+            name,
+            tagline,
+            json.dumps(list(keywords), ensure_ascii=False),
+            json.dumps(list(fields), ensure_ascii=False),
+        )
         if conn is not None:
             row = await conn.fetchrow(query, *args)
         else:

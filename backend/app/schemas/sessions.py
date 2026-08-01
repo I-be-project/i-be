@@ -9,10 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.persona import Persona
 
-# 저장을 허용하는 stage. q1to6은 Q1~6 결과를 한 번에 담고, q7a~q9는 단계별.
-# q9가 마지막 질문이며, 이후 /complete로 세션을 완료한다.
-ANSWER_STAGES = frozenset({"q1to6", "q7a", "q7b", "q8", "q9"})
-
 
 class SaveAnswerRequest(BaseModel):
     """POST /api/sessions/answers 요청 본문.

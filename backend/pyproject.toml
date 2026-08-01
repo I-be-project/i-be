@@ -28,6 +28,7 @@ dev = [
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.15.15",
+    "types-passlib>=1.7.7.20260211",
 ]
 
 [tool.ruff]
@@ -55,9 +56,10 @@ plugins = ["pydantic.mypy"]
 warn_unused_ignores = true
 disallow_untyped_decorators = false
 
-# aioboto3는 타입 스텁(py.typed)을 제공하지 않음 → import 분석 건너뜀
+# aioboto3·asyncpg는 타입 스텁(py.typed)을 제공하지 않음 → import 분석 건너뜀.
+# 별도 스텁 패키지도 없어 다른 우회 방법이 없다.
 [[tool.mypy.overrides]]
-module = ["aioboto3.*"]
+module = ["aioboto3.*", "asyncpg.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

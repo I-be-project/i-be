@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter
 
 from app.deps import AIClientDep, CurrentStudentDep
@@ -17,7 +19,7 @@ async def generate(
     body: GenerateInput,
     ai: AIClientDep,
     _student_id: CurrentStudentDep,
-) -> dict:
+) -> dict[str, Any]:
     """stage에 맞는 질문 후보를 AI로 생성해 raw JSON dict를 반환한다.
 
     stage ∈ {q7b, q8, q9}.

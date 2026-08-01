@@ -123,9 +123,7 @@ class SessionRepository(BaseRepository):
             row = await conn.fetchrow(query, student_id)
         return _to_session(row)
 
-    async def get_latest_completed_for_student(
-        self, student_id: UUID
-    ) -> SessionRecord | None:
+    async def get_latest_completed_for_student(self, student_id: UUID) -> SessionRecord | None:
         """그 학생의 가장 최근 'completed' 세션 1개. 없으면 None.
 
         진행 중(in_progress) 세션이 완료 판정을 가리지 않도록,
@@ -292,9 +290,7 @@ class SessionRepository(BaseRepository):
             )
             for row in persona_rows
         }
-        card_key_by_session = {
-            row["session_id"]: row["card_image_key"] for row in card_rows
-        }
+        card_key_by_session = {row["session_id"]: row["card_image_key"] for row in card_rows}
 
         return [
             SessionContent(

@@ -152,9 +152,7 @@ def get_admin_service(
     storage: StorageClientDep,
     settings: SettingsDep,
 ) -> AdminService:
-    return AdminService(
-        students=students, sessions=sessions, storage=storage, settings=settings
-    )
+    return AdminService(students=students, sessions=sessions, storage=storage, settings=settings)
 
 
 AdminServiceDep = Annotated[AdminService, Depends(get_admin_service)]

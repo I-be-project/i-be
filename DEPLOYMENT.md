@@ -51,9 +51,14 @@ curl https://api.cnu-likelion.kr/healthz
 
 **동작 흐름**
 1. `production`에 backend 변경 push (또는 Actions 탭에서 수동 실행)
-2. Actions가 서버 SSH 접속 → `git reset --hard origin/production`
-3. `docker compose ... up -d --build app` + `docker image prune -f`
-4. `https://api.cnu-likelion.kr/healthz` 헬스체크로 배포 성공 검증
+2. **`test` 잡이 품질 게이트 4종 실행** — `ruff check` · `ruff format --check` · `mypy app` · `pytest`
+3. 하나라도 실패하면 여기서 중단 — `deploy` 잡은 시작되지 않는다
+4. Actions가 서버 SSH 접속 → `git reset --hard origin/production`
+5. `docker compose ... up -d --build app` + `docker image prune -f`
+6. `https://api.cnu-likelion.kr/healthz` 헬스체크로 배포 성공 검증
+
+`production`으로 향하는 PR에서도 `test` 잡이 돌아 머지 전에 실패를 잡는다(배포는 하지 않음).
+CI에는 `backend/.env`가 없으므로, 테스트는 환경변수 없이도 통과해야 한다.
 
 **필요한 GitHub Secrets** (Settings → Secrets and variables → Actions)
 
@@ -82,6 +87,28 @@ curl https://api.cnu-likelion.kr/healthz
 - `.env`는 `.gitignore`에 포함 — **절대 git에 커밋하지 않는다.**
 - 시크릿(`SUPABASE_SERVICE_KEY`, `JWT_SECRET` 등)은 서버에만 둔다.
 
+### 운영 필수 변수 (2026-08-01~)
+
+서버 `backend/.env`에 아래가 반드시 있어야 한다. **`APP_ENV=production`이 기준점**이라
+이 값이 없으면 나머지 가드가 전부 동작하지 않는다(미설정 시 `local`로 간주).
+
+| 변수 | 없거나 예시값이면 |
+|---|---|
+| `APP_ENV=production` | 아래 가드가 동작하지 않고, 인증 없는 `/api/dev`가 외부에 노출된다 |
+| `JWT_SECRET` | **기동 실패.** 공개된 예시값으로 서명하면 학생 토큰 위조 가능 |
+| `JWT_CARD_SHARE_SECRET` | **기동 실패.** 카드 공유 링크 위조 가능 |
+| `ADMIN_PASSWORD` | **기동 실패.** 관리자 API(회원 조회·삭제) 무단 접근 가능 |
+
+`APP_ENV=production`인데 위 시크릿이 예시값이거나 비어 있으면 앱이 기동을 거부하고,
+CD 워크플로의 헬스체크가 실패해 배포가 빨간불로 끝난다. 조용히 뜨는 것보다 안전하다.
+
+**배포 전 서버에서 확인**
+```bash
+cd <DEPLOY_PATH>/backend
+grep -E '^(APP_ENV|JWT_SECRET|JWT_CARD_SHARE_SECRET|ADMIN_PASSWORD)=' .env
+# 값이 change-me-* 이거나 줄이 없으면 교체:  openssl rand -hex 32
+```
+
 ---
 
 ## 변경 이력
@@ -90,3 +117,5 @@ curl https://api.cnu-likelion.kr/healthz
 |---|---|
 | 2026-07-01 | 배포 가이드 v1 — 현재 존재하는 백엔드 Docker 구성만 |
 | 2026-07-02 | 백엔드 CD 자동 배포(GitHub Actions + SSH) 추가 |
+| 2026-08-01 | 운영 시크릿 가드 추가 — `APP_ENV=production`에서 `JWT_SECRET`·`JWT_CARD_SHARE_SECRET`·`ADMIN_PASSWORD`가 예시값/빈 값이면 기동 실패. `/api/dev`는 `APP_ENV=local`에서만 등록 |
+| 2026-08-01 | CD에 품질 게이트 추가 — 배포 전 `ruff`·`mypy`·`pytest`를 돌리고 실패 시 배포 중단. production 대상 PR에서도 검증 |

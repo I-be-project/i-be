@@ -6,22 +6,11 @@ from uuid import UUID
 
 from fastapi import APIRouter
 
-from app.core.errors import DomainError
 from app.deps import CurrentStudentDep, SessionServiceDep
-from app.schemas.sessions import (
-    ANSWER_STAGES,
-    CompleteRequest,
-    SaveAnswerRequest,
-    SaveAnswerResponse,
-)
+from app.schemas.sessions import CompleteRequest, SaveAnswerRequest, SaveAnswerResponse
 from app.schemas.students import ProfileSummary
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
-
-
-class InvalidStageError(DomainError):
-    status_code = 422
-    code = "invalid_stage"
 
 
 @router.post("/answers", response_model=SaveAnswerResponse)
@@ -35,14 +24,7 @@ async def submit_answer(
     session_id가 없으면 in_progress 세션을 새로 만들어 그 id를 응답으로 돌려주고,
     이후 저장·완료 호출은 그 세션 id를 재사용한다.
     """
-    if body.stage not in ANSWER_STAGES:
-        raise InvalidStageError(
-            f"저장할 수 없는 stage입니다: {body.stage}",
-            details={"allowed": sorted(ANSWER_STAGES)},
-        )
-    session_id = await sessions.submit_answer(
-        student_id, body.session_id, body.stage, body.answer
-    )
+    session_id = await sessions.submit_answer(student_id, body.session_id, body.stage, body.answer)
     return SaveAnswerResponse(session_id=session_id)
 
 
@@ -59,9 +41,7 @@ async def complete_survey(
     session_id가 있으면 그 in_progress 세션(진행 중 답변 포함)을 승격한다.
     이미 완료 + retry off → 409.
     """
-    return await sessions.complete_survey(
-        student_id, body.to_persona(), session_id=body.session_id
-    )
+    return await sessions.complete_survey(student_id, body.to_persona(), session_id=body.session_id)
 
 
 @router.get("/{session_id}/next-question")

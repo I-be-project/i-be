@@ -10,11 +10,13 @@ from app.deps import AdminServiceDep, CurrentAdminDep
 from app.schemas.admin import (
     AdminBulkDeleteRequest,
     AdminBulkDeleteResponse,
+    AdminClassProgress,
     AdminDeleteResponse,
     AdminLoginRequest,
     AdminLoginResponse,
     AdminStudentDetail,
     AdminStudentList,
+    AdminStudentPhoto,
     AdminStudentSort,
 )
 
@@ -38,8 +40,13 @@ async def list_students(
     limit: int = 50,
     offset: int = 0,
     sort: AdminStudentSort | None = None,
+    include_photo: bool = True,
 ) -> AdminStudentList:
-    """가입한 모든 학생 목록 — 검색/필터/정렬/페이지네이션, 사진 presigned URL 포함."""
+    """가입한 모든 학생 목록 — 검색/필터/정렬/페이지네이션, 사진 presigned URL 포함.
+
+    include_photo=false면 사진 서명을 건너뛰어 훨씬 빠르다(사진이 필요 없는 관리자 UI용).
+    기본값 true는 외부 공개 계약이므로 바꾸지 않는다.
+    """
     return await admin.list_students(
         q=q,
         school=school,
@@ -48,6 +55,7 @@ async def list_students(
         limit=limit,
         offset=offset,
         sort=sort,
+        include_photo=include_photo,
     )
 
 
@@ -72,6 +80,19 @@ async def bulk_delete_students(
     return await admin.delete_students(req.ids)
 
 
+@router.get("/progress/classes", response_model=list[AdminClassProgress])
+async def class_progress(
+    school: str,
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> list[AdminClassProgress]:
+    """학교의 반별 진행 현황 집계 — 좌석표의 학년·반 선택과 완료 배지용.
+
+    학생 개인정보를 내려보내지 않고 (학년, 반)별 카운트만 반환한다.
+    """
+    return await admin.get_class_progress(school)
+
+
 @router.get("/students/{student_id}", response_model=AdminStudentDetail)
 async def student_detail(
     student_id: UUID,
@@ -80,6 +101,16 @@ async def student_detail(
 ) -> AdminStudentDetail:
     """학생 1명 상세 — 설문 진행 단계별 답변·페르소나·카드 결과."""
     return await admin.get_student_detail(student_id)
+
+
+@router.get("/students/{student_id}/photo-url", response_model=AdminStudentPhoto)
+async def student_photo_url(
+    student_id: UUID,
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> AdminStudentPhoto:
+    """학생 사진 presigned URL 1건 — 목록에서 사진을 뺀 화면이 필요할 때만 호출한다."""
+    return await admin.get_student_photo_url(student_id)
 
 
 @router.delete("/students/{student_id}", response_model=AdminDeleteResponse)

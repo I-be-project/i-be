@@ -38,6 +38,9 @@ coverage.xml
 dist/
 build/
 wheels/
+
+# 학생 데이터 수집 결과 (scripts/export_students.py) — 개인정보라 커밋 금지
+export/
 *.egg-info/
 
 # Logs

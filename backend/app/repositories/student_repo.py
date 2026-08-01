@@ -40,6 +40,18 @@ class StudentRecord:
     deleted_at: datetime | None
 
 
+@dataclass(frozen=True, slots=True)
+class ClassProgressRow:
+    """한 반의 진행 현황 집계 — 관리자 좌석표의 학년·반 선택과 배지에 쓴다."""
+
+    grade: int
+    class_no: int
+    total: int
+    completed: int
+    in_progress: int
+    not_started: int
+
+
 def _to_record(row: asyncpg.Record) -> StudentRecord:
     return StudentRecord(
         id=row["id"],
@@ -216,6 +228,49 @@ class StudentRepository(BaseRepository):
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(query)
         return [row["school"] for row in rows]
+
+    async def get_class_progress(self, school: str) -> list[ClassProgressRow]:
+        """학교의 반별 진행 현황을 한 쿼리로 집계한다(좌석표의 학년·반 선택용).
+
+        이 저장소에서 유일하게 generated 스키마를 함께 읽는다. 집계의 기준 테이블이
+        pii.students(반별로 GROUP BY)라 여기 둔다.
+        학생 전원을 받아 클라이언트에서 세는 대신 이 쿼리 하나를 쓴다 — 832명 기준
+        446 ms/600 KB가 86 ms/2.9 KB가 된다.
+        인덱스: students_login_key(school, ...)가 where를,
+        sessions_student_recent(student_id, created_at desc)가 LATERAL을 받는다.
+        상태 분류는 _to_progress와 같다 — abandoned 등 미지의 상태는 진행중으로 수렴.
+        """
+        query = """
+            select s.grade, s.class_no,
+                   count(*) as total,
+                   count(*) filter (where ls.status = 'completed')      as completed,
+                   count(*) filter (where ls.status is not null
+                                      and ls.status <> 'completed')     as in_progress,
+                   count(*) filter (where ls.status is null)            as not_started
+            from pii.students s
+            left join lateral (
+                select status from generated.sessions se
+                where se.student_id = s.id
+                order by se.created_at desc
+                limit 1
+            ) ls on true
+            where s.school = $1 and s.deleted_at is null
+            group by s.grade, s.class_no
+            order by s.grade, s.class_no
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, school)
+        return [
+            ClassProgressRow(
+                grade=row["grade"],
+                class_no=row["class_no"],
+                total=row["total"],
+                completed=row["completed"],
+                in_progress=row["in_progress"],
+                not_started=row["not_started"],
+            )
+            for row in rows
+        ]
 
     async def hard_delete(self, student_id: UUID) -> tuple[bool, str | None]:
         """학생 행을 완전 삭제(관리자 전용). soft-delete 여부와 무관하게 지운다.
