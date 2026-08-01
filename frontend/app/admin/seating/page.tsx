@@ -8,8 +8,10 @@ import { StudentDetailDialog } from "@/components/admin/StudentDetailDialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ApiError,
+  fetchAdminClassProgress,
   fetchAdminSchools,
   fetchAdminStudents,
+  type AdminClassProgress,
   type AdminProgressStatus,
   type AdminStudentItem,
 } from "@/lib/api";
@@ -88,10 +90,15 @@ export default function AdminSeatingPage() {
   const router = useRouter();
   const [schools, setSchools] = useState<string[]>([]);
   const [school, setSchool] = useState<string>("");
-  const [students, setStudents] = useState<AdminStudentItem[]>([]);
+  // 학교의 반별 집계 — 학년·반 목록과 완료 배지의 유일한 출처다.
+  // 학생 전원을 받아 역산하던 것을 이 한 번의 호출로 대체한다.
+  const [classProgress, setClassProgress] = useState<AdminClassProgress[]>([]);
+  // 선택한 반의 학생만 담는다. 사진은 받지 않는다(격자가 쓰지 않음).
+  const [classStudents, setClassStudents] = useState<AdminStudentItem[]>([]);
   const [grade, setGrade] = useState<number | null>(null);
   const [classNo, setClassNo] = useState<number | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingClasses, setLoadingClasses] = useState(true);
+  const [loadingStudents, setLoadingStudents] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminStudentItem | null>(null);
 
@@ -105,31 +112,28 @@ export default function AdminSeatingPage() {
     fetchAdminSchools(token)
       .then((list) => {
         setSchools(list);
-        // 학교가 하나도 없으면 학생 로드가 일어나지 않으므로 여기서 로딩 종료.
-        if (list.length === 0) setLoading(false);
+        // 학교가 하나도 없으면 집계 로드가 일어나지 않으므로 여기서 로딩 종료.
+        if (list.length === 0) setLoadingClasses(false);
       })
       .catch(() => {
         setSchools([]);
-        setLoading(false);
+        setLoadingClasses(false);
       });
   }, [router]);
 
-  // 선택된 학교의 전체 학생을 불러온다(한 학교 단위라 규모가 제한적).
-  const loadStudents = useCallback(
+  const loadClassProgress = useCallback(
     async (target: string) => {
       const token = getAdminToken();
       if (!token) {
         router.replace("/admin/login");
         return;
       }
-      setLoading(true);
+      setLoadingClasses(true);
+      // 이전 학교의 집계·학생이 남아 있으면 새 학교 + 옛 반 조합으로 헛요청이 나간다.
+      setClassProgress([]);
+      setClassStudents([]);
       try {
-        const res = await fetchAdminStudents(token, {
-          school: target,
-          limit: 1000,
-          sort: "name_asc",
-        });
-        setStudents(res.items);
+        setClassProgress(await fetchAdminClassProgress(token, target));
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
@@ -137,20 +141,59 @@ export default function AdminSeatingPage() {
           router.replace("/admin/login");
           return;
         }
+        setClassProgress([]);
         setError(
-          err instanceof ApiError ? err.message : "목록을 불러오지 못했습니다."
+          err instanceof ApiError ? err.message : "진행 현황을 불러오지 못했습니다."
         );
       } finally {
-        setLoading(false);
+        setLoadingClasses(false);
       }
     },
     [router]
   );
 
-  // 학교가 정해지면(첫 로드 시 자동) 학생을 불러온다.
+  const loadClassStudents = useCallback(
+    async (target: string, g: number, c: number) => {
+      const token = getAdminToken();
+      if (!token) {
+        router.replace("/admin/login");
+        return;
+      }
+      setLoadingStudents(true);
+      try {
+        const res = await fetchAdminStudents(token, {
+          school: target,
+          grade: g,
+          class_no: c,
+          // 한 반 정원을 넉넉히 덮는다. 좌석표는 반 단위라 페이지네이션이 필요 없다.
+          limit: 100,
+          sort: "name_asc",
+          // 격자는 번호·이름·상태만 그린다 — 사진 서명은 낭비다.
+          include_photo: false,
+        });
+        setClassStudents(res.items);
+        setError(null);
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 401) {
+          clearAdminToken();
+          router.replace("/admin/login");
+          return;
+        }
+        setClassStudents([]);
+        setError(
+          err instanceof ApiError ? err.message : "목록을 불러오지 못했습니다."
+        );
+      } finally {
+        setLoadingStudents(false);
+      }
+    },
+    [router]
+  );
+
+  // 학교가 정해지면(첫 로드 시 자동) 집계를 불러온다.
   useEffect(() => {
-    if (school) loadStudents(school);
-  }, [school, loadStudents]);
+    if (school) loadClassProgress(school);
+  }, [school, loadClassProgress]);
 
   useEffect(() => {
     // 학교 목록이 오면 첫 학교를 자동 선택.
@@ -158,17 +201,15 @@ export default function AdminSeatingPage() {
   }, [schools, school]);
 
   const grades = useMemo(
-    () => [...new Set(students.map((s) => s.grade))].sort((a, b) => a - b),
-    [students]
+    () => [...new Set(classProgress.map((r) => r.grade))].sort((a, b) => a - b),
+    [classProgress]
   );
-  const classes = useMemo(
+  const classRows = useMemo(
     () =>
-      [
-        ...new Set(
-          students.filter((s) => s.grade === grade).map((s) => s.class_no)
-        ),
-      ].sort((a, b) => a - b),
-    [students, grade]
+      classProgress
+        .filter((r) => r.grade === grade)
+        .sort((a, b) => a.class_no - b.class_no),
+    [classProgress, grade]
   );
 
   // 학년·반 선택값을 항상 유효 범위로 보정한다.
@@ -178,15 +219,18 @@ export default function AdminSeatingPage() {
     }
   }, [grades, grade]);
   useEffect(() => {
-    if (classes.length > 0 && (classNo === null || !classes.includes(classNo))) {
-      setClassNo(classes[0]);
+    const nos = classRows.map((r) => r.class_no);
+    if (nos.length > 0 && (classNo === null || !nos.includes(classNo))) {
+      setClassNo(nos[0]);
     }
-  }, [classes, classNo]);
+  }, [classRows, classNo]);
 
-  const classStudents = useMemo(
-    () => students.filter((s) => s.grade === grade && s.class_no === classNo),
-    [students, grade, classNo]
-  );
+  // 학교·학년·반이 모두 정해지면 그 반의 학생만 불러온다.
+  useEffect(() => {
+    if (school && grade !== null && classNo !== null) {
+      loadClassStudents(school, grade, classNo);
+    }
+  }, [school, grade, classNo, loadClassStudents]);
 
   const byNo = useMemo(() => {
     const map = new Map<number, AdminStudentItem>();
@@ -197,12 +241,17 @@ export default function AdminSeatingPage() {
   const maxNo = classStudents.reduce((m, s) => Math.max(m, s.student_no), 0);
   const numbers = Array.from({ length: maxNo }, (_, i) => i + 1);
 
-  const counts = useMemo(() => {
-    const c = { completed: 0, in_progress: 0, not_started: 0 };
-    classStudents.forEach((s) => (c[s.progress.status] += 1));
-    return c;
-  }, [classStudents]);
-  const registered = classStudents.length;
+  // 요약 숫자는 집계 행에서 그대로 읽는다(학생 배열을 세지 않는다).
+  const current = useMemo(
+    () => classRows.find((r) => r.class_no === classNo) ?? null,
+    [classRows, classNo]
+  );
+  const registered = current?.total ?? 0;
+  const counts = {
+    completed: current?.completed ?? 0,
+    in_progress: current?.in_progress ?? 0,
+    not_started: current?.not_started ?? 0,
+  };
   const missing = maxNo - registered;
 
   return (
@@ -252,30 +301,22 @@ export default function AdminSeatingPage() {
             </PickerGroup>
           )}
 
-          {classes.length > 0 && (
+          {classRows.length > 0 && (
             <PickerGroup label="반">
-              {classes.map((c) => {
-                const cs = students.filter(
-                  (s) => s.grade === grade && s.class_no === c
-                );
-                const done = cs.filter(
-                  (s) => s.progress.status === "completed"
-                ).length;
-                return (
-                  <PickerCard
-                    key={c}
-                    selected={c === classNo}
-                    onClick={() => setClassNo(c)}
-                  >
-                    <span className="flex items-center gap-2">
-                      {c}반
-                      <span className="text-xs font-normal text-muted-foreground tabular-nums">
-                        {done}/{cs.length}
-                      </span>
+              {classRows.map((r) => (
+                <PickerCard
+                  key={r.class_no}
+                  selected={r.class_no === classNo}
+                  onClick={() => setClassNo(r.class_no)}
+                >
+                  <span className="flex items-center gap-2">
+                    {r.class_no}반
+                    <span className="text-xs font-normal text-muted-foreground tabular-nums">
+                      {r.completed}/{r.total}
                     </span>
-                  </PickerCard>
-                );
-              })}
+                  </span>
+                </PickerCard>
+              ))}
             </PickerGroup>
           )}
         </div>
@@ -319,7 +360,7 @@ export default function AdminSeatingPage() {
 
         {/* 좌석표 격자 */}
         <div className="rounded-xl border bg-card p-5 shadow-sm">
-          {loading ? (
+          {loadingStudents || loadingClasses ? (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(84px,1fr))] gap-2.5">
               {Array.from({ length: 20 }).map((_, i) => (
                 <Skeleton key={i} className="h-16 rounded-lg" />
@@ -327,13 +368,13 @@ export default function AdminSeatingPage() {
             </div>
           ) : maxNo === 0 ? (
             <div className="flex flex-col items-center gap-2 py-16 text-muted-foreground">
-              {students.length === 0 ? (
+              {classProgress.length === 0 ? (
                 <School className="size-8" aria-hidden />
               ) : (
                 <Inbox className="size-8" aria-hidden />
               )}
               <p className="text-sm">
-                {students.length === 0
+                {classProgress.length === 0
                   ? "해당 학교에 가입한 학생이 없습니다."
                   : "이 반에 가입한 학생이 없습니다."}
               </p>
@@ -385,7 +426,11 @@ export default function AdminSeatingPage() {
         onClose={() => setSelected(null)}
         onDeleted={() => {
           setSelected(null);
-          if (school) loadStudents(school);
+          // 집계와 현재 반을 모두 갱신해야 배지와 격자가 함께 맞는다.
+          if (school) loadClassProgress(school);
+          if (school && grade !== null && classNo !== null) {
+            loadClassStudents(school, grade, classNo);
+          }
         }}
       />
     </div>
