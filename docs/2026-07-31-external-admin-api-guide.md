@@ -76,8 +76,53 @@ CORS_ALLOW_ORIGINS=https://admin.example.com,https://partner.example.com
 - 진행 상태(`progress.has_card` 등) 기준 서버 측 필터가 없어 클라이언트가 전량 받아 걸러야 한다.
 - 관리자 계정이 단일 공유 계정이라 감사 추적(누가 언제 무엇을 조회했는지)이 남지 않는다.
 
+## 5. 목록 조회 성능 개선 (2026-08-01)
+
+### 배경
+
+관리자 좌석표 화면이 학교를 고를 때마다 `GET /api/admin/students`로 전교생을 한 번에 받아왔다.
+이 엔드포인트는 항상 `photo_url`을 S3 presigned URL로 서명해 내려주는데, 서명 1건에 약 44ms가
+걸려 학생이 많은 학교에서는 응답이 수십 초까지 늘어졌다(실측: 832명 규모 학교, 사진 보유
+703명 기준 약 31초).
+
+### 변경 내용
+
+사진이 필요 없는 화면(좌석표가 학년·반 목록만 그리는 단계 등)이 서명 비용을 건너뛸 수 있도록
+경로를 나눴다.
+
+- `GET /api/admin/students`에 `include_photo` 쿼리 파라미터 추가. **기본값 `true`로 기존 동작과
+  동일하다.** `false`로 호출하면 서명 자체를 건너뛰어 `items[].photo_url`이 모두 `null`로
+  온다(같은 학교 기준 약 31초 → 1초 미만).
+- `AdminStudentItem`에 `has_photo` 필드 추가(항상 포함). `include_photo=false`로 `photo_url`이
+  `null`이어도 사진 보유 여부를 알 수 있다.
+- `GET /api/admin/progress/classes?school=<학교명>` 신설. 학생 개인정보 없이 (학년, 반)별
+  `total`/`completed`/`in_progress`/`not_started` 카운트만 반환한다(832명 학교 기준 31행 /
+  약 2.9 KB / 약 86ms, `completed + in_progress + not_started == total` 항상 성립).
+- `GET /api/admin/students/{id}/photo-url` 신설. 목록을 `include_photo=false`로 받은 뒤
+  특정 학생 사진만 필요할 때 1건 조회한다. 사진이 없으면 `200`에 `photo_url: null`, 학생이
+  없으면 `404`.
+
+외부 전달용 사용법은 [사용 설명서](2026-07-31-admin-api-usage.md)의 3.2·3.5·3.6절, 4절
+(`has_photo`)에 반영했다.
+
+관련 테스트: `backend/tests/test_admin_router.py`
+(`test_list_students_include_photo_false_returns_null_urls`,
+`test_student_photo_url_404_for_unknown_student`,
+`test_class_progress_returns_rows_for_school` 등),
+`backend/tests/test_admin_service.py`
+(`test_list_students_include_photo_false_skips_signing`,
+`test_get_class_progress_buckets_by_grade_and_class` 등).
+
+### 짚어둘 점
+
+- **`include_photo` 기본값은 `true`다.** 외부 연동·`backend/scripts/export_students.py`를 포함해
+  기존 호출부는 아무것도 바꾸지 않아도 그대로 동작한다.
+- `progress/classes` 응답은 학생 개인정보를 전혀 포함하지 않는다. 지금은 관리자 화면 내부용으로만
+  쓰며, 외부 API 소비자에게 노출할지는 이번 변경의 범위 밖이다.
+
 ## 변경 이력
 
 | 날짜 | 내용 |
 |---|---|
 | 2026-07-31 | 최초 작성. CORS 전 오리진 개방(`CORS_ALLOW_ORIGINS` 신설), 수집 스크립트·테스트 추가 |
+| 2026-08-01 | `include_photo` 파라미터와 `has_photo` 필드 추가, 반별 집계·사진 단건 엔드포인트 추가. 기존 동작·기본값은 그대로 |

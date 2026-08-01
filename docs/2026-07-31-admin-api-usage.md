@@ -82,15 +82,16 @@ curl -H "Authorization: Bearer $TOKEN" \
 
 **쿼리 파라미터** (모두 선택, 여러 개를 주면 AND 결합)
 
-| 파라미터   | 타입   | 기본값 | 설명                                          |
-| ---------- | ------ | ------ | --------------------------------------------- |
-| `school`   | string | –      | 학교 이름 정확 일치                           |
-| `grade`    | int    | –      | 학년                                          |
-| `class_no` | int    | –      | 반                                            |
-| `q`        | string | –      | 이름 부분 일치 (대소문자 무시)                |
-| `limit`    | int    | `50`   | 한 번에 받을 개수                             |
-| `offset`   | int    | `0`    | 건너뛸 개수                                   |
-| `sort`     | enum   | –      | `created_desc` \| `created_asc` \| `name_asc` |
+| 파라미터        | 타입    | 기본값 | 설명                                                                                     |
+| --------------- | ------- | ------ | ---------------------------------------------------------------------------------------- |
+| `school`        | string  | –      | 학교 이름 정확 일치                                                                       |
+| `grade`         | int     | –      | 학년                                                                                      |
+| `class_no`      | int     | –      | 반                                                                                        |
+| `q`             | string  | –      | 이름 부분 일치 (대소문자 무시)                                                            |
+| `limit`         | int     | `50`   | 한 번에 받을 개수                                                                         |
+| `offset`        | int     | `0`    | 건너뛸 개수                                                                               |
+| `sort`          | enum    | –      | `created_desc` \| `created_asc` \| `name_asc`                                            |
+| `include_photo` | boolean | `true` | `false`면 `photo_url`을 서명하지 않고 `null`로 내려준다. 사진이 필요 없으면 응답이 크게 빨라진다(832명 기준 31초 → 0.5초) |
 
 `sort`를 생략하면 **학교 → 학년 → 반 → 번호** 순으로 정렬된다. 반별로 명단을 만들 때 가장 편한 순서다.
 
@@ -178,26 +179,80 @@ curl -H "Authorization: Bearer $TOKEN" \
 `DELETE /api/admin/students/{id}`와 `POST /api/admin/students/bulk-delete`가 존재하지만
 **되돌릴 수 없는 하드 삭제**(DB + 사진/카드 파일 동시 삭제)다. 조회 목적의 연동에서는 호출하지 않는다.
 
+### 3.5 `GET /api/admin/progress/classes` — 반별 진행 현황 집계
+
+학생 개인정보 없이 학교 하나의 (학년, 반)별 카운트만 반환한다. 학생 명단 전체를 받지 않고
+진행률만 확인하고 싶을 때 쓴다. `school`은 필수이며, `/api/admin/students/schools` 응답의
+값을 그대로 넣는다(3.1과 동일한 정확 일치 규칙).
+
+```bash
+curl -G -H "Authorization: Bearer $TOKEN" \
+  https://api.cnu-likelion.kr/api/admin/progress/classes \
+  --data-urlencode "school=한마당고"
+```
+
+**응답 `200`**
+
+```json
+[
+  { "grade": 1, "class_no": 1, "total": 32, "completed": 18, "in_progress": 5, "not_started": 9 },
+  { "grade": 1, "class_no": 2, "total": 30, "completed": 12, "in_progress": 8, "not_started": 10 }
+]
+```
+
+| 필드          | 타입 | 설명                            |
+| ------------- | ---- | ------------------------------- |
+| `grade`       | int  | 학년                            |
+| `class_no`    | int  | 반                              |
+| `total`       | int  | 반 전체 학생 수                |
+| `completed`   | int  | 설문 완료 학생 수              |
+| `in_progress` | int  | 설문 진행 중인 학생 수         |
+| `not_started` | int  | 설문을 시작하지 않은 학생 수   |
+
+`completed + in_progress + not_started == total`이 항상 성립한다. 학교 전체를 학생 목록으로
+받으면 초 단위 응답이 걸릴 수 있는 규모에서도, 이 엔드포인트는 카운트만 집계하므로 응답이
+훨씬 가볍다(예: 832명 규모 학교에서 31개 반 / 약 2.9 KB / 약 86 ms).
+
+### 3.6 `GET /api/admin/students/{id}/photo-url` — 학생 사진 URL 1건
+
+`GET /api/admin/students`를 `include_photo=false`로 받아 사진을 뺀 뒤, 특정 학생의 사진만
+필요한 시점에 호출한다.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" \
+  https://api.cnu-likelion.kr/api/admin/students/3f2a9c14-1b7e-4a55-9a0d-7c2f5e8b1234/photo-url
+```
+
+**응답 `200`**
+
+```json
+{ "photo_url": "https://<bucket>.s3.ap-northeast-2.amazonaws.com/uploads/photos/...?X-Amz-Signature=..." }
+```
+
+사진이 없는 학생도 `200`에 `photo_url: null`로 응답한다. 학생 자체가 없으면 `404`다.
+URL의 유효기간·사용법은 5절과 동일하다(1시간 만료, 인증 불필요).
+
 ---
 
 ## 4. 데이터 필드 설명
 
 ### 학생
 
-| 필드              | 타입           | 설명                         |
-| ----------------- | -------------- | ---------------------------- |
-| `id`              | UUID           | 학생 고유 ID. 상세 조회 키   |
-| `school`          | string         | 학교 이름                    |
-| `grade`           | int            | 학년                         |
-| `class_no`        | int            | 반                           |
-| `student_no`      | int            | 번호                         |
-| `name`            | string         | 이름                         |
-| `password`        | string         | 학생 로그인 비밀번호(평문)   |
-| `gender`          | string \| null | `"male"` \| `"female"`       |
-| `photo_url`       | string \| null | 사진 임시 URL. 없으면 `null` |
-| `consent_privacy` | bool           | 개인정보 수집 동의 여부      |
-| `created_at`      | datetime       | 가입 시각 (ISO 8601, UTC)    |
-| `progress`        | object         | 설문 진행 상태 (아래)        |
+| 필드              | 타입           | 설명                                                                  |
+| ----------------- | -------------- | ---------------------------------------------------------------------- |
+| `id`              | UUID           | 학생 고유 ID. 상세 조회 키                                             |
+| `school`          | string         | 학교 이름                                                              |
+| `grade`           | int            | 학년                                                                    |
+| `class_no`        | int            | 반                                                                      |
+| `student_no`      | int            | 번호                                                                    |
+| `name`            | string         | 이름                                                                    |
+| `password`        | string         | 학생 로그인 비밀번호(평문)                                             |
+| `gender`          | string \| null | `"male"` \| `"female"`                                                 |
+| `photo_url`       | string \| null | 사진 임시 URL. 없으면 `null`                                           |
+| `has_photo`       | bool           | 사진 보유 여부. `include_photo=false`로 받아 `photo_url`이 `null`이어도 유효 |
+| `consent_privacy` | bool           | 개인정보 수집 동의 여부                                                |
+| `created_at`      | datetime       | 가입 시각 (ISO 8601, UTC)                                              |
+| `progress`        | object         | 설문 진행 상태 (아래)                                                  |
 
 ### `progress` — 설문 진행 상태
 
@@ -402,20 +457,23 @@ export/
 - 수집한 데이터의 보관 위치와 접근 권한을 사전에 정한다.
 - 조회 전용으로 쓰고, 삭제 계열 엔드포인트는 호출하지 않는다.
 - 대량 수집은 학생 수에 비례해 사진 URL 생성 비용이 든다. 야간 등 트래픽이 적은 시간대를 권한다.
+- 사진이 당장 필요 없다면 `include_photo=false`로 이 비용 자체를 건너뛸 수 있다(3.2절 참고).
 
 ---
 
 ## 부록. 엔드포인트 요약
 
-| 메서드 | 경로                              | 인증 | 설명                                |
-| ------ | --------------------------------- | ---- | ----------------------------------- |
-| POST   | `/api/admin/login`                | –    | 토큰 발급                           |
-| GET    | `/api/admin/students/schools`     | 필요 | 학교 이름 목록                      |
-| GET    | `/api/admin/students`             | 필요 | 학생 목록 (필터·정렬·페이지네이션)  |
-| GET    | `/api/admin/students/{id}`        | 필요 | 학생 상세 (답변·페르소나·카드)      |
-| DELETE | `/api/admin/students/{id}`        | 필요 | 하드 삭제 — 연동에서 사용 금지      |
-| POST   | `/api/admin/students/bulk-delete` | 필요 | 일괄 하드 삭제 — 연동에서 사용 금지 |
-| GET    | `/healthz`                        | –    | 헬스체크                            |
+| 메서드 | 경로                                  | 인증 | 설명                                     |
+| ------ | ------------------------------------- | ---- | ---------------------------------------- |
+| POST   | `/api/admin/login`                    | –    | 토큰 발급                                |
+| GET    | `/api/admin/students/schools`         | 필요 | 학교 이름 목록                           |
+| GET    | `/api/admin/students`                 | 필요 | 학생 목록 (필터·정렬·페이지네이션)       |
+| GET    | `/api/admin/students/{id}`            | 필요 | 학생 상세 (답변·페르소나·카드)           |
+| GET    | `/api/admin/progress/classes`         | 필요 | 학교의 반별 진행 현황 집계 (개인정보 없음) |
+| GET    | `/api/admin/students/{id}/photo-url`  | 필요 | 학생 사진 URL 1건                        |
+| DELETE | `/api/admin/students/{id}`            | 필요 | 하드 삭제 — 연동에서 사용 금지           |
+| POST   | `/api/admin/students/bulk-delete`     | 필요 | 일괄 하드 삭제 — 연동에서 사용 금지      |
+| GET    | `/healthz`                            | –    | 헬스체크                                 |
 
 미구현 상태인 엔드포인트: `/api/admin/dashboard`, `/api/admin/stats/keywords`, `/api/admin/operators`.
 
@@ -424,3 +482,4 @@ export/
 | 날짜       | 내용                                                                                                                        |
 | ---------- | --------------------------------------------------------------------------------------------------------------------------- |
 | 2026-07-31 | 최초 작성 (외부 전달용). 관련 내부 문서: [`2026-07-31-external-admin-api-guide.md`](2026-07-31-external-admin-api-guide.md) |
+| 2026-08-01 | `include_photo` 파라미터와 `has_photo` 필드 추가, 반별 집계·사진 단건 엔드포인트 추가. 기존 동작·기본값은 그대로 |
