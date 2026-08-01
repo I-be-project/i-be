@@ -172,6 +172,33 @@ async def test_student_detail_assembles_sessions() -> None:
     assert s.card_image_url is not None  # presigned URL 생성됨
 
 
+async def test_student_detail_signs_student_photo_alongside_card() -> None:
+    """photo_key(학생)와 card_image_key(세션)가 한 배치 서명 호출에 함께 실린다.
+
+    홍길동은 사진이 없으므로(_seed) 김영희를 쓴다 — 프런트의 StudentDetailDialog는
+    이제 상세 응답의 photo_url만 사진 출처로 읽으므로, 이 필드가 채워지지 않으면
+    다이얼로그의 사진 표시가 조용히 깨진다.
+    """
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await _seed(repo)
+    sessions = FakeSessionRepo()
+    student = next(r for r in repo._by_id.values() if r.name == "김영희")  # 사진 있음
+    now = datetime.now(UTC)
+    sessions.contents[student.id] = [
+        SessionContent(
+            id=uuid4(), status="completed", created_at=now, completed_at=now,
+            answers=[],
+            persona=None,
+            card_image_key="cards/y/card",
+        )
+    ]
+    detail = await _svc(repo, storage, sessions).get_student_detail(student.id)
+    # 학생 사진 키가 배치에 실려 서명됨.
+    assert detail.photo_url is not None
+    # 세션 카드 키도 같은 호출에서 함께 서명됨 — 둘 다 배치를 살아남는다.
+    assert detail.sessions[0].card_image_url is not None
+
+
 async def test_student_detail_missing_raises_not_found() -> None:
     repo, storage = FakeStudentRepo(), FakeStorage()
     try:
