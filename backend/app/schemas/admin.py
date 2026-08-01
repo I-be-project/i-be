@@ -100,6 +100,12 @@ class AdminStudentDetail(BaseModel):
     sessions: list[AdminSessionDetail] = Field(default_factory=list)
 
 
+class AdminStudentPhoto(BaseModel):
+    """학생 사진 presigned URL 단건 — 목록에서 사진을 뺀 뒤 필요할 때만 받는다."""
+
+    photo_url: str | None = Field(None, description="사진 presigned URL (없으면 null)")
+
+
 class AdminDeleteResponse(BaseModel):
     """유저 하드 삭제 결과."""
 

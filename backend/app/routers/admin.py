@@ -15,6 +15,7 @@ from app.schemas.admin import (
     AdminLoginResponse,
     AdminStudentDetail,
     AdminStudentList,
+    AdminStudentPhoto,
     AdminStudentSort,
 )
 
@@ -86,6 +87,16 @@ async def student_detail(
 ) -> AdminStudentDetail:
     """학생 1명 상세 — 설문 진행 단계별 답변·페르소나·카드 결과."""
     return await admin.get_student_detail(student_id)
+
+
+@router.get("/students/{student_id}/photo-url", response_model=AdminStudentPhoto)
+async def student_photo_url(
+    student_id: UUID,
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> AdminStudentPhoto:
+    """학생 사진 presigned URL 1건 — 목록에서 사진을 뺀 화면이 필요할 때만 호출한다."""
+    return await admin.get_student_photo_url(student_id)
 
 
 @router.delete("/students/{student_id}", response_model=AdminDeleteResponse)

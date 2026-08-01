@@ -25,6 +25,7 @@ from app.schemas.admin import (
     AdminStudentDetail,
     AdminStudentItem,
     AdminStudentList,
+    AdminStudentPhoto,
     AdminStudentProgress,
 )
 from app.schemas.students import PersonaSummary
@@ -187,6 +188,13 @@ class AdminService:
             created_at=student.created_at,
             sessions=sessions,
         )
+
+    async def get_student_photo_url(self, student_id: UUID) -> AdminStudentPhoto:
+        """학생 사진 URL 1건. 목록이 include_photo=false일 때 UI가 필요 시점에 부른다."""
+        student = await self._students.get_by_id(student_id)
+        if student is None:
+            raise NotFoundError("학생을 찾을 수 없습니다.")
+        return AdminStudentPhoto(photo_url=await self._signed_url(student.photo_key))
 
     async def _purge_student(self, student_id: UUID) -> tuple[bool, int]:
         """학생 1명 하드 삭제 + S3 정리. (삭제됨?, S3에서 지운 객체 수) 반환.

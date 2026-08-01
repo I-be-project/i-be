@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from uuid import uuid4
 
 import httpx
 
@@ -386,5 +387,71 @@ async def test_list_students_default_includes_photo_url() -> None:
         # 외부 계약: 파라미터 없이 부르면 photo_url이 그대로 온다.
         assert item["photo_url"] is not None
         assert item["has_photo"] is True
+    finally:
+        await gen.aclose()
+
+
+async def test_student_photo_url_returns_signed_url() -> None:
+    app, repo, _, _ = _build()
+    student = await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="김영희",
+        password="20110202",
+        gender="female",
+        consent_privacy=True,
+    )
+    await repo.update_photo_key(student.id, "uploads/photos/x/photo")
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            f"/api/admin/students/{student.id}/photo-url",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200
+        assert res.json()["photo_url"].startswith("https://signed.example/")
+    finally:
+        await gen.aclose()
+
+
+async def test_student_photo_url_null_when_no_photo() -> None:
+    app, repo, _, _ = _build()
+    student = await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=2,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+    )
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            f"/api/admin/students/{student.id}/photo-url",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        # 사진이 없는 것은 정상 상태다 — 404가 아니라 200 + null.
+        assert res.status_code == 200
+        assert res.json()["photo_url"] is None
+    finally:
+        await gen.aclose()
+
+
+async def test_student_photo_url_404_for_unknown_student() -> None:
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            f"/api/admin/students/{uuid4()}/photo-url",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 404
     finally:
         await gen.aclose()
