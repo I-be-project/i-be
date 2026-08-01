@@ -247,9 +247,17 @@ export function StudentDetailDialog({
           <>
             {/* 사진 헤더 — 목록은 사진 URL을 받지 않으므로 상세 응답에서 읽는다. */}
             <div className="relative flex h-64 items-center justify-center bg-muted">
-              {loadingDetail ? (
+              {detailError ? (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <ImageOff className="size-7" aria-hidden />
+                  <span className="text-sm">사진 없음</span>
+                </div>
+              ) : loadingDetail || detail?.id !== student.id ? (
+                // detail이 아직 이전 학생 것이거나 로딩 중이면 스켈레톤을 보여준다.
+                // (학생을 바꿔도 다이얼로그가 언마운트되지 않으므로, id가 다르면
+                // 이전 학생의 사진이 새 이름과 함께 잠깐 보이는 것을 막아야 한다.)
                 <Skeleton className="size-full rounded-none" />
-              ) : detail?.photo_url ? (
+              ) : detail.photo_url ? (
                 // 외부 presigned URL — next/image 도메인 설정 회피 위해 img 사용.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
