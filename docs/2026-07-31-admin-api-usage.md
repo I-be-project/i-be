@@ -144,7 +144,7 @@ curl -H "Authorization: Bearer $TOKEN" \
   https://api.cnu-likelion.kr/api/admin/students/3f2a9c14-1b7e-4a55-9a0d-7c2f5e8b1234
 ```
 
-목록 항목의 모든 필드에 더해 `sessions[]`가 붙는다(최신순).
+목록 항목과 같은 학생 기본 필드(`progress`, `has_photo` 제외)에 `sessions[]`(최신순)가 붙는다.
 
 ```json
 {
