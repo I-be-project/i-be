@@ -131,6 +131,7 @@ class FakeStorage:
         self.uploads: list[tuple[str, bytes, str]] = []
         self.deleted: list[str] = []
         self.delete_failures: set[str] = set()
+        self.batch_sign_calls = 0
 
     async def upload_photo(self, path: str, data: bytes, *, content_type: str) -> str:
         self.uploads.append((path, data, content_type))
@@ -138,6 +139,10 @@ class FakeStorage:
 
     async def create_signed_url(self, key: str, *, ttl_seconds: int) -> str:
         return f"https://signed.example/{key}?ttl={ttl_seconds}"
+
+    async def create_signed_urls(self, keys: list[str], *, ttl_seconds: int) -> dict[str, str]:
+        self.batch_sign_calls += 1
+        return {k: f"https://signed.example/{k}?ttl={ttl_seconds}" for k in dict.fromkeys(keys)}
 
     async def delete(self, key: str) -> None:
         if key in self.delete_failures:
