@@ -262,10 +262,14 @@ export function StudentDetailSidebar({
         showOverlay={false}
         // 기본 폭이 sm:max-w-sm(384px)이라 좁다. 접두사 없는 sm:max-w-xl은
         // data-[side=right]:sm:max-w-sm보다 특이도가 낮아 밀리므로 접두사를 맞춘다.
-        className="gap-0 overflow-y-auto p-0 data-[side=right]:sm:max-w-xl"
+        // 스크롤은 SheetContent가 아니라 아래 내부 래퍼에서 처리한다 — 여기서 하면
+        // × 닫기 버튼(Popup 안쪽에 absolute로 붙음)이 스크롤을 따라 함께 밀려 사라진다.
+        className="gap-0 p-0 data-[side=right]:sm:max-w-xl"
       >
         {student && (
-          <>
+          // Popup이 flex flex-col이라 flex-1이 남은 세로 공간을 모두 차지하고,
+          // 그 안에서만 스크롤해 × 버튼은 항상 같은 자리에 고정된다.
+          <div className="flex-1 overflow-y-auto">
             {/* 사진 — 목록은 사진 URL을 받지 않으므로 상세 응답에서 읽는다.
                 정사각 틀 + object-contain이라 어떤 비율이든 잘리지 않는다. 카메라로 찍은
                 사진은 720x720이라 여백 없이 맞고, 갤러리에서 고른 사진만 여백이 생긴다.
@@ -424,7 +428,7 @@ export function StudentDetailSidebar({
                 )}
               </section>
             </div>
-          </>
+          </div>
         )}
       </SheetContent>
     </Sheet>
