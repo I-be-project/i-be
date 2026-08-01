@@ -8,12 +8,12 @@ from typing import Any
 
 from app.adapters.ai_client import AIClient, AIPurpose
 from app.core.errors import ExternalServiceError, NotFoundError
-from app.schemas.questions import VALID_STAGES, GenerateInput
-from app.services.question_prompts import (
+from app.core.prompts.question_prompt import (
     build_q7b_messages,
     build_q8_messages,
     build_q9_messages,
 )
+from app.schemas.questions import VALID_STAGES, GenerateInput
 
 _MessageBuilder = Callable[[GenerateInput], list[dict[str, Any]]]
 
