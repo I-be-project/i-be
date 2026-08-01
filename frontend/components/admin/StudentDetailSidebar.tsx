@@ -306,7 +306,11 @@ export function StudentDetailSidebar({
 
             <div className="p-6">
               <SheetHeader className="mb-1 gap-0.5 p-0 text-left">
-                <SheetTitle className="text-xl">{student.name}</SheetTitle>
+                {/* 열린 채로 다른 학생으로 바뀔 때 포커스 이동이 없어 스크린리더가
+                    조용히 넘어간다. aria-live로 이름 교체를 알린다. */}
+                <SheetTitle className="text-xl" aria-live="polite">
+                  {student.name}
+                </SheetTitle>
                 <p className="text-sm text-muted-foreground">{student.school}</p>
               </SheetHeader>
 
