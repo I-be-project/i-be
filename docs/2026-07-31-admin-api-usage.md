@@ -118,6 +118,7 @@ curl -G -H "Authorization: Bearer $TOKEN" \
       "password": "20110101",
       "gender": "female",
       "photo_url": "https://<bucket>.s3.ap-northeast-2.amazonaws.com/uploads/photos/...?X-Amz-Signature=...",
+      "has_photo": true,
       "consent_privacy": true,
       "created_at": "2026-07-31T02:11:04.123456+00:00",
       "progress": {
