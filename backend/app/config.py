@@ -10,8 +10,16 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# 운영에서 기본값(플레이스홀더)으로 두면 안 되는 시크릿 — {필드명: 환경변수명}.
+# 기본값은 이 저장소에 공개돼 있어 그대로 쓰면 토큰을 누구나 위조할 수 있다.
+_PRODUCTION_REQUIRED_SECRETS = {
+    "jwt_secret": "JWT_SECRET",
+    "jwt_card_share_secret": "JWT_CARD_SHARE_SECRET",
+    "admin_password": "ADMIN_PASSWORD",
+}
 
 
 class Settings(BaseSettings):
@@ -109,6 +117,30 @@ class Settings(BaseSettings):
         """CORS_ALLOW_ORIGINS(콤마 구분) → 오리진 리스트. 비어 있으면 전체 개방."""
         origins = [o.strip() for o in self.cors_allow_origins.split(",") if o.strip()]
         return origins or ["*"]
+
+    @model_validator(mode="after")
+    def _reject_placeholder_secrets(self) -> Settings:
+        """APP_ENV=production인데 시크릿이 기본값·빈 값이면 기동을 실패시킨다.
+
+        조용히 뜨면 공개된 플레이스홀더로 학생·관리자 토큰을 서명하게 되므로,
+        배포를 실패시켜 헬스체크에서 잡히게 하는 편이 안전하다.
+        local/staging에서는 개발 편의를 위해 기본값을 그대로 허용한다.
+        """
+        if self.app_env != "production":
+            return self
+
+        # 기본값은 클래스 정의에서 읽는다(기본 문자열이 바뀌어도 검사가 따라간다).
+        missing = [
+            env_name
+            for field, env_name in _PRODUCTION_REQUIRED_SECRETS.items()
+            if getattr(self, field) in ("", type(self).model_fields[field].default)
+        ]
+        if missing:
+            raise ValueError(
+                "APP_ENV=production에서는 다음 환경변수를 반드시 설정해야 합니다: "
+                + ", ".join(sorted(missing))
+            )
+        return self
 
 
 @lru_cache(maxsize=1)

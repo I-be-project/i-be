@@ -94,8 +94,12 @@ def create_app() -> FastAPI:
     app.include_router(students.router)
     app.include_router(operator.router)
     app.include_router(admin.router)
-    app.include_router(dev.router)
     app.include_router(questions.router)
+
+    # /api/dev는 인증이 없고 호출 시 AI 크레딧을 소모한다. CORS가 전 오리진 개방이라
+    # 외부에 노출되면 누구나 크레딧을 태울 수 있으므로 로컬에서만 등록한다.
+    if settings.app_env == "local":
+        app.include_router(dev.router)
 
     @app.get("/healthz", tags=["meta"])
     async def healthz() -> dict[str, str]:
