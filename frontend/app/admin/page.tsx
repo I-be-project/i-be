@@ -46,6 +46,7 @@ import {
   ApiError,
   bulkDeleteAdminStudents,
   fetchAdminSchools,
+  fetchAdminStudentPhotoUrl,
   fetchAdminStudents,
   type AdminStudentItem,
 } from "@/lib/api";
@@ -56,13 +57,16 @@ import { genderLabel } from "@/lib/utils";
 function StudentAvatar({
   student,
   revealed,
+  photoUrl,
   onToggle,
 }: {
   student: AdminStudentItem;
   revealed: boolean;
+  // 펼친 뒤 따로 받아온 presigned URL. 아직 로딩 중이면 null.
+  photoUrl: string | null;
   onToggle: () => void;
 }) {
-  if (!student.photo_url) {
+  if (!student.has_photo) {
     return (
       <span className="grid size-10 place-items-center rounded-full bg-muted text-sm font-medium text-muted-foreground ring-1 ring-border">
         {student.name.slice(0, 1)}
@@ -79,14 +83,17 @@ function StudentAvatar({
         onToggle();
       }}
     >
-      {revealed ? (
+      {revealed && photoUrl ? (
         // 외부 presigned URL — next/image 도메인 설정 회피 위해 img 사용.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={student.photo_url}
+          src={photoUrl}
           alt={student.name}
           className="size-full object-cover"
         />
+      ) : revealed ? (
+        // 펼쳤지만 URL이 아직 안 온 상태.
+        <Skeleton className="size-full rounded-full" />
       ) : (
         <span className="grid size-full place-items-center bg-muted text-muted-foreground transition-colors group-hover:text-foreground">
           <ImageIcon className="size-4" aria-hidden />
@@ -135,6 +142,8 @@ export default function AdminStudentsPage() {
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [photoRevealed, setPhotoRevealed] = useState<Set<string>>(new Set());
+  // 펼친 학생의 사진 URL 캐시. 목록이 사진을 안 받으므로 클릭 시점에 1건씩 받는다.
+  const [photoUrls, setPhotoUrls] = useState<Map<string, string | null>>(new Map());
   const [selected, setSelected] = useState<AdminStudentItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
@@ -161,6 +170,8 @@ export default function AdminStudentsPage() {
         sort: sortKey,
         limit: pageSize,
         offset: page * pageSize,
+        // 아바타는 클릭해야 보이므로 목록에서는 사진을 받지 않는다(서명 50건 절약).
+        include_photo: false,
       });
       setTotal(res.total);
       // 삭제 등으로 현재 페이지가 범위를 벗어나면 첫 페이지로 되돌린다.
@@ -223,6 +234,13 @@ export default function AdminStudentsPage() {
       else next.add(id);
       return next;
     });
+    // 처음 펼치는 학생만 URL을 받아온다. 이미 받았으면 캐시를 쓴다.
+    if (photoRevealed.has(id) || photoUrls.has(id)) return;
+    const token = getAdminToken();
+    if (!token) return;
+    fetchAdminStudentPhotoUrl(token, id)
+      .then((url) => setPhotoUrls((prev) => new Map(prev).set(id, url)))
+      .catch(() => setPhotoUrls((prev) => new Map(prev).set(id, null)));
   }
 
   function toggleCheck(id: string) {
@@ -518,6 +536,7 @@ export default function AdminStudentsPage() {
                       <StudentAvatar
                         student={s}
                         revealed={photoRevealed.has(s.id)}
+                        photoUrl={photoUrls.get(s.id) ?? null}
                         onToggle={() => togglePhoto(s.id)}
                       />
                     </TableCell>
