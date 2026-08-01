@@ -25,14 +25,29 @@ async def register(req: RegisterRequest, auth: AuthServiceDep) -> RegisterRespon
 
     사진은 가입 후 별도 엔드포인트로 올린다(photo_key는 처음엔 비어 있음).
     """
-    student, token = await auth.register_student(req)
+    student, token = await auth.register_student(
+        school=req.school,
+        grade=req.grade,
+        class_no=req.class_no,
+        student_no=req.student_no,
+        name=req.name,
+        password=req.password,
+        gender=req.gender,
+        consent_privacy=req.consent_privacy,
+    )
     return RegisterResponse(student_id=student.id, student_token=token)
 
 
 @router.post("/login", response_model=LoginResponse)
 async def login(req: LoginRequest, auth: AuthServiceDep) -> LoginResponse:
     """식별 키 + 비밀번호 인증 → 학생 세션 토큰 발급."""
-    student, token = await auth.login(req)
+    student, token = await auth.login(
+        school=req.school,
+        grade=req.grade,
+        class_no=req.class_no,
+        student_no=req.student_no,
+        password=req.password,
+    )
     return LoginResponse(student_id=student.id, student_token=token)
 
 

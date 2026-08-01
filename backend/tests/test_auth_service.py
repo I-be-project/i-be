@@ -15,7 +15,6 @@ from app.config import get_settings
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from app.core.security import TokenKind, decode_token
 from app.repositories.student_repo import ClassProgressRow, StudentRecord
-from app.schemas.auth import LoginRequest, RegisterRequest
 from app.services.auth_service import AuthService
 
 
@@ -189,7 +188,8 @@ def _service() -> tuple[AuthService, FakeStudentRepo, FakeStorage]:
     return service, repo, storage
 
 
-def _register_req(**overrides: object) -> RegisterRequest:
+def _register_kwargs(**overrides: object) -> dict[str, object]:
+    """register_student 호출 인자. AuthService는 Request 모델이 아니라 값을 받는다."""
     base: dict[str, object] = {
         "school": "한마당고",
         "grade": 2,
@@ -201,13 +201,13 @@ def _register_req(**overrides: object) -> RegisterRequest:
         "consent_privacy": True,
     }
     base.update(overrides)
-    return RegisterRequest(**base)  # type: ignore[arg-type]
+    return base
 
 
 async def test_register_stores_plaintext_password_and_issues_student_token() -> None:
     service, repo, _ = _service()
 
-    student, token = await service.register_student(_register_req())
+    student, token = await service.register_student(**_register_kwargs())
 
     # 비밀번호는 평문 그대로 저장(해시하지 않음)
     assert student.password == "20100101"
@@ -221,22 +221,22 @@ async def test_register_stores_plaintext_password_and_issues_student_token() -> 
 async def test_register_rejected_without_privacy_consent() -> None:
     service, _, _ = _service()
     with pytest.raises(ForbiddenError):
-        await service.register_student(_register_req(consent_privacy=False))
+        await service.register_student(**_register_kwargs(consent_privacy=False))
 
 
 async def test_register_duplicate_login_key_conflicts() -> None:
     service, _, _ = _service()
-    await service.register_student(_register_req())
+    await service.register_student(**_register_kwargs())
     with pytest.raises(ConflictError):
-        await service.register_student(_register_req(name="다른이름", password="99999999"))
+        await service.register_student(**_register_kwargs(name="다른이름", password="99999999"))
 
 
 async def test_login_success_returns_token() -> None:
     service, _, _ = _service()
-    await service.register_student(_register_req())
+    await service.register_student(**_register_kwargs())
 
     student, token = await service.login(
-        LoginRequest(school="한마당고", grade=2, class_no=3, student_no=11, password="20100101")
+        school="한마당고", grade=2, class_no=3, student_no=11, password="20100101"
     )
     payload = decode_token(token, expected_kind=TokenKind.STUDENT, settings=get_settings())
     assert payload["sub"] == str(student.id)
@@ -244,24 +244,20 @@ async def test_login_success_returns_token() -> None:
 
 async def test_login_wrong_password_unauthorized() -> None:
     service, _, _ = _service()
-    await service.register_student(_register_req())
+    await service.register_student(**_register_kwargs())
     with pytest.raises(UnauthorizedError):
-        await service.login(
-            LoginRequest(school="한마당고", grade=2, class_no=3, student_no=11, password="wrong")
-        )
+        await service.login(school="한마당고", grade=2, class_no=3, student_no=11, password="wrong")
 
 
 async def test_login_unknown_student_unauthorized() -> None:
     service, _, _ = _service()
     with pytest.raises(UnauthorizedError):
-        await service.login(
-            LoginRequest(school="없는학교", grade=1, class_no=1, student_no=1, password="x")
-        )
+        await service.login(school="없는학교", grade=1, class_no=1, student_no=1, password="x")
 
 
 async def test_attach_photo_uploads_and_links_key() -> None:
     service, repo, storage = _service()
-    student, _ = await service.register_student(_register_req())
+    student, _ = await service.register_student(**_register_kwargs())
 
     photo_key = await service.attach_photo(student.id, b"jpegbytes", content_type="image/jpeg")
 

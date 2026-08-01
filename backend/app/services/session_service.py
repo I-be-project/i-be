@@ -7,7 +7,7 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from app.config import Settings
-from app.core.errors import ConflictError, ForbiddenError, NotFoundError
+from app.core.errors import ConflictError, ForbiddenError, InvalidStageError, NotFoundError
 from app.repositories.card_repo import CardRecord
 from app.repositories.persona_repo import PersonaRecord
 from app.repositories.session_repo import AnswerRecord, SessionRecord
@@ -17,6 +17,10 @@ from app.schemas.students import CardSummary, PersonaSummary, ProfileSummary, St
 
 # 행사 전역 '다시 하기' 스위치 키.
 RETRY_ENABLED_KEY = "retry_enabled"
+
+# 저장을 허용하는 stage. q1to6은 Q1~6 결과를 한 번에 담고, q7a~q9는 단계별.
+# q9가 마지막 질문이며, 이후 /complete로 세션을 완료한다.
+ANSWER_STAGES = frozenset({"q1to6", "q7a", "q7b", "q8", "q9"})
 
 
 class StudentRepo(Protocol):
@@ -46,7 +50,14 @@ class SessionRepo(Protocol):
 class PersonaRepo(Protocol):
     async def get_by_session(self, session_id: UUID) -> PersonaRecord | None: ...
     async def create(
-        self, session_id: UUID, persona: Persona, *, conn: Any = ...
+        self,
+        session_id: UUID,
+        *,
+        name: str,
+        tagline: str,
+        keywords: list[str],
+        fields: list[str],
+        conn: Any = ...,
     ) -> PersonaRecord: ...
 
 
@@ -148,7 +159,15 @@ class SessionService:
           유령 세션'이 남거나 그 stage 답변만 유실되는 일이 없다.
         - session_id가 있으면: 소유·상태 검증(내 세션 + in_progress) 후 저장.
         반환값은 이후 저장/완료에서 재사용할 세션 id.
+
+        저장 가능한 stage인지(ANSWER_STAGES)는 비즈니스 규칙이라 여기서 검증한다.
         """
+        if stage not in ANSWER_STAGES:
+            raise InvalidStageError(
+                f"저장할 수 없는 stage입니다: {stage}",
+                details={"allowed": sorted(ANSWER_STAGES)},
+            )
+
         if session_id is None:
             async with self._db_pool.transaction() as conn:
                 session = await self._sessions.create(student_id, status="in_progress", conn=conn)
@@ -205,7 +224,15 @@ class SessionService:
                 session = await self._sessions.create(student_id, status="completed", conn=conn)
             # 이름 선택이 없는 완료(Q9가 마지막)면 persona는 저장하지 않는다.
             if persona is not None:
-                await self._personas.create(session.id, persona, conn=conn)
+                # Persona(API 스키마) 해체는 Service의 책임 — 저장소는 값만 받는다.
+                await self._personas.create(
+                    session.id,
+                    name=persona.name,
+                    tagline=persona.tagline,
+                    keywords=list(persona.keywords),
+                    fields=list(persona.fields),
+                    conn=conn,
+                )
 
         return await self.get_profile_summary(student_id)
 

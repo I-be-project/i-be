@@ -48,6 +48,11 @@ class ConflictError(DomainError):
     code = "conflict"
 
 
+class InvalidStageError(DomainError):
+    status_code = 422
+    code = "invalid_stage"
+
+
 class RateLimitedError(DomainError):
     status_code = 429
     code = "rate_limited"

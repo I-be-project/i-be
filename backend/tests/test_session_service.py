@@ -9,13 +9,13 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from app.config import get_settings
-from app.core.errors import ConflictError, ForbiddenError, NotFoundError
+from app.core.errors import ConflictError, ForbiddenError, InvalidStageError, NotFoundError
 from app.repositories.card_repo import CardRecord
 from app.repositories.persona_repo import PersonaRecord
 from app.repositories.session_repo import SessionRecord
 from app.repositories.student_repo import StudentRecord
 from app.schemas.persona import Persona
-from app.services.session_service import SessionService
+from app.services.session_service import ANSWER_STAGES, SessionService
 
 
 class FakeStudentRepo:
@@ -93,15 +93,22 @@ class FakePersonaRepo:
         return self.persona
 
     async def create(
-        self, session_id: UUID, persona: Persona, *, conn: Any = None
+        self,
+        session_id: UUID,
+        *,
+        name: str,
+        tagline: str,
+        keywords: list[str],
+        fields: list[str],
+        conn: Any = None,
     ) -> PersonaRecord:
         rec = PersonaRecord(
             id=uuid4(),
             session_id=session_id,
-            name=persona.name,
-            tagline=persona.tagline,
-            keywords=list(persona.keywords),
-            fields=list(persona.fields),
+            name=name,
+            tagline=tagline,
+            keywords=list(keywords),
+            fields=list(fields),
             created_at=datetime.now(UTC),
         )
         self.created.append(rec)
@@ -491,3 +498,26 @@ async def test_submit_answer_propagates_insert_failure() -> None:
     service._sessions.insert_answer = _boom  # type: ignore[attr-defined,assignment]
     with pytest.raises(RuntimeError):
         await service.submit_answer(uuid4(), None, "q1to6", {})
+
+
+async def test_submit_answer_rejects_unknown_stage() -> None:
+    # 저장 가능한 stage 검증은 비즈니스 규칙 — 라우터가 아니라 서비스가 막는다.
+    import pytest
+
+    service, _, db_pool = _build(latest=None)
+
+    with pytest.raises(InvalidStageError) as exc:
+        await service.submit_answer(uuid4(), None, "q99", {"a": 1})
+
+    # 허용 목록을 details로 돌려줘 프론트가 원인을 알 수 있게 한다.
+    assert exc.value.details["allowed"] == sorted(ANSWER_STAGES)
+    # 세션이 만들어지기 전에 막혀야 한다(유령 세션 방지).
+    assert db_pool.entered is False
+    assert service._sessions.created == []  # type: ignore[attr-defined]
+
+
+async def test_submit_answer_accepts_every_allowed_stage() -> None:
+    for stage in sorted(ANSWER_STAGES):
+        service, _, _ = _build(latest=None)
+        sid = await service.submit_answer(uuid4(), None, stage, {})
+        assert service._sessions.inserted == [(sid, stage, {})]  # type: ignore[attr-defined]
