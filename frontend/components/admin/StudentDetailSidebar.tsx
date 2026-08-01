@@ -6,11 +6,11 @@ import { useEffect, useState } from "react";
 import { SURVEY_STAGES } from "@/components/admin/ProgressBadge";
 import { Button } from "@/components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ApiError,
@@ -158,7 +158,7 @@ function SessionBlock({ session }: { session: AdminSessionDetail }) {
   );
 }
 
-export function StudentDetailDialog({
+export function StudentDetailSidebar({
   student,
   onClose,
   onDeleted,
@@ -241,19 +241,60 @@ export function StudentDetailDialog({
   }
 
   return (
-    <Dialog open={student !== null} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0 sm:max-w-3xl">
+    <Sheet
+      open={student !== null}
+      // 비모달 — 사이드바를 연 채로 뒤의 목록·좌석표를 그대로 클릭할 수 있다.
+      // 다른 학생을 누르면 닫히지 않고 내용만 교체된다.
+      modal={false}
+      onOpenChange={(open, details) => {
+        if (open) return;
+        // 바깥 클릭·포커스 이탈로는 닫지 않는다. 뒤의 목록에서 다른 학생을 누르는 것이
+        // 주된 사용 방식인데, 그 클릭이 "바깥 클릭 = 닫기"로도 해석되면 닫힘과 새 선택이
+        // 경쟁해 사이드바가 사라진다. 닫기는 ESC와 × 버튼으로만 한다.
+        if (details.reason === "outside-press" || details.reason === "focus-out") {
+          return;
+        }
+        onClose();
+      }}
+    >
+      <SheetContent
+        side="right"
+        showOverlay={false}
+        // 기본 폭이 sm:max-w-sm(384px)이라 좁다. 접두사 없는 sm:max-w-xl은
+        // data-[side=right]:sm:max-w-sm보다 특이도가 낮아 밀리므로 접두사를 맞춘다.
+        // 스크롤은 SheetContent가 아니라 아래 내부 래퍼에서 처리한다 — 여기서 하면
+        // × 닫기 버튼(Popup 안쪽에 absolute로 붙음)이 스크롤을 따라 함께 밀려 사라진다.
+        className="gap-0 p-0 data-[side=right]:sm:max-w-xl"
+      >
         {student && (
-          <>
-            {/* 사진 헤더 */}
-            <div className="relative flex h-64 items-center justify-center bg-muted">
-              {student.photo_url ? (
+          // Popup이 flex flex-col이라 flex-1이 남은 세로 공간을 모두 차지하고,
+          // 그 안에서만 스크롤해 × 버튼은 항상 같은 자리에 고정된다.
+          <div className="flex-1 overflow-y-auto">
+            {/* 사진 — 목록은 사진 URL을 받지 않으므로 상세 응답에서 읽는다.
+                정사각 틀 + object-contain이라 어떤 비율이든 잘리지 않는다. 카메라로 찍은
+                사진은 720x720이라 여백 없이 맞고, 갤러리에서 고른 사진만 여백이 생긴다.
+                로딩·사진없음 상태도 같은 정사각 틀을 써서 전환 시 높이가 튀지 않게 한다. */}
+            <div className="relative flex aspect-square w-full items-center justify-center bg-muted">
+              {detailError ? (
+                <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                  <ImageOff className="size-7" aria-hidden />
+                  <span className="text-sm">사진 없음</span>
+                </div>
+              ) : loadingDetail || detail?.id !== student.id ? (
+                // detail이 아직 이전 학생 것이거나 로딩 중이면 스켈레톤을 보여준다.
+                // (학생을 바꿔도 사이드바가 언마운트되지 않으므로, id가 다르면
+                // 이전 학생의 사진이 새 이름과 함께 잠깐 보이는 것을 막아야 한다.)
+                <Skeleton className="size-full rounded-none" />
+              ) : detail.photo_url ? (
                 // 외부 presigned URL — next/image 도메인 설정 회피 위해 img 사용.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={student.photo_url}
+                  src={detail.photo_url}
                   alt={`${student.name} 사진`}
-                  className="size-full object-cover"
+                  // absolute + inset-0으로 흐름에서 빼야 한다 — size-full만 쓰면
+                  // 세로가 긴 사진(예: 3:4 인물사진)에서 img의 auto 높이가 정사각 틀의
+                  // 콘텐츠 기반 최소 높이로 반영되어 aspect-square를 밀어낸다.
+                  className="absolute inset-0 size-full object-contain"
                 />
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
@@ -264,10 +305,14 @@ export function StudentDetailDialog({
             </div>
 
             <div className="p-6">
-              <DialogHeader className="mb-1 space-y-1 text-left">
-                <DialogTitle className="text-xl">{student.name}</DialogTitle>
+              <SheetHeader className="mb-1 gap-0.5 p-0 text-left">
+                {/* 열린 채로 다른 학생으로 바뀔 때 포커스 이동이 없어 스크린리더가
+                    조용히 넘어간다. aria-live로 이름 교체를 알린다. */}
+                <SheetTitle className="text-xl" aria-live="polite">
+                  {student.name}
+                </SheetTitle>
                 <p className="text-sm text-muted-foreground">{student.school}</p>
-              </DialogHeader>
+              </SheetHeader>
 
               <dl className="mt-3 divide-y divide-border">
                 <Field label="학년·반·번호">
@@ -317,13 +362,17 @@ export function StudentDetailDialog({
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   결과 · 내용
                 </h3>
-                {loadingDetail ? (
+                {detailError ? (
+                  <p className="text-sm text-destructive">{detailError}</p>
+                ) : loadingDetail || detail?.id !== student.id ? (
+                  // 사진 틀과 동일한 조건 — student prop이 바뀐 첫 렌더에는
+                  // useEffect의 초기화(setDetail(null) 등)가 아직 실행되기 전이라
+                  // detail이 이전 학생 것일 수 있다. 그대로 두면 새 이름 아래에
+                  // 이전 학생의 페르소나·카드·답변이 한 프레임 동안 노출된다.
                   <div className="space-y-2">
                     <Skeleton className="h-20 w-full rounded-lg" />
                     <Skeleton className="h-16 w-full rounded-lg" />
                   </div>
-                ) : detailError ? (
-                  <p className="text-sm text-destructive">{detailError}</p>
                 ) : detail && detail.sessions.length > 0 ? (
                   <div className="space-y-3">
                     {detail.sessions.map((s) => (
@@ -387,9 +436,9 @@ export function StudentDetailDialog({
                 )}
               </section>
             </div>
-          </>
+          </div>
         )}
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

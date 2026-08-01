@@ -16,15 +16,17 @@ from app.repositories.session_repo import (
     SessionRepository,
     StudentProgressRow,
 )
-from app.repositories.student_repo import StudentRepository
+from app.repositories.student_repo import ClassProgressRow, StudentRepository
 from app.schemas.admin import (
     AdminAnswer,
     AdminBulkDeleteResponse,
+    AdminClassProgress,
     AdminDeleteResponse,
     AdminSessionDetail,
     AdminStudentDetail,
     AdminStudentItem,
     AdminStudentList,
+    AdminStudentPhoto,
     AdminStudentProgress,
 )
 from app.schemas.students import PersonaSummary
@@ -74,6 +76,17 @@ class AdminService:
         except Exception:
             return None
 
+    async def _signed_urls(self, keys: list[str]) -> dict[str, str]:
+        """여러 key를 한 번에 서명. 전체 실패 시 빈 dict(개별 실패는 어댑터가 흡수)."""
+        if not keys:
+            return {}
+        try:
+            return await self._storage.create_signed_urls(
+                keys, ttl_seconds=self._PHOTO_URL_TTL_SECONDS
+            )
+        except Exception:
+            return {}
+
     async def list_students(
         self,
         *,
@@ -84,7 +97,14 @@ class AdminService:
         limit: int,
         offset: int,
         sort: str | None = None,
+        include_photo: bool = True,
     ) -> AdminStudentList:
+        """관리자 목록.
+
+        include_photo 기본값이 true인 이유: 이 응답의 photo_url은 외부에 공개된
+        계약이다(docs/2026-07-31-admin-api-usage.md, scripts/export_students.py).
+        사진을 쓰지 않는 관리자 UI만 false로 호출해 서명 비용을 건너뛴다.
+        """
         total, records = await self._students.list_students(
             q=q,
             school=school,
@@ -95,9 +115,13 @@ class AdminService:
             sort=sort,
         )
         progress = await self._sessions.get_progress_for_students([r.id for r in records])
+        photo_urls = (
+            await self._signed_urls([r.photo_key for r in records if r.photo_key])
+            if include_photo
+            else {}
+        )
         items: list[AdminStudentItem] = []
         for r in records:
-            photo_url = await self._signed_url(r.photo_key)
             items.append(
                 AdminStudentItem(
                     id=r.id,
@@ -108,7 +132,8 @@ class AdminService:
                     name=r.name,
                     password=r.password,
                     gender=r.gender,
-                    photo_url=photo_url,
+                    photo_url=photo_urls.get(r.photo_key) if r.photo_key else None,
+                    has_photo=bool(r.photo_key),
                     consent_privacy=r.consent_privacy,
                     created_at=r.created_at,
                     progress=_to_progress(progress.get(r.id)),
@@ -120,6 +145,21 @@ class AdminService:
         """가입 학생이 있는 학교 목록 — 관리자 목록 화면의 학교 필터용."""
         return await self._students.list_schools()
 
+    async def get_class_progress(self, school: str) -> list[AdminClassProgress]:
+        """학교의 반별 진행 현황 — 좌석표가 학생을 받기 전에 학년·반 목록을 그리는 데 쓴다."""
+        rows: list[ClassProgressRow] = await self._students.get_class_progress(school)
+        return [
+            AdminClassProgress(
+                grade=r.grade,
+                class_no=r.class_no,
+                total=r.total,
+                completed=r.completed,
+                in_progress=r.in_progress,
+                not_started=r.not_started,
+            )
+            for r in rows
+        ]
+
     async def get_student_detail(self, student_id: UUID) -> AdminStudentDetail:
         """학생 상세 — 기본 정보 + 모든 세션(최신순) 답변·페르소나·카드."""
         student = await self._students.get_by_id(student_id)
@@ -127,6 +167,12 @@ class AdminService:
             raise NotFoundError("학생을 찾을 수 없습니다.")
 
         contents = await self._sessions.list_sessions_with_content(student_id)
+        # 카드 이미지와 학생 사진을 한 번의 클라이언트로 몰아서 서명한다.
+        sign_keys = [c.card_image_key for c in contents if c.card_image_key]
+        if student.photo_key:
+            sign_keys.append(student.photo_key)
+        signed = await self._signed_urls(sign_keys)
+
         sessions: list[AdminSessionDetail] = []
         for c in contents:
             sessions.append(
@@ -136,13 +182,11 @@ class AdminService:
                     created_at=c.created_at,
                     completed_at=c.completed_at,
                     answers=[
-                        AdminAnswer(
-                            stage=a.stage, payload=a.payload, created_at=a.created_at
-                        )
+                        AdminAnswer(stage=a.stage, payload=a.payload, created_at=a.created_at)
                         for a in c.answers
                     ],
                     persona=_to_persona_summary(c),
-                    card_image_url=await self._signed_url(c.card_image_key),
+                    card_image_url=(signed.get(c.card_image_key) if c.card_image_key else None),
                 )
             )
 
@@ -155,11 +199,18 @@ class AdminService:
             name=student.name,
             password=student.password,
             gender=student.gender,
-            photo_url=await self._signed_url(student.photo_key),
+            photo_url=signed.get(student.photo_key) if student.photo_key else None,
             consent_privacy=student.consent_privacy,
             created_at=student.created_at,
             sessions=sessions,
         )
+
+    async def get_student_photo_url(self, student_id: UUID) -> AdminStudentPhoto:
+        """학생 사진 URL 1건. 목록이 include_photo=false일 때 UI가 필요 시점에 부른다."""
+        student = await self._students.get_by_id(student_id)
+        if student is None:
+            raise NotFoundError("학생을 찾을 수 없습니다.")
+        return AdminStudentPhoto(photo_url=await self._signed_url(student.photo_key))
 
     async def _purge_student(self, student_id: UUID) -> tuple[bool, int]:
         """학생 1명 하드 삭제 + S3 정리. (삭제됨?, S3에서 지운 객체 수) 반환.
@@ -227,6 +278,4 @@ def _to_persona_summary(content: SessionContent) -> PersonaSummary | None:
     if content.persona is None:
         return None
     p = content.persona
-    return PersonaSummary(
-        name=p.name, tagline=p.tagline, keywords=p.keywords, fields=p.fields
-    )
+    return PersonaSummary(name=p.name, tagline=p.tagline, keywords=p.keywords, fields=p.fields)

@@ -172,6 +172,33 @@ async def test_student_detail_assembles_sessions() -> None:
     assert s.card_image_url is not None  # presigned URL 생성됨
 
 
+async def test_student_detail_signs_student_photo_alongside_card() -> None:
+    """photo_key(학생)와 card_image_key(세션)가 한 배치 서명 호출에 함께 실린다.
+
+    홍길동은 사진이 없으므로(_seed) 김영희를 쓴다 — 프런트의 StudentDetailDialog는
+    이제 상세 응답의 photo_url만 사진 출처로 읽으므로, 이 필드가 채워지지 않으면
+    다이얼로그의 사진 표시가 조용히 깨진다.
+    """
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await _seed(repo)
+    sessions = FakeSessionRepo()
+    student = next(r for r in repo._by_id.values() if r.name == "김영희")  # 사진 있음
+    now = datetime.now(UTC)
+    sessions.contents[student.id] = [
+        SessionContent(
+            id=uuid4(), status="completed", created_at=now, completed_at=now,
+            answers=[],
+            persona=None,
+            card_image_key="cards/y/card",
+        )
+    ]
+    detail = await _svc(repo, storage, sessions).get_student_detail(student.id)
+    # 학생 사진 키가 배치에 실려 서명됨.
+    assert detail.photo_url is not None
+    # 세션 카드 키도 같은 호출에서 함께 서명됨 — 둘 다 배치를 살아남는다.
+    assert detail.sessions[0].card_image_url is not None
+
+
 async def test_student_detail_missing_raises_not_found() -> None:
     repo, storage = FakeStudentRepo(), FakeStorage()
     try:
@@ -247,3 +274,142 @@ async def test_delete_student_survives_storage_failure() -> None:
     assert res.removed_storage_objects == 1
     assert storage.deleted == ["cards/a/card"]
     assert await repo.get_by_id(student.id) is None
+
+
+# --- include_photo 옵트아웃 -----------------------------------------------------
+
+
+async def test_list_students_include_photo_false_skips_signing():
+    repo = FakeStudentRepo()
+    storage = FakeStorage()
+    await _seed(repo)
+    svc = _svc(repo, storage)
+
+    res = await svc.list_students(
+        q=None,
+        school=None,
+        grade=None,
+        class_no=None,
+        limit=50,
+        offset=0,
+        include_photo=False,
+    )
+
+    # 서명을 한 번도 하지 않는다 — 이게 31초를 없애는 핵심이다.
+    assert storage.batch_sign_calls == 0
+    assert all(i.photo_url is None for i in res.items)
+    # 사진 유무는 has_photo로 여전히 알 수 있다.
+    assert {i.name: i.has_photo for i in res.items} == {"홍길동": False, "김영희": True}
+
+
+async def test_list_students_include_photo_default_keeps_urls():
+    repo = FakeStudentRepo()
+    storage = FakeStorage()
+    await _seed(repo)
+    svc = _svc(repo, storage)
+
+    res = await svc.list_students(
+        q=None, school=None, grade=None, class_no=None, limit=50, offset=0
+    )
+
+    # 기본값은 true — 외부 API 계약이 유지되어야 한다.
+    by_name = {i.name: i for i in res.items}
+    assert by_name["김영희"].photo_url is not None
+    assert by_name["김영희"].has_photo is True
+    assert by_name["홍길동"].photo_url is None
+    assert by_name["홍길동"].has_photo is False
+
+
+# --- 반별 진행 현황 집계 ---------------------------------------------------------
+
+
+async def test_get_class_progress_buckets_by_grade_and_class():
+    repo = FakeStudentRepo()
+    storage = FakeStorage()
+    a = await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="가",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    b = await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=2,
+        name="나",
+        password="p",
+        gender="female",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=3,
+        name="다",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=5,
+        student_no=1,
+        name="라",
+        password="p",
+        gender="female",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="다른고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="마",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    repo.progress_status[a.id] = "completed"
+    repo.progress_status[b.id] = "in_progress"
+    svc = _svc(repo, storage)
+
+    rows = await svc.get_class_progress("한마당고")
+
+    # 다른 학교는 섞이지 않고, (학년, 반) 오름차순으로 온다.
+    assert [(r.grade, r.class_no) for r in rows] == [(1, 1), (2, 5)]
+    assert rows[0].total == 3
+    assert rows[0].completed == 1
+    assert rows[0].in_progress == 1
+    assert rows[0].not_started == 1
+    assert rows[1].total == 1
+    assert rows[1].not_started == 1
+
+
+async def test_get_class_progress_counts_abandoned_as_in_progress():
+    repo = FakeStudentRepo()
+    storage = FakeStorage()
+    a = await repo.create(
+        school="한마당고",
+        grade=3,
+        class_no=2,
+        student_no=1,
+        name="가",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    repo.progress_status[a.id] = "abandoned"
+    svc = _svc(repo, storage)
+
+    rows = await svc.get_class_progress("한마당고")
+
+    # _to_progress와 같은 규칙 — 알 수 없는 상태는 진행중으로 수렴한다.
+    assert rows[0].in_progress == 1
+    assert rows[0].completed == 0

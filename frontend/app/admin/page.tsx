@@ -15,7 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { StudentDetailDialog } from "@/components/admin/StudentDetailDialog";
+import { StudentDetailSidebar } from "@/components/admin/StudentDetailSidebar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -46,23 +46,36 @@ import {
   ApiError,
   bulkDeleteAdminStudents,
   fetchAdminSchools,
+  fetchAdminStudentPhotoUrl,
   fetchAdminStudents,
   type AdminStudentItem,
 } from "@/lib/api";
 import { clearAdminToken, getAdminToken } from "@/lib/adminAuth";
 import { ProgressBadge } from "@/components/admin/ProgressBadge";
-import { genderLabel } from "@/lib/utils";
+import { cn, genderLabel } from "@/lib/utils";
 
 function StudentAvatar({
   student,
   revealed,
+  photoUrl,
+  loadFailed,
   onToggle,
+  onImageError,
 }: {
   student: AdminStudentItem;
   revealed: boolean;
+  // 펼친 뒤 따로 받아온 presigned URL. 아직 로딩 중이면 null.
+  photoUrl: string | null;
+  // 세션 만료가 아닌 사유로 URL 조회에 실패했거나, 캐시된 URL 자체가
+  // 만료되어 이미지 로드에 실패한 경우. 스켈레톤이 무한히 도는 것을 막고
+  // 실패했음을 알린다(재시도는 다음 접기/펼치기 때만 — 자동 재시도 없음).
+  loadFailed: boolean;
   onToggle: () => void;
+  // 렌더링된 <img>가 실제 로드에 실패했을 때(주로 presigned URL 만료 → 403).
+  // 캐시를 지워 다음에 펼칠 때 새 URL을 받아오게 하는 것은 호출부 책임이다.
+  onImageError: () => void;
 }) {
-  if (!student.photo_url) {
+  if (!student.has_photo) {
     return (
       <span className="grid size-10 place-items-center rounded-full bg-muted text-sm font-medium text-muted-foreground ring-1 ring-border">
         {student.name.slice(0, 1)}
@@ -72,21 +85,39 @@ function StudentAvatar({
   return (
     <button
       type="button"
-      aria-label={revealed ? `${student.name} 사진 숨기기` : `${student.name} 사진 보기`}
+      aria-label={
+        revealed && loadFailed
+          ? `${student.name} 사진을 불러오지 못했습니다`
+          : revealed
+            ? `${student.name} 사진 숨기기`
+            : `${student.name} 사진 보기`
+      }
       className="group relative block size-10 overflow-hidden rounded-full ring-1 ring-border"
       onClick={(e) => {
         e.stopPropagation();
         onToggle();
       }}
     >
-      {revealed ? (
+      {revealed && photoUrl ? (
         // 외부 presigned URL — next/image 도메인 설정 회피 위해 img 사용.
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={student.photo_url}
+          src={photoUrl}
           alt={student.name}
           className="size-full object-cover"
+          // 캐시된 URL이 만료되면(1시간) S3가 403을 주고 <img>가 깨진다. 이 시점에만
+          // 실패로 전환한다 — photoUrl이 사라지므로 같은 src로 onError가 반복
+          // 호출되며 무한 루프를 도는 일은 없다(다음 렌더에서 실패 분기로 빠짐).
+          onError={onImageError}
         />
+      ) : revealed && loadFailed ? (
+        // 조회 실패(세션 만료 제외) — 스켈레톤 대신 실패를 표시한다.
+        <span className="grid size-full place-items-center bg-destructive/10 text-destructive">
+          <AlertTriangle className="size-4" aria-hidden />
+        </span>
+      ) : revealed ? (
+        // 펼쳤지만 URL이 아직 안 온 상태.
+        <Skeleton className="size-full rounded-full" />
       ) : (
         <span className="grid size-full place-items-center bg-muted text-muted-foreground transition-colors group-hover:text-foreground">
           <ImageIcon className="size-4" aria-hidden />
@@ -135,6 +166,11 @@ export default function AdminStudentsPage() {
   const [loading, setLoading] = useState(true);
   const [revealed, setRevealed] = useState<Set<string>>(new Set());
   const [photoRevealed, setPhotoRevealed] = useState<Set<string>>(new Set());
+  // 펼친 학생의 사진 URL 캐시. 목록이 사진을 안 받으므로 클릭 시점에 1건씩 받는다.
+  const [photoUrls, setPhotoUrls] = useState<Map<string, string | null>>(new Map());
+  // 세션 만료가 아닌 사유로 사진 URL 조회에 실패한 학생. 스켈레톤이 무한히
+  // 도는 것을 막는 용도 — 401은 여기 담지 않고 로그인 화면으로 보낸다.
+  const [photoLoadFailed, setPhotoLoadFailed] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<AdminStudentItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
@@ -161,6 +197,8 @@ export default function AdminStudentsPage() {
         sort: sortKey,
         limit: pageSize,
         offset: page * pageSize,
+        // 아바타는 클릭해야 보이므로 목록에서는 사진을 받지 않는다(서명 50건 절약).
+        include_photo: false,
       });
       setTotal(res.total);
       // 삭제 등으로 현재 페이지가 범위를 벗어나면 첫 페이지로 되돌린다.
@@ -223,6 +261,38 @@ export default function AdminStudentsPage() {
       else next.add(id);
       return next;
     });
+    // 처음 펼치는 학생만 URL을 받아온다. 이미 받았으면 캐시를 쓴다.
+    if (photoRevealed.has(id) || photoUrls.has(id)) return;
+    const token = getAdminToken();
+    if (!token) return;
+    fetchAdminStudentPhotoUrl(token, id)
+      .then((url) => setPhotoUrls((prev) => new Map(prev).set(id, url)))
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          // 세션 만료 — 캐시하지 않는다. 재로그인 후 다시 펼치면 재시도된다.
+          clearAdminToken();
+          router.replace("/admin/login");
+          return;
+        }
+        // 그 외 실패(404·네트워크 오류 등)는 기존처럼 null로 캐시하되,
+        // 스켈레톤이 무한히 돌지 않도록 실패 표시를 함께 남긴다.
+        setPhotoUrls((prev) => new Map(prev).set(id, null));
+        setPhotoLoadFailed((prev) => new Set(prev).add(id));
+      });
+  }
+
+  // 렌더된 <img>가 실제로 로드에 실패했을 때(주로 presigned URL 만료 → S3 403).
+  // 캐시된 URL을 지워 다음 접기/펼치기에서 새 URL을 받아오게 하고, 그때까지는
+  // 조회 실패와 같은 실패 표시를 보여준다. photoUrl이 사라지면 <img> 자체가
+  // 더 이상 렌더되지 않으므로 onError가 재귀적으로 반복 호출되지 않는다.
+  function handlePhotoLoadError(id: string) {
+    setPhotoUrls((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+    setPhotoLoadFailed((prev) => new Set(prev).add(id));
   }
 
   function toggleCheck(id: string) {
@@ -277,7 +347,15 @@ export default function AdminStudentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40">
+    <div
+      className={cn(
+        "min-h-screen bg-muted/40 transition-[padding-right] duration-200 ease-in-out",
+        // 사이드바(36rem)가 내용을 가리지 않도록 오른쪽 여백을 확보해 밀어낸다.
+        // xl(1280px) 미만은 1280-576=704px밖에 안 남아 표가 더 좁아지므로,
+        // 그 구간은 기존처럼 사이드바가 내용 위에 겹쳐 보이게 둔다.
+        selected && "xl:pr-[36rem]"
+      )}
+    >
       <AdminHeader />
 
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-6">
@@ -518,7 +596,10 @@ export default function AdminStudentsPage() {
                       <StudentAvatar
                         student={s}
                         revealed={photoRevealed.has(s.id)}
+                        photoUrl={photoUrls.get(s.id) ?? null}
+                        loadFailed={photoLoadFailed.has(s.id)}
                         onToggle={() => togglePhoto(s.id)}
+                        onImageError={() => handlePhotoLoadError(s.id)}
                       />
                     </TableCell>
                     <TableCell className="font-medium">{s.name}</TableCell>
@@ -601,7 +682,7 @@ export default function AdminStudentsPage() {
         )}
       </main>
 
-      <StudentDetailDialog
+      <StudentDetailSidebar
         student={selected}
         onClose={() => setSelected(null)}
         onDeleted={() => {

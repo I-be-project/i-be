@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import cast
+
 from app.adapters.storage_client import StorageClient
 
 
@@ -85,3 +87,80 @@ async def test_delete_calls_delete_object_with_key():
     fake = _FakeS3()
     await _make(fake).delete("uploads/stud-1/a.jpg")
     assert fake.delete_calls[0] == {"Bucket": "test-bucket", "Key": "uploads/stud-1/a.jpg"}
+
+
+class _CountingFactory:
+    """클라이언트 생성 횟수를 세는 팩토리 — '한 번만 만드는지' 검증용."""
+
+    def __init__(self, fake: _FakeS3) -> None:
+        self.fake = fake
+        self.calls = 0
+
+    def __call__(self) -> _FakeS3:
+        self.calls += 1
+        return self.fake
+
+
+class _FlakyS3(_FakeS3):
+    """특정 key의 서명만 실패하는 fake."""
+
+    async def generate_presigned_url(self, operation: str, **kwargs: object) -> str:
+        params = cast(dict[str, str], kwargs["Params"])
+        if params["Key"] == "uploads/bad.jpg":
+            raise RuntimeError("서명 실패(테스트)")
+        return await super().generate_presigned_url(operation, **kwargs)
+
+
+def _make_counting(fake: _FakeS3) -> tuple[StorageClient, _CountingFactory]:
+    factory = _CountingFactory(fake)
+    client = StorageClient(
+        bucket="test-bucket",
+        region="ap-northeast-2",
+        access_key_id="AKIATEST",
+        secret_access_key="secretvalue",
+        prefix_uploads="uploads",
+        prefix_ai_images="ai-images",
+        prefix_cards="cards",
+        client_factory=factory,
+    )
+    return client, factory
+
+
+async def test_create_signed_urls_reuses_single_client():
+    fake = _FakeS3()
+    client, factory = _make_counting(fake)
+
+    urls = await client.create_signed_urls(
+        ["uploads/a.jpg", "uploads/b.jpg", "uploads/a.jpg"], ttl_seconds=600
+    )
+
+    assert urls == {
+        "uploads/a.jpg": "https://signed.example/get",
+        "uploads/b.jpg": "https://signed.example/get",
+    }
+    # 핵심: key가 3개여도 클라이언트는 한 번만 만든다.
+    assert factory.calls == 1
+    # 중복 key는 한 번만 서명한다.
+    assert len(fake.sign_calls) == 2
+    assert fake.sign_calls[0][0] == "get_object"
+    assert fake.sign_calls[0][1]["Params"] == {"Bucket": "test-bucket", "Key": "uploads/a.jpg"}
+    assert fake.sign_calls[0][1]["ExpiresIn"] == 600
+
+
+async def test_create_signed_urls_empty_creates_no_client():
+    fake = _FakeS3()
+    client, factory = _make_counting(fake)
+
+    assert await client.create_signed_urls([], ttl_seconds=600) == {}
+    assert factory.calls == 0
+
+
+async def test_create_signed_urls_skips_failing_key():
+    fake = _FlakyS3()
+    client, _ = _make_counting(fake)
+
+    urls = await client.create_signed_urls(["uploads/ok.jpg", "uploads/bad.jpg"], ttl_seconds=600)
+
+    # 실패한 key만 빠지고 나머지는 살아남는다.
+    assert "uploads/bad.jpg" not in urls
+    assert urls["uploads/ok.jpg"] == "https://signed.example/get"
