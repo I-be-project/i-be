@@ -153,6 +153,13 @@ export default function AdminSeatingPage() {
       // 그 요청이 나중에 도착했을 때 자기 세대 검사(requestId === current)를 통과해
       // 새 학교 화면 위에 이전 학교 학생 명단을 그대로 커밋해버린다.
       classStudentsRequestId.current += 1;
+      // 세대를 무효화한 요청은 이제 자기 자신의 응답을 반영하지 않으므로,
+      // finally에서도 requestId !== current라 로딩 플래그를 스스로 끄지 못한다.
+      // 새 학교의 반 학생 요청이 아예 발동하지 않는 경우(집계 실패·반 0개)를
+      // 대비해, 무효화하는 이 시점에 로딩 플래그도 함께 꺼준다. 새 요청이 바로
+      // 뒤이어 나가면 그 요청의 진입부가 setLoadingStudents(true)를 동기적으로
+      // 다시 세우므로 깜빡임 없이 정상적으로 로딩 표시가 이어진다.
+      setLoadingStudents(false);
       try {
         const rows = await fetchAdminClassProgress(token, target);
         if (requestId !== classProgressRequestId.current) return; // 더 새 요청에 밀림
