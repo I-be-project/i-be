@@ -291,3 +291,98 @@ async def test_list_students_include_photo_default_keeps_urls():
     assert by_name["김영희"].has_photo is True
     assert by_name["홍길동"].photo_url is None
     assert by_name["홍길동"].has_photo is False
+
+
+# --- 반별 진행 현황 집계 ---------------------------------------------------------
+
+
+async def test_get_class_progress_buckets_by_grade_and_class():
+    repo = FakeStudentRepo()
+    storage = FakeStorage()
+    a = await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="가",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    b = await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=2,
+        name="나",
+        password="p",
+        gender="female",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=3,
+        name="다",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=5,
+        student_no=1,
+        name="라",
+        password="p",
+        gender="female",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="다른고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="마",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    repo.progress_status[a.id] = "completed"
+    repo.progress_status[b.id] = "in_progress"
+    svc = _svc(repo, storage)
+
+    rows = await svc.get_class_progress("한마당고")
+
+    # 다른 학교는 섞이지 않고, (학년, 반) 오름차순으로 온다.
+    assert [(r.grade, r.class_no) for r in rows] == [(1, 1), (2, 5)]
+    assert rows[0].total == 3
+    assert rows[0].completed == 1
+    assert rows[0].in_progress == 1
+    assert rows[0].not_started == 1
+    assert rows[1].total == 1
+    assert rows[1].not_started == 1
+
+
+async def test_get_class_progress_counts_abandoned_as_in_progress():
+    repo = FakeStudentRepo()
+    storage = FakeStorage()
+    a = await repo.create(
+        school="한마당고",
+        grade=3,
+        class_no=2,
+        student_no=1,
+        name="가",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    repo.progress_status[a.id] = "abandoned"
+    svc = _svc(repo, storage)
+
+    rows = await svc.get_class_progress("한마당고")
+
+    # _to_progress와 같은 규칙 — 알 수 없는 상태는 진행중으로 수렴한다.
+    assert rows[0].in_progress == 1
+    assert rows[0].completed == 0

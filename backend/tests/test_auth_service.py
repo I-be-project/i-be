@@ -14,7 +14,7 @@ import pytest
 from app.config import get_settings
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from app.core.security import TokenKind, decode_token
-from app.repositories.student_repo import StudentRecord
+from app.repositories.student_repo import ClassProgressRow, StudentRecord
 from app.schemas.auth import LoginRequest, RegisterRequest
 from app.services.auth_service import AuthService
 
@@ -25,6 +25,9 @@ class FakeStudentRepo:
     def __init__(self) -> None:
         self._by_key: dict[tuple[str, int, int, int], StudentRecord] = {}
         self._by_id: dict[UUID, StudentRecord] = {}
+        # 집계 fake용 — 테스트가 학생별 최근 세션 상태를 직접 심는다.
+        # None(키 없음)=세션 없음, "completed"=완료, 그 외=진행중.
+        self.progress_status: dict[UUID, str] = {}
 
     @staticmethod
     def _key(school: str, grade: int, class_no: int, student_no: int) -> tuple[str, int, int, int]:
@@ -112,6 +115,35 @@ class FakeStudentRepo:
     async def list_schools(self) -> list[str]:
         schools = {r.school for r in self._by_id.values() if r.deleted_at is None}
         return sorted(schools)
+
+    async def get_class_progress(self, school: str) -> list[ClassProgressRow]:
+        buckets: dict[tuple[int, int], dict[str, int]] = {}
+        for r in self._by_id.values():
+            if r.deleted_at is not None or r.school != school:
+                continue
+            b = buckets.setdefault(
+                (r.grade, r.class_no),
+                {"total": 0, "completed": 0, "in_progress": 0, "not_started": 0},
+            )
+            b["total"] += 1
+            status = self.progress_status.get(r.id)
+            if status is None:
+                b["not_started"] += 1
+            elif status == "completed":
+                b["completed"] += 1
+            else:
+                b["in_progress"] += 1
+        return [
+            ClassProgressRow(
+                grade=g,
+                class_no=c,
+                total=b["total"],
+                completed=b["completed"],
+                in_progress=b["in_progress"],
+                not_started=b["not_started"],
+            )
+            for (g, c), b in sorted(buckets.items())
+        ]
 
     async def hard_delete(self, student_id: UUID) -> tuple[bool, str | None]:
         record = self._by_id.pop(student_id, None)

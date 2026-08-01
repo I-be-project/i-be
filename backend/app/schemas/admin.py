@@ -61,6 +61,17 @@ class AdminStudentList(BaseModel):
     items: list[AdminStudentItem]
 
 
+class AdminClassProgress(BaseModel):
+    """한 반의 진행 현황 집계 — 좌석표의 학년·반 선택과 완료 배지에 쓴다."""
+
+    grade: int
+    class_no: int
+    total: int
+    completed: int
+    in_progress: int
+    not_started: int
+
+
 class AdminAnswer(BaseModel):
     """세션에 저장된 단계별 답변 1건."""
 

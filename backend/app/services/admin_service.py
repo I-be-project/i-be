@@ -16,10 +16,11 @@ from app.repositories.session_repo import (
     SessionRepository,
     StudentProgressRow,
 )
-from app.repositories.student_repo import StudentRepository
+from app.repositories.student_repo import ClassProgressRow, StudentRepository
 from app.schemas.admin import (
     AdminAnswer,
     AdminBulkDeleteResponse,
+    AdminClassProgress,
     AdminDeleteResponse,
     AdminSessionDetail,
     AdminStudentDetail,
@@ -143,6 +144,21 @@ class AdminService:
     async def list_schools(self) -> list[str]:
         """가입 학생이 있는 학교 목록 — 관리자 목록 화면의 학교 필터용."""
         return await self._students.list_schools()
+
+    async def get_class_progress(self, school: str) -> list[AdminClassProgress]:
+        """학교의 반별 진행 현황 — 좌석표가 학생을 받기 전에 학년·반 목록을 그리는 데 쓴다."""
+        rows: list[ClassProgressRow] = await self._students.get_class_progress(school)
+        return [
+            AdminClassProgress(
+                grade=r.grade,
+                class_no=r.class_no,
+                total=r.total,
+                completed=r.completed,
+                in_progress=r.in_progress,
+                not_started=r.not_started,
+            )
+            for r in rows
+        ]
 
     async def get_student_detail(self, student_id: UUID) -> AdminStudentDetail:
         """학생 상세 — 기본 정보 + 모든 세션(최신순) 답변·페르소나·카드."""

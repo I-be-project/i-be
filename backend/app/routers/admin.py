@@ -10,6 +10,7 @@ from app.deps import AdminServiceDep, CurrentAdminDep
 from app.schemas.admin import (
     AdminBulkDeleteRequest,
     AdminBulkDeleteResponse,
+    AdminClassProgress,
     AdminDeleteResponse,
     AdminLoginRequest,
     AdminLoginResponse,
@@ -77,6 +78,19 @@ async def bulk_delete_students(
 ) -> AdminBulkDeleteResponse:
     """여러 학생을 한 번에 하드 삭제(DB cascade + S3 사진/카드 이미지)."""
     return await admin.delete_students(req.ids)
+
+
+@router.get("/progress/classes", response_model=list[AdminClassProgress])
+async def class_progress(
+    school: str,
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> list[AdminClassProgress]:
+    """학교의 반별 진행 현황 집계 — 좌석표의 학년·반 선택과 완료 배지용.
+
+    학생 개인정보를 내려보내지 않고 (학년, 반)별 카운트만 반환한다.
+    """
+    return await admin.get_class_progress(school)
 
 
 @router.get("/students/{student_id}", response_model=AdminStudentDetail)

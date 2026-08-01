@@ -455,3 +455,69 @@ async def test_student_photo_url_404_for_unknown_student() -> None:
         assert res.status_code == 404
     finally:
         await gen.aclose()
+
+
+async def test_class_progress_returns_rows_for_school() -> None:
+    app, repo, _, _ = _build()
+    a = await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="가",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=2,
+        name="나",
+        password="p",
+        gender="female",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="다른고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="다",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    repo.progress_status[a.id] = "completed"
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            "/api/admin/progress/classes?school=한마당고",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200
+        rows = res.json()
+        assert len(rows) == 1
+        assert rows[0] == {
+            "grade": 1,
+            "class_no": 1,
+            "total": 2,
+            "completed": 1,
+            "in_progress": 0,
+            "not_started": 1,
+        }
+    finally:
+        await gen.aclose()
+
+
+async def test_class_progress_requires_admin_token() -> None:
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get("/api/admin/progress/classes?school=한마당고")
+        assert res.status_code == 401
+    finally:
+        await gen.aclose()
