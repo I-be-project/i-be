@@ -9,11 +9,12 @@ import json
 from collections.abc import AsyncIterator
 from types import SimpleNamespace
 from typing import Any
+from uuid import uuid4
 
 import httpx
 import pytest
 
-from app.deps import get_ai_client
+from app.deps import current_student, get_ai_client
 from app.main import create_app
 
 # ──────────────────────────────────────────────────────────────
@@ -52,6 +53,8 @@ class _StubAIBadKey:
 def _build_app(stub_ai: Any) -> Any:
     app = create_app()
     app.dependency_overrides[get_ai_client] = lambda: stub_ai
+    # generate는 인증이 필요하다(AI 남용 방지). 로직 검증 테스트에서는 인증을 통과시킨다.
+    app.dependency_overrides[current_student] = lambda: uuid4()
     return app
 
 
@@ -130,5 +133,25 @@ async def test_ai_missing_stage_key_returns_502() -> None:
         res = await client.post("/api/generate/q7b", json=_BASE_BODY)
         assert res.status_code == 502, res.text
         assert res.json()["error"]["code"] == "external_service_error"
+    finally:
+        await gen.aclose()
+
+
+# ──────────────────────────────────────────────────────────────
+# Tests: 인증 필요 — 토큰 없으면 401
+# ──────────────────────────────────────────────────────────────
+
+
+async def test_generate_requires_auth() -> None:
+    """토큰(Authorization) 없이 호출하면 401 — AI(유료) 남용 방지."""
+    # current_student를 override하지 않아 실제 인증 의존성이 동작한다.
+    app = create_app()
+    app.dependency_overrides[get_ai_client] = lambda: _StubAI("q7b", {})
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post("/api/generate/q7b", json=_BASE_BODY)
+        assert res.status_code == 401, res.text
+        assert res.json()["error"]["code"] == "unauthorized"
     finally:
         await gen.aclose()

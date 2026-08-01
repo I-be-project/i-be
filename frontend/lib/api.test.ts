@@ -143,7 +143,7 @@ describe("request 타임아웃", () => {
     vi.useFakeTimers();
     vi.stubGlobal("fetch", hangingFetch());
 
-    const p = generateStage("q8", {});
+    const p = generateStage("tok", "q8", {});
     let settled = false;
     p.catch(() => {
       settled = true;

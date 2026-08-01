@@ -199,6 +199,15 @@ export function loginStudent(payload: LoginPayload): Promise<AuthResponse> {
   });
 }
 
+// POST /api/auth/refresh — 아직 유효한 토큰을 같은 학생의 새 토큰(만료 6h 갱신)으로 교환.
+// 설문 도중 만료를 예방하는 데 쓴다. 이미 만료·무효인 토큰이면 401(→ 갱신 불가, 재로그인 필요).
+export function refreshStudentToken(token: string): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/auth/refresh", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export function getMyProfile(token: string): Promise<ProfileSummary> {
   return request<ProfileSummary>("/api/students/me", {
     method: "GET",
@@ -433,15 +442,20 @@ export function bulkDeleteAdminStudents(
 // 반환값은 단계명을 키로 갖는 파싱된 JSON (예: { q7b: {...} }).
 // 호출 측에서 (json as { q7b: Q7BData }).q7b 형태로 캐스팅한다.
 export function generateStage(
+  token: string,
   stage: "q7b" | "q8" | "q9",
   input: Record<string, unknown>
 ): Promise<unknown> {
   // LLM 생성은 정상적으로 수십 초가 걸릴 수 있어 기본 20초보다 넉넉한 상한을 준다.
+  // 인증 필요: AI(유료) 남용 방지를 위해 학생 토큰을 요구한다.
   return request<unknown>(
     `/api/generate/${stage}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(input),
     },
     60_000
