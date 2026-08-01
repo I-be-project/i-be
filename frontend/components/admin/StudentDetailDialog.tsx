@@ -245,13 +245,15 @@ export function StudentDetailDialog({
       <DialogContent className="max-h-[90vh] gap-0 overflow-y-auto p-0 sm:max-w-3xl">
         {student && (
           <>
-            {/* 사진 헤더 */}
+            {/* 사진 헤더 — 목록은 사진 URL을 받지 않으므로 상세 응답에서 읽는다. */}
             <div className="relative flex h-64 items-center justify-center bg-muted">
-              {student.photo_url ? (
+              {loadingDetail ? (
+                <Skeleton className="size-full rounded-none" />
+              ) : detail?.photo_url ? (
                 // 외부 presigned URL — next/image 도메인 설정 회피 위해 img 사용.
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={student.photo_url}
+                  src={detail.photo_url}
                   alt={`${student.name} 사진`}
                   className="size-full object-cover"
                 />
