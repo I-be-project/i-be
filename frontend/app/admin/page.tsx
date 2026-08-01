@@ -52,7 +52,7 @@ import {
 } from "@/lib/api";
 import { clearAdminToken, getAdminToken } from "@/lib/adminAuth";
 import { ProgressBadge } from "@/components/admin/ProgressBadge";
-import { genderLabel } from "@/lib/utils";
+import { cn, genderLabel } from "@/lib/utils";
 
 function StudentAvatar({
   student,
@@ -347,7 +347,15 @@ export default function AdminStudentsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-muted/40">
+    <div
+      className={cn(
+        "min-h-screen bg-muted/40 transition-[padding-right] duration-200 ease-in-out",
+        // 사이드바(36rem)가 내용을 가리지 않도록 오른쪽 여백을 확보해 밀어낸다.
+        // xl(1280px) 미만은 1280-576=704px밖에 안 남아 표가 더 좁아지므로,
+        // 그 구간은 기존처럼 사이드바가 내용 위에 겹쳐 보이게 둔다.
+        selected && "xl:pr-[36rem]"
+      )}
+    >
       <AdminHeader />
 
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-6">
