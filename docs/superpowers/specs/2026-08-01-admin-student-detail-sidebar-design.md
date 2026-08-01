@@ -57,6 +57,13 @@ CSS 특이도에서 밀린다. `data-[side=right]:sm:max-w-xl`로 접두사를 �
 비모달 + 오버레이 제거로 뒤의 목록·좌석표가 계속 클릭된다. 다른 학생을 누르면
 사이드바가 닫히지 않고 내용만 교체된다.
 
+**바깥 클릭으로는 닫지 않는다.** 비모달에서는 뒤 화면 클릭이 페이지에 전달되면서 동시에
+`outside-press` 닫힘 사유도 발생한다. 그대로 두면 다른 학생을 고르는 클릭이 사이드바를 닫는
+동작과 경쟁한다. `@base-ui/react`가 `onOpenChange`에 넘기는 `details.reason`
+(`'outside-press' | 'escape-key' | 'close-press' | 'focus-out' | …`,
+`node_modules/@base-ui/react/utils/reason-parts.js`)에서 `outside-press`와 `focus-out`을
+걸러내고, 닫기는 ESC와 × 버튼으로만 한다.
+
 이 전환은 이미 안전하다. `detail?.id !== student.id` 가드
 (`components/admin/StudentDetailDialog.tsx:255`, 2026-08-01 성능 개선 작업에서 추가)가
 정확히 이 경우를 덮어, 새 학생 이름 옆에 이전 학생 사진이 한 프레임도 보이지 않는다.
