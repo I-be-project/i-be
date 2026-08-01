@@ -287,7 +287,10 @@ export function StudentDetailSidebar({
                 <img
                   src={detail.photo_url}
                   alt={`${student.name} 사진`}
-                  className="size-full object-contain"
+                  // absolute + inset-0으로 흐름에서 빼야 한다 — size-full만 쓰면
+                  // 세로가 긴 사진(예: 3:4 인물사진)에서 img의 auto 높이가 정사각 틀의
+                  // 콘텐츠 기반 최소 높이로 반영되어 aspect-square를 밀어낸다.
+                  className="absolute inset-0 size-full object-contain"
                 />
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
