@@ -362,7 +362,9 @@ export function StudentDetailSidebar({
                 <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   결과 · 내용
                 </h3>
-                {loadingDetail || detail?.id !== student.id ? (
+                {detailError ? (
+                  <p className="text-sm text-destructive">{detailError}</p>
+                ) : loadingDetail || detail?.id !== student.id ? (
                   // 사진 틀과 동일한 조건 — student prop이 바뀐 첫 렌더에는
                   // useEffect의 초기화(setDetail(null) 등)가 아직 실행되기 전이라
                   // detail이 이전 학생 것일 수 있다. 그대로 두면 새 이름 아래에
@@ -371,8 +373,6 @@ export function StudentDetailSidebar({
                     <Skeleton className="h-20 w-full rounded-lg" />
                     <Skeleton className="h-16 w-full rounded-lg" />
                   </div>
-                ) : detailError ? (
-                  <p className="text-sm text-destructive">{detailError}</p>
                 ) : detail && detail.sessions.length > 0 ? (
                   <div className="space-y-3">
                     {detail.sessions.map((s) => (
