@@ -15,7 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { StudentDetailDialog } from "@/components/admin/StudentDetailDialog";
+import { StudentDetailSidebar } from "@/components/admin/StudentDetailSidebar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -674,7 +674,7 @@ export default function AdminStudentsPage() {
         )}
       </main>
 
-      <StudentDetailDialog
+      <StudentDetailSidebar
         student={selected}
         onClose={() => setSelected(null)}
         onDeleted={() => {

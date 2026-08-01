@@ -4,7 +4,7 @@ import { Inbox, School } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { StudentDetailDialog } from "@/components/admin/StudentDetailDialog";
+import { StudentDetailSidebar } from "@/components/admin/StudentDetailSidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ApiError,
@@ -467,7 +467,7 @@ export default function AdminSeatingPage() {
         </div>
       </main>
 
-      <StudentDetailDialog
+      <StudentDetailSidebar
         student={selected}
         onClose={() => setSelected(null)}
         onDeleted={() => {

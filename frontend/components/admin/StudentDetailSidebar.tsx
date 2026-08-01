@@ -158,7 +158,7 @@ function SessionBlock({ session }: { session: AdminSessionDetail }) {
   );
 }
 
-export function StudentDetailDialog({
+export function StudentDetailSidebar({
   student,
   onClose,
   onDeleted,
