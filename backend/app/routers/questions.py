@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter
 
 from app.deps import AIClientDep
@@ -12,7 +14,7 @@ router = APIRouter(prefix="/api/generate", tags=["questions"])
 
 
 @router.post("/{stage}")
-async def generate(stage: str, body: GenerateInput, ai: AIClientDep) -> dict:
+async def generate(stage: str, body: GenerateInput, ai: AIClientDep) -> dict[str, Any]:
     """stage에 맞는 질문 후보를 AI로 생성해 raw JSON dict를 반환한다.
 
     stage ∈ {q7b, q8, q9}.

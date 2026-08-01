@@ -77,16 +77,16 @@ def decode_token(
     settings: Settings,
 ) -> dict[str, Any]:
     """토큰 검증 후 payload 반환. 실패 시 jwt.PyJWTError 계열 예외 발생."""
-    options = {"require": ["iss", "iat", "kind"]}
+    require = ["iss", "iat", "kind"]
     if expected_kind is not TokenKind.CARD_SHARE:
-        options["require"].append("exp")
+        require.append("exp")
 
     payload: dict[str, Any] = jwt.decode(
         token,
         _secret_for(expected_kind, settings),
         algorithms=["HS256"],
         issuer=settings.jwt_issuer,
-        options=options,
+        options={"require": require},
     )
 
     if payload.get("kind") != expected_kind.value:

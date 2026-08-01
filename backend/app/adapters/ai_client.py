@@ -17,10 +17,11 @@ import base64
 from collections.abc import Awaitable, Callable
 from enum import StrEnum
 from math import gcd
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from app.config import Settings
 from app.core.errors import ExternalServiceError
@@ -180,7 +181,9 @@ class AIClient:
         client = self._get_chat()
         return await client.chat.completions.create(
             model=self._models[purpose],
-            messages=messages,
+            # SDK는 role별 TypedDict를 요구하지만 프롬프트 빌더는 평범한 dict를 만든다.
+            # 런타임 표현이 동일하므로 캐스팅만 한다.
+            messages=cast("list[ChatCompletionMessageParam]", messages),
             **kwargs,
         )
 
