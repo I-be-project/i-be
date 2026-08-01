@@ -2,7 +2,7 @@
 
 import { Inbox, School } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { StudentDetailDialog } from "@/components/admin/StudentDetailDialog";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -102,6 +102,11 @@ export default function AdminSeatingPage() {
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AdminStudentItem | null>(null);
 
+  // 응답이 요청 순서대로 도착한다는 보장이 없다. 각 로더마다 "가장 마지막에 시작된
+  // 요청" 번호만 기억해, 뒤늦게 도착한 옛 요청이 이후 상태를 덮어쓰지 못하게 막는다.
+  const classProgressRequestId = useRef(0);
+  const classStudentsRequestId = useRef(0);
+
   // 학교 목록 로드 — 마운트 시 1회.
   useEffect(() => {
     const token = getAdminToken();
@@ -128,12 +133,17 @@ export default function AdminSeatingPage() {
         router.replace("/admin/login");
         return;
       }
+      // 이 호출을 "가장 최근 요청"으로 등록. 이후 이 값과 어긋나면 뒤따라온 더 새
+      // 요청이 이미 있다는 뜻이므로 이 호출의 응답은 화면에 반영하지 않는다.
+      const requestId = ++classProgressRequestId.current;
       setLoadingClasses(true);
       // 이전 학교의 집계·학생이 남아 있으면 새 학교 + 옛 반 조합으로 헛요청이 나간다.
       setClassProgress([]);
       setClassStudents([]);
       try {
-        setClassProgress(await fetchAdminClassProgress(token, target));
+        const rows = await fetchAdminClassProgress(token, target);
+        if (requestId !== classProgressRequestId.current) return; // 더 새 요청에 밀림
+        setClassProgress(rows);
         setError(null);
       } catch (err) {
         if (err instanceof ApiError && err.status === 401) {
@@ -141,12 +151,14 @@ export default function AdminSeatingPage() {
           router.replace("/admin/login");
           return;
         }
+        if (requestId !== classProgressRequestId.current) return; // 더 새 요청에 밀림
         setClassProgress([]);
         setError(
           err instanceof ApiError ? err.message : "진행 현황을 불러오지 못했습니다."
         );
       } finally {
-        setLoadingClasses(false);
+        // 더 새 요청이 이미 자기 로딩 상태를 관리 중이므로 여기서 꺼버리면 안 된다.
+        if (requestId === classProgressRequestId.current) setLoadingClasses(false);
       }
     },
     [router]
@@ -159,6 +171,8 @@ export default function AdminSeatingPage() {
         router.replace("/admin/login");
         return;
       }
+      // 반을 빠르게 연속 클릭하면 두 요청이 겹칠 수 있다 — 마지막 요청만 반영한다.
+      const requestId = ++classStudentsRequestId.current;
       setLoadingStudents(true);
       try {
         const res = await fetchAdminStudents(token, {
@@ -171,6 +185,7 @@ export default function AdminSeatingPage() {
           // 격자는 번호·이름·상태만 그린다 — 사진 서명은 낭비다.
           include_photo: false,
         });
+        if (requestId !== classStudentsRequestId.current) return; // 더 새 요청에 밀림
         setClassStudents(res.items);
         setError(null);
       } catch (err) {
@@ -179,12 +194,14 @@ export default function AdminSeatingPage() {
           router.replace("/admin/login");
           return;
         }
+        if (requestId !== classStudentsRequestId.current) return; // 더 새 요청에 밀림
         setClassStudents([]);
         setError(
           err instanceof ApiError ? err.message : "목록을 불러오지 못했습니다."
         );
       } finally {
-        setLoadingStudents(false);
+        // 더 새 요청이 이미 자기 로딩 상태를 관리 중이므로 여기서 꺼버리면 안 된다.
+        if (requestId === classStudentsRequestId.current) setLoadingStudents(false);
       }
     },
     [router]
@@ -226,11 +243,20 @@ export default function AdminSeatingPage() {
   }, [classRows, classNo]);
 
   // 학교·학년·반이 모두 정해지면 그 반의 학생만 불러온다.
+  // 단, 그 조합이 현재 학교의 집계(classProgress)에 실제로 존재할 때만 요청한다 —
+  // 학교를 막 바꿔 학년·반이 아직 이전 학교 값 그대로인 순간에는 이 조건이 거짓이라
+  // 헛요청 자체가 나가지 않는다(집계가 갱신되면 grade·classNo 보정 effect가 유효한
+  // 값으로 고쳐주고, 그때 이 effect가 다시 발화한다).
   useEffect(() => {
-    if (school && grade !== null && classNo !== null) {
+    if (
+      school &&
+      grade !== null &&
+      classNo !== null &&
+      classProgress.some((r) => r.grade === grade && r.class_no === classNo)
+    ) {
       loadClassStudents(school, grade, classNo);
     }
-  }, [school, grade, classNo, loadClassStudents]);
+  }, [school, grade, classNo, classProgress, loadClassStudents]);
 
   const byNo = useMemo(() => {
     const map = new Map<number, AdminStudentItem>();
