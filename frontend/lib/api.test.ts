@@ -3,7 +3,10 @@ import {
   bulkDeleteAdminStudents,
   completeSurvey,
   deleteAdminStudent,
+  fetchAdminClassProgress,
   fetchAdminStudentDetail,
+  fetchAdminStudentPhotoUrl,
+  fetchAdminStudents,
   generateStage,
   saveAnswer,
 } from "@/lib/api";
@@ -168,5 +171,76 @@ describe("request 타임아웃", () => {
       status: 0,
       message: expect.stringContaining("연결"),
     });
+  });
+});
+
+describe("fetchAdminClassProgress", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("GETs /api/admin/progress/classes with school query", async () => {
+    const rows = [
+      { grade: 1, class_no: 1, total: 3, completed: 1, in_progress: 1, not_started: 1 },
+    ];
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(rows), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await fetchAdminClassProgress("tok123", "한마당고");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe(
+      `http://localhost:8000/api/admin/progress/classes?school=${encodeURIComponent("한마당고")}`,
+    );
+    expect(init.headers.Authorization).toBe("Bearer tok123");
+    expect(res[0].completed).toBe(1);
+  });
+});
+
+describe("fetchAdminStudentPhotoUrl", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("GETs the photo-url endpoint and unwraps photo_url", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ photo_url: "https://signed/x" }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const url = await fetchAdminStudentPhotoUrl("tok123", "s1");
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "http://localhost:8000/api/admin/students/s1/photo-url",
+    );
+    expect(url).toBe("https://signed/x");
+  });
+});
+
+describe("fetchAdminStudents include_photo", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("passes include_photo=false through to the query string", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ total: 0, items: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchAdminStudents("tok123", { school: "한마당고", include_photo: false });
+
+    const url = fetchMock.mock.calls[0][0] as string;
+    expect(url).toContain("include_photo=false");
+  });
+
+  it("omits include_photo when not given", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ total: 0, items: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await fetchAdminStudents("tok123", { school: "한마당고" });
+
+    expect(fetchMock.mock.calls[0][0] as string).not.toContain("include_photo");
   });
 });
