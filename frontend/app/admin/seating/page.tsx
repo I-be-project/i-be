@@ -140,6 +140,10 @@ export default function AdminSeatingPage() {
       // 이전 학교의 집계·학생이 남아 있으면 새 학교 + 옛 반 조합으로 헛요청이 나간다.
       setClassProgress([]);
       setClassStudents([]);
+      // 이전 학교에 대해 이미 날아간 반 학생 요청이 있다면 무효화한다. 그대로 두면
+      // 그 요청이 나중에 도착했을 때 자기 세대 검사(requestId === current)를 통과해
+      // 새 학교 화면 위에 이전 학교 학생 명단을 그대로 커밋해버린다.
+      classStudentsRequestId.current += 1;
       try {
         const rows = await fetchAdminClassProgress(token, target);
         if (requestId !== classProgressRequestId.current) return; // 더 새 요청에 밀림
