@@ -330,3 +330,61 @@ async def test_delete_student_removes_and_requires_token() -> None:
         assert res.json()["total"] == 0
     finally:
         await gen.aclose()
+
+
+async def test_list_students_include_photo_false_returns_null_urls() -> None:
+    app, repo, storage, _ = _build()
+    student = await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="김영희",
+        password="20110202",
+        gender="female",
+        consent_privacy=True,
+    )
+    await repo.update_photo_key(student.id, "uploads/photos/x/photo")
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            "/api/admin/students?include_photo=false",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200
+        item = res.json()["items"][0]
+        assert item["photo_url"] is None
+        assert item["has_photo"] is True
+        assert storage.batch_sign_calls == 0
+    finally:
+        await gen.aclose()
+
+
+async def test_list_students_default_includes_photo_url() -> None:
+    app, repo, _, _ = _build()
+    student = await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="김영희",
+        password="20110202",
+        gender="female",
+        consent_privacy=True,
+    )
+    await repo.update_photo_key(student.id, "uploads/photos/x/photo")
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get(
+            "/api/admin/students",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200
+        item = res.json()["items"][0]
+        # 외부 계약: 파라미터 없이 부르면 photo_url이 그대로 온다.
+        assert item["photo_url"] is not None
+        assert item["has_photo"] is True
+    finally:
+        await gen.aclose()

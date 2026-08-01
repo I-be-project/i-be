@@ -247,3 +247,47 @@ async def test_delete_student_survives_storage_failure() -> None:
     assert res.removed_storage_objects == 1
     assert storage.deleted == ["cards/a/card"]
     assert await repo.get_by_id(student.id) is None
+
+
+# --- include_photo 옵트아웃 -----------------------------------------------------
+
+
+async def test_list_students_include_photo_false_skips_signing():
+    repo = FakeStudentRepo()
+    storage = FakeStorage()
+    await _seed(repo)
+    svc = _svc(repo, storage)
+
+    res = await svc.list_students(
+        q=None,
+        school=None,
+        grade=None,
+        class_no=None,
+        limit=50,
+        offset=0,
+        include_photo=False,
+    )
+
+    # 서명을 한 번도 하지 않는다 — 이게 31초를 없애는 핵심이다.
+    assert storage.batch_sign_calls == 0
+    assert all(i.photo_url is None for i in res.items)
+    # 사진 유무는 has_photo로 여전히 알 수 있다.
+    assert {i.name: i.has_photo for i in res.items} == {"홍길동": False, "김영희": True}
+
+
+async def test_list_students_include_photo_default_keeps_urls():
+    repo = FakeStudentRepo()
+    storage = FakeStorage()
+    await _seed(repo)
+    svc = _svc(repo, storage)
+
+    res = await svc.list_students(
+        q=None, school=None, grade=None, class_no=None, limit=50, offset=0
+    )
+
+    # 기본값은 true — 외부 API 계약이 유지되어야 한다.
+    by_name = {i.name: i for i in res.items}
+    assert by_name["김영희"].photo_url is not None
+    assert by_name["김영희"].has_photo is True
+    assert by_name["홍길동"].photo_url is None
+    assert by_name["홍길동"].has_photo is False

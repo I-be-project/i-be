@@ -95,7 +95,14 @@ class AdminService:
         limit: int,
         offset: int,
         sort: str | None = None,
+        include_photo: bool = True,
     ) -> AdminStudentList:
+        """관리자 목록.
+
+        include_photo 기본값이 true인 이유: 이 응답의 photo_url은 외부에 공개된
+        계약이다(docs/2026-07-31-admin-api-usage.md, scripts/export_students.py).
+        사진을 쓰지 않는 관리자 UI만 false로 호출해 서명 비용을 건너뛴다.
+        """
         total, records = await self._students.list_students(
             q=q,
             school=school,
@@ -106,7 +113,11 @@ class AdminService:
             sort=sort,
         )
         progress = await self._sessions.get_progress_for_students([r.id for r in records])
-        photo_urls = await self._signed_urls([r.photo_key for r in records if r.photo_key])
+        photo_urls = (
+            await self._signed_urls([r.photo_key for r in records if r.photo_key])
+            if include_photo
+            else {}
+        )
         items: list[AdminStudentItem] = []
         for r in records:
             items.append(
@@ -120,6 +131,7 @@ class AdminService:
                     password=r.password,
                     gender=r.gender,
                     photo_url=photo_urls.get(r.photo_key) if r.photo_key else None,
+                    has_photo=bool(r.photo_key),
                     consent_privacy=r.consent_privacy,
                     created_at=r.created_at,
                     progress=_to_progress(progress.get(r.id)),

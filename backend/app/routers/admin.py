@@ -38,8 +38,13 @@ async def list_students(
     limit: int = 50,
     offset: int = 0,
     sort: AdminStudentSort | None = None,
+    include_photo: bool = True,
 ) -> AdminStudentList:
-    """가입한 모든 학생 목록 — 검색/필터/정렬/페이지네이션, 사진 presigned URL 포함."""
+    """가입한 모든 학생 목록 — 검색/필터/정렬/페이지네이션, 사진 presigned URL 포함.
+
+    include_photo=false면 사진 서명을 건너뛰어 훨씬 빠르다(사진이 필요 없는 관리자 UI용).
+    기본값 true는 외부 공개 계약이므로 바꾸지 않는다.
+    """
     return await admin.list_students(
         q=q,
         school=school,
@@ -48,6 +53,7 @@ async def list_students(
         limit=limit,
         offset=offset,
         sort=sort,
+        include_photo=include_photo,
     )
 
 
