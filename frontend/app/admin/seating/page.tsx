@@ -120,9 +120,18 @@ export default function AdminSeatingPage() {
         // 학교가 하나도 없으면 집계 로드가 일어나지 않으므로 여기서 로딩 종료.
         if (list.length === 0) setLoadingClasses(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        if (err instanceof ApiError && err.status === 401) {
+          clearAdminToken();
+          router.replace("/admin/login");
+          return;
+        }
+        // 조용히 빈 목록으로 넘기면 "학교가 없다"로 오독된다 — 에러를 드러낸다.
         setSchools([]);
         setLoadingClasses(false);
+        setError(
+          err instanceof ApiError ? err.message : "학교 목록을 불러오지 못했습니다."
+        );
       });
   }, [router]);
 
