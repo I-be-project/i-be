@@ -60,15 +60,20 @@ function StudentAvatar({
   photoUrl,
   loadFailed,
   onToggle,
+  onImageError,
 }: {
   student: AdminStudentItem;
   revealed: boolean;
   // 펼친 뒤 따로 받아온 presigned URL. 아직 로딩 중이면 null.
   photoUrl: string | null;
-  // 세션 만료가 아닌 사유로 URL 조회에 실패한 경우. 스켈레톤이 무한히
-  // 도는 것을 막고 실패했음을 알린다(재시도는 하지 않음 — 캐시된 실패).
+  // 세션 만료가 아닌 사유로 URL 조회에 실패했거나, 캐시된 URL 자체가
+  // 만료되어 이미지 로드에 실패한 경우. 스켈레톤이 무한히 도는 것을 막고
+  // 실패했음을 알린다(재시도는 다음 접기/펼치기 때만 — 자동 재시도 없음).
   loadFailed: boolean;
   onToggle: () => void;
+  // 렌더링된 <img>가 실제 로드에 실패했을 때(주로 presigned URL 만료 → 403).
+  // 캐시를 지워 다음에 펼칠 때 새 URL을 받아오게 하는 것은 호출부 책임이다.
+  onImageError: () => void;
 }) {
   if (!student.has_photo) {
     return (
@@ -100,6 +105,10 @@ function StudentAvatar({
           src={photoUrl}
           alt={student.name}
           className="size-full object-cover"
+          // 캐시된 URL이 만료되면(1시간) S3가 403을 주고 <img>가 깨진다. 이 시점에만
+          // 실패로 전환한다 — photoUrl이 사라지므로 같은 src로 onError가 반복
+          // 호출되며 무한 루프를 도는 일은 없다(다음 렌더에서 실패 분기로 빠짐).
+          onError={onImageError}
         />
       ) : revealed && loadFailed ? (
         // 조회 실패(세션 만료 제외) — 스켈레톤 대신 실패를 표시한다.
@@ -270,6 +279,20 @@ export default function AdminStudentsPage() {
         setPhotoUrls((prev) => new Map(prev).set(id, null));
         setPhotoLoadFailed((prev) => new Set(prev).add(id));
       });
+  }
+
+  // 렌더된 <img>가 실제로 로드에 실패했을 때(주로 presigned URL 만료 → S3 403).
+  // 캐시된 URL을 지워 다음 접기/펼치기에서 새 URL을 받아오게 하고, 그때까지는
+  // 조회 실패와 같은 실패 표시를 보여준다. photoUrl이 사라지면 <img> 자체가
+  // 더 이상 렌더되지 않으므로 onError가 재귀적으로 반복 호출되지 않는다.
+  function handlePhotoLoadError(id: string) {
+    setPhotoUrls((prev) => {
+      if (!prev.has(id)) return prev;
+      const next = new Map(prev);
+      next.delete(id);
+      return next;
+    });
+    setPhotoLoadFailed((prev) => new Set(prev).add(id));
   }
 
   function toggleCheck(id: string) {
@@ -568,6 +591,7 @@ export default function AdminStudentsPage() {
                         photoUrl={photoUrls.get(s.id) ?? null}
                         loadFailed={photoLoadFailed.has(s.id)}
                         onToggle={() => togglePhoto(s.id)}
+                        onImageError={() => handlePhotoLoadError(s.id)}
                       />
                     </TableCell>
                     <TableCell className="font-medium">{s.name}</TableCell>
