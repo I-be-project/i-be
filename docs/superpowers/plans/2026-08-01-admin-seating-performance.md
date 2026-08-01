@@ -422,27 +422,22 @@ Expected: PASS
 
 - [ ] **Step 6: 라우터 테스트를 작성한다**
 
-`backend/tests/test_admin_router.py` 파일 끝에 추가한다. 파일 상단의 `_build`/`_client` 헬퍼와 기존 테스트의 토큰 발급 방식을 그대로 따른다.
+`backend/tests/test_admin_router.py` 파일 끝에 추가한다. 파일에 이미 있는 `_build`·`_client`·`_admin_token` 헬퍼를 쓴다 — 토큰 생성 코드를 테스트마다 복붙하지 않는다.
 
 ```python
 async def test_list_students_include_photo_false_returns_null_urls() -> None:
-    settings = get_settings()
     app, repo, storage, _ = _build()
     student = await repo.create(
         school="한마당고", grade=1, class_no=1, student_no=1,
         name="김영희", password="20110202", gender="female", consent_privacy=True,
     )
     await repo.update_photo_key(student.id, "uploads/photos/x/photo")
-    token = create_token(
-        kind=TokenKind.ADMIN, subject=settings.admin_username,
-        ttl=timedelta(hours=1), settings=settings,
-    )
     gen = _client(app)
     client = await anext(gen)
     try:
         res = await client.get(
             "/api/admin/students?include_photo=false",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
         )
         assert res.status_code == 200
         item = res.json()["items"][0]
@@ -454,22 +449,18 @@ async def test_list_students_include_photo_false_returns_null_urls() -> None:
 
 
 async def test_list_students_default_includes_photo_url() -> None:
-    settings = get_settings()
     app, repo, _, _ = _build()
     student = await repo.create(
         school="한마당고", grade=1, class_no=1, student_no=1,
         name="김영희", password="20110202", gender="female", consent_privacy=True,
     )
     await repo.update_photo_key(student.id, "uploads/photos/x/photo")
-    token = create_token(
-        kind=TokenKind.ADMIN, subject=settings.admin_username,
-        ttl=timedelta(hours=1), settings=settings,
-    )
     gen = _client(app)
     client = await anext(gen)
     try:
         res = await client.get(
-            "/api/admin/students", headers={"Authorization": f"Bearer {token}"}
+            "/api/admin/students",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
         )
         assert res.status_code == 200
         item = res.json()["items"][0]
@@ -479,8 +470,6 @@ async def test_list_students_default_includes_photo_url() -> None:
     finally:
         await gen.aclose()
 ```
-
-파일 상단 import에 `from datetime import timedelta`가 없으면 추가한다.
 
 - [ ] **Step 7: 라우터에 쿼리 파라미터를 추가한다**
 
@@ -540,25 +529,22 @@ git commit -m "feat: 관리자 목록 API에 사진 서명 생략 옵션(include
 
 `backend/tests/test_admin_router.py` 파일 끝에 추가한다.
 
+기존 `_build`·`_client`·`_admin_token` 헬퍼를 쓴다.
+
 ```python
 async def test_student_photo_url_returns_signed_url() -> None:
-    settings = get_settings()
     app, repo, _, _ = _build()
     student = await repo.create(
         school="한마당고", grade=1, class_no=1, student_no=1,
         name="김영희", password="20110202", gender="female", consent_privacy=True,
     )
     await repo.update_photo_key(student.id, "uploads/photos/x/photo")
-    token = create_token(
-        kind=TokenKind.ADMIN, subject=settings.admin_username,
-        ttl=timedelta(hours=1), settings=settings,
-    )
     gen = _client(app)
     client = await anext(gen)
     try:
         res = await client.get(
             f"/api/admin/students/{student.id}/photo-url",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
         )
         assert res.status_code == 200
         assert res.json()["photo_url"].startswith("https://signed.example/")
@@ -567,22 +553,17 @@ async def test_student_photo_url_returns_signed_url() -> None:
 
 
 async def test_student_photo_url_null_when_no_photo() -> None:
-    settings = get_settings()
     app, repo, _, _ = _build()
     student = await repo.create(
         school="한마당고", grade=1, class_no=1, student_no=2,
         name="홍길동", password="20100101", gender="male", consent_privacy=True,
-    )
-    token = create_token(
-        kind=TokenKind.ADMIN, subject=settings.admin_username,
-        ttl=timedelta(hours=1), settings=settings,
     )
     gen = _client(app)
     client = await anext(gen)
     try:
         res = await client.get(
             f"/api/admin/students/{student.id}/photo-url",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
         )
         # 사진이 없는 것은 정상 상태다 — 404가 아니라 200 + null.
         assert res.status_code == 200
@@ -592,18 +573,13 @@ async def test_student_photo_url_null_when_no_photo() -> None:
 
 
 async def test_student_photo_url_404_for_unknown_student() -> None:
-    settings = get_settings()
     app, _, _, _ = _build()
-    token = create_token(
-        kind=TokenKind.ADMIN, subject=settings.admin_username,
-        ttl=timedelta(hours=1), settings=settings,
-    )
     gen = _client(app)
     client = await anext(gen)
     try:
         res = await client.get(
             f"/api/admin/students/{uuid4()}/photo-url",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
         )
         assert res.status_code == 404
     finally:
@@ -906,9 +882,10 @@ Expected: PASS
 
 `backend/tests/test_admin_router.py` 파일 끝에 추가한다.
 
+기존 `_build`·`_client`·`_admin_token` 헬퍼를 쓴다.
+
 ```python
 async def test_class_progress_returns_rows_for_school() -> None:
-    settings = get_settings()
     app, repo, _, _ = _build()
     a = await repo.create(
         school="한마당고", grade=1, class_no=1, student_no=1,
@@ -923,16 +900,12 @@ async def test_class_progress_returns_rows_for_school() -> None:
         name="다", password="p", gender="male", consent_privacy=True,
     )
     repo.progress_status[a.id] = "completed"
-    token = create_token(
-        kind=TokenKind.ADMIN, subject=settings.admin_username,
-        ttl=timedelta(hours=1), settings=settings,
-    )
     gen = _client(app)
     client = await anext(gen)
     try:
         res = await client.get(
             "/api/admin/progress/classes?school=한마당고",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
         )
         assert res.status_code == 200
         rows = res.json()
