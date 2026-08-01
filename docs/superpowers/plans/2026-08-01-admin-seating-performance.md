@@ -15,6 +15,7 @@
 - **외부 API 계약을 깨지 않는다.** `GET /api/admin/students` 응답의 `items[].photo_url` 필드를 제거하지 않는다. `include_photo`의 기본값은 반드시 `true`. `backend/scripts/export_students.py`와 `docs/2026-07-31-admin-api-usage.md`가 이 필드에 의존하며 CORS가 전 오리진 개방된 상태다.
 - 백엔드는 mypy `strict` 기준. `# type: ignore`를 쓰면 사유를 주석으로 남긴다.
 - 백엔드 검증: `uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run pytest` (모두 `backend/`에서 실행)
+- **기준선 주의 (2026-08-01 확인):** base 커밋 `dcaca63`에서 이미 `ruff format --check`가 14개 파일, `mypy app`이 7개 파일 11개 오류로 실패한다. 이 계획의 범위가 아니므로 **고치지 않는다.** 각 태스크의 합격 기준은 "전부 통과"가 아니라 **"내가 건드린 파일에서 새 실패를 만들지 않았고, 실패 개수가 기준선 이하"**다. `ruff check .`와 `uv run pytest`는 기준선에서 통과하므로 반드시 통과해야 한다.
 - 프론트엔드 검증: `npm run lint && npm run build && npm run test` (모두 `frontend/`에서 실행)
 - 코드 주석·UI 텍스트·커밋 메시지는 한국어. 커밋은 Conventional Commits 접두사 + 한국어 설명.
 - 커밋 메시지에 자동 생성 푸터·서명을 넣지 않는다.
