@@ -41,14 +41,20 @@ function SheetContent({
   children,
   side = "right",
   showCloseButton = true,
+  showOverlay = true,
   ...props
 }: SheetPrimitive.Popup.Props & {
   side?: "top" | "right" | "bottom" | "left"
   showCloseButton?: boolean
+  /**
+   * 뒤를 덮는 오버레이를 그릴지. false면 뒤 화면이 어두워지지 않고 클릭도 막히지 않는다.
+   * 비모달 시트(<Sheet modal={false}>)와 함께 쓴다. 기본값은 기존 동작 유지.
+   */
+  showOverlay?: boolean
 }) {
   return (
     <SheetPortal>
-      <SheetOverlay />
+      {showOverlay && <SheetOverlay />}
       <SheetPrimitive.Popup
         data-slot="sheet-content"
         data-side={side}
