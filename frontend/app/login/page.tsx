@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -16,8 +16,18 @@ const labelClass = "mb-1.5 block text-sm font-bold text-zinc-600";
 const inputClass =
   "h-13 rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none focus-visible:border-sky-400 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-sky-100";
 
-export default function LoginPage() {
+// 로그인 후 돌아갈 곳으로는 내부 경로만 허용한다. "//evil.com" 같은 프로토콜 상대 URL이나
+// 절대 URL을 그대로 쓰면 오픈 리다이렉트가 된다.
+function safeNextPath(raw: string | null): string | null {
+  if (!raw) return null;
+  if (!raw.startsWith("/")) return null;
+  if (raw.startsWith("//") || raw.startsWith("/\\")) return null;
+  return raw;
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const setAuth = useSessionStore((state) => state.setAuth);
 
   const [identity, setIdentity] = useState<IdentityValues>({
@@ -60,6 +70,16 @@ export default function LoginPage() {
         password,
       });
       setAuth(res.student_token, res.student_id);
+
+      // 딥링크(예: 부스 QR /b/<code>)에서 넘어왔으면 그쪽을 우선한다.
+      // 진행상황(resumePath)은 localStorage에만 있어서, QR을 다른 브라우저에서 열었다면
+      // 비어 있다. 그 값으로 라우팅하면 카드를 이미 받은 학생도 가입 화면으로 튕긴다.
+      const next = safeNextPath(searchParams.get("next"));
+      if (next) {
+        router.replace(next);
+        return;
+      }
+
       // 같은 학생의 재로그인이면 진행상황이 보존된다(setAuth). 진행 중이던 설문이
       // 있거나 이미 완료했으면 그 화면으로 바로 이어가고(완료 시 공개 대기 화면),
       // 아직 시작 전(신규/다른 학생)이면 프로필로 간다.
@@ -174,5 +194,20 @@ export default function LoginPage() {
         </form>
       </motion.section>
     </main>
+  );
+}
+
+// useSearchParams를 쓰는 컴포넌트는 Suspense 경계 안에 둬야 한다(프리렌더 요구사항).
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="relative min-h-[100dvh] overflow-hidden font-sans">
+          <VoyageBackground variant="soft" />
+        </main>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }
