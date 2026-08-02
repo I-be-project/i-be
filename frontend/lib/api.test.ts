@@ -2,13 +2,17 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   bulkDeleteAdminStudents,
   completeSurvey,
+  createAdminBooth,
+  deleteAdminBooth,
   deleteAdminStudent,
+  fetchAdminBooths,
   fetchAdminClassProgress,
   fetchAdminStudentDetail,
   fetchAdminStudentPhotoUrl,
   fetchAdminStudents,
   generateStage,
   saveAnswer,
+  updateAdminBooth,
 } from "@/lib/api";
 
 describe("completeSurvey", () => {
@@ -242,5 +246,81 @@ describe("fetchAdminStudents include_photo", () => {
     await fetchAdminStudents("tok123", { school: "한마당고" });
 
     expect(fetchMock.mock.calls[0][0] as string).not.toContain("include_photo");
+  });
+});
+
+describe("부스 관리 API", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  const booth = {
+    id: "b1",
+    code: "K7M2QX",
+    name: "드론 체험",
+    description: null,
+    qr_url: "https://i-be.vercel.app/b/K7M2QX",
+    created_at: "2026-08-02T09:00:00Z",
+  };
+
+  it("GETs /api/admin/booths with bearer token", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify([booth]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await fetchAdminBooths("tok123");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/admin/booths");
+    expect(init.method).toBe("GET");
+    expect(init.headers.Authorization).toBe("Bearer tok123");
+    expect(res[0].qr_url).toBe("https://i-be.vercel.app/b/K7M2QX");
+  });
+
+  it("POSTs name and description to /api/admin/booths", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(booth), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createAdminBooth("tok123", { name: "드론 체험", description: null });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/admin/booths");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: "드론 체험",
+      description: null,
+    });
+  });
+
+  it("PATCHes /api/admin/booths/:id", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(booth), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await updateAdminBooth("tok123", "b1", { name: "새 이름" });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/admin/booths/b1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({ name: "새 이름" });
+  });
+
+  it("DELETEs /api/admin/booths/:id", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ booth_id: "b1" }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await deleteAdminBooth("tok123", "b1");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/admin/booths/b1");
+    expect(init.method).toBe("DELETE");
+    expect(res.booth_id).toBe("b1");
   });
 });

@@ -514,3 +514,74 @@ export function completeSurvey(
     body: JSON.stringify({ ...(persona ?? {}), sessionId }),
   });
 }
+
+// ─── 부스 관리 (관리자) ────────────────────────────────────
+// qr_url은 백엔드가 FRONTEND_ORIGIN 기준으로 조립해 내려준다.
+// 프론트에서 링크를 다시 만들지 않는다(로컬에서 뽑은 인쇄물에 localhost가 박히는 사고 방지).
+
+export interface AdminBooth {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  qr_url: string;
+  created_at: string;
+}
+
+export interface AdminBoothCreatePayload {
+  name: string;
+  description: string | null;
+}
+
+// 보내지 않은 필드는 서버가 기존 값을 유지한다.
+// description에 null을 명시하면 설명이 지워진다.
+export interface AdminBoothUpdatePayload {
+  name?: string;
+  description?: string | null;
+}
+
+export function fetchAdminBooths(token: string): Promise<AdminBooth[]> {
+  return request<AdminBooth[]>("/api/admin/booths", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function createAdminBooth(
+  token: string,
+  payload: AdminBoothCreatePayload
+): Promise<AdminBooth> {
+  return request<AdminBooth>("/api/admin/booths", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminBooth(
+  token: string,
+  boothId: string,
+  payload: AdminBoothUpdatePayload
+): Promise<AdminBooth> {
+  return request<AdminBooth>(`/api/admin/booths/${boothId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAdminBooth(
+  token: string,
+  boothId: string
+): Promise<{ booth_id: string }> {
+  return request<{ booth_id: string }>(`/api/admin/booths/${boothId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
