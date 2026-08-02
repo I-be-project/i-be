@@ -16,7 +16,7 @@ from app.services.auth_service import AuthService
 from app.services.session_service import SessionService
 from tests.test_auth_service import FakeStorage as AuthFakeStorage
 from tests.test_auth_service import FakeStudentRepo as AuthFakeStudentRepo
-from tests.test_auth_service import _register_req
+from tests.test_auth_service import _register_kwargs
 from tests.test_session_service import (
     FakeCardRepo,
     FakeDBPool,
@@ -137,7 +137,7 @@ async def test_patch_me_updates_name_and_gender() -> None:
     repo = AuthFakeStudentRepo()
     student, _ = await AuthService(
         students=repo, storage=AuthFakeStorage(), settings=get_settings()
-    ).register_student(_register_req())
+    ).register_student(**_register_kwargs())
 
     session_service = SessionService(
         students=repo,
@@ -169,7 +169,7 @@ async def test_patch_me_empty_payload_rejected() -> None:
     repo = AuthFakeStudentRepo()
     student, _ = await AuthService(
         students=repo, storage=AuthFakeStorage(), settings=get_settings()
-    ).register_student(_register_req())
+    ).register_student(**_register_kwargs())
 
     session_service = SessionService(
         students=repo,

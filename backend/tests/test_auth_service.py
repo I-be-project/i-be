@@ -288,7 +288,7 @@ async def test_attach_photo_unknown_student_not_found() -> None:
 
 async def test_update_profile_updates_name_and_gender() -> None:
     service, repo, _ = _service()
-    student, _ = await service.register_student(_register_req())
+    student, _ = await service.register_student(**_register_kwargs())
 
     await service.update_profile(student.id, name="새이름", gender="female")
 
@@ -300,7 +300,7 @@ async def test_update_profile_updates_name_and_gender() -> None:
 
 async def test_update_profile_partial_update_keeps_other_field() -> None:
     service, repo, _ = _service()
-    student, _ = await service.register_student(_register_req())
+    student, _ = await service.register_student(**_register_kwargs())
 
     await service.update_profile(student.id, name="새이름", gender=None)
 
