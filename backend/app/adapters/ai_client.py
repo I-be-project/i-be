@@ -17,10 +17,11 @@ import base64
 from collections.abc import Awaitable, Callable
 from enum import StrEnum
 from math import gcd
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from openai import AsyncOpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from app.config import Settings
 from app.core.errors import ExternalServiceError
@@ -84,7 +85,7 @@ def _model_info(model_id: str, name: Any, pricing: Any) -> dict[str, Any]:
 
 
 def _size_to_aspect_ratio(size: str) -> str:
-    """"1024x1536" → "2:3" 처럼 픽셀 크기를 OpenRouter aspect_ratio로 변환."""
+    """ "1024x1536" → "2:3" 처럼 픽셀 크기를 OpenRouter aspect_ratio로 변환."""
     try:
         w_str, h_str = size.lower().split("x")
         w, h = int(w_str), int(h_str)
@@ -151,11 +152,9 @@ class AIClient:
                 AIPurpose.ANALYZE: settings.ai_model_analyze or settings.ai_model,
                 AIPurpose.ADAPTIVE_QUESTIONS: settings.ai_model_adaptive_questions
                 or settings.ai_model,
-                AIPurpose.FINAL_QUESTION: settings.ai_model_final_question
-                or settings.ai_model,
+                AIPurpose.FINAL_QUESTION: settings.ai_model_final_question or settings.ai_model,
                 AIPurpose.PERSONA: settings.ai_model_persona or settings.ai_model,
-                AIPurpose.IMAGE_PROMPT: settings.ai_model_image_prompt
-                or settings.ai_model,
+                AIPurpose.IMAGE_PROMPT: settings.ai_model_image_prompt or settings.ai_model,
             },
             image_api_url=settings.ai_image_api_url,
             image_api_key=settings.openrouter_api_key,
@@ -182,7 +181,9 @@ class AIClient:
         client = self._get_chat()
         return await client.chat.completions.create(
             model=self._models[purpose],
-            messages=messages,
+            # SDK는 role별 TypedDict를 요구하지만 프롬프트 빌더는 평범한 dict를 만든다.
+            # 런타임 표현이 동일하므로 캐스팅만 한다.
+            messages=cast("list[ChatCompletionMessageParam]", messages),
             **kwargs,
         )
 
@@ -237,7 +238,9 @@ class AIClient:
         try:
             resp = await self._http.get(url, headers=headers)
         except httpx.HTTPError as exc:
-            raise ExternalServiceError("모델 카탈로그 조회 실패.", details={"reason": str(exc)}) from exc
+            raise ExternalServiceError(
+                "모델 카탈로그 조회 실패.", details={"reason": str(exc)}
+            ) from exc
         if resp.status_code >= 400:
             raise ExternalServiceError(
                 "모델 카탈로그 API 오류.", details={"status": resp.status_code}

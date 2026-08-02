@@ -199,6 +199,15 @@ export function loginStudent(payload: LoginPayload): Promise<AuthResponse> {
   });
 }
 
+// POST /api/auth/refresh — 아직 유효한 토큰을 같은 학생의 새 토큰(만료 6h 갱신)으로 교환.
+// 설문 도중 만료를 예방하는 데 쓴다. 이미 만료·무효인 토큰이면 401(→ 갱신 불가, 재로그인 필요).
+export function refreshStudentToken(token: string): Promise<AuthResponse> {
+  return request<AuthResponse>("/api/auth/refresh", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 export function getMyProfile(token: string): Promise<ProfileSummary> {
   return request<ProfileSummary>("/api/students/me", {
     method: "GET",
@@ -249,6 +258,8 @@ export interface AdminStudentItem {
   password: string;
   gender: string | null;
   photo_url: string | null;
+  // 사진 보유 여부. include_photo=false로 받으면 photo_url은 null이지만 이 값은 유효하다.
+  has_photo: boolean;
   consent_privacy: boolean;
   created_at: string;
   progress: AdminStudentProgress;
@@ -257,6 +268,16 @@ export interface AdminStudentItem {
 export interface AdminStudentList {
   total: number;
   items: AdminStudentItem[];
+}
+
+// GET /api/admin/progress/classes 응답 1행 — 한 반의 진행 현황 집계.
+export interface AdminClassProgress {
+  grade: number;
+  class_no: number;
+  total: number;
+  completed: number;
+  in_progress: number;
+  not_started: number;
 }
 
 export interface AdminAnswer {
@@ -318,6 +339,9 @@ export interface AdminStudentQuery {
   limit?: number;
   offset?: number;
   sort?: AdminStudentSort;
+  // 사진 presigned URL을 받을지. 생략하면 백엔드 기본값(true)이 적용된다.
+  // 사진을 쓰지 않는 화면은 false로 보내 서명 비용을 건너뛴다.
+  include_photo?: boolean;
 }
 
 export function adminLogin(
@@ -343,6 +367,7 @@ export function fetchAdminStudents(
   if (params.limit != null) sp.set("limit", String(params.limit));
   if (params.offset != null) sp.set("offset", String(params.offset));
   if (params.sort) sp.set("sort", params.sort);
+  if (params.include_photo != null) sp.set("include_photo", String(params.include_photo));
   const qs = sp.toString();
   return request<AdminStudentList>(
     `/api/admin/students${qs ? `?${qs}` : ""}`,
@@ -355,6 +380,28 @@ export function fetchAdminSchools(token: string): Promise<string[]> {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
   });
+}
+
+export function fetchAdminClassProgress(
+  token: string,
+  school: string
+): Promise<AdminClassProgress[]> {
+  const qs = new URLSearchParams({ school }).toString();
+  return request<AdminClassProgress[]>(`/api/admin/progress/classes?${qs}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// 목록을 include_photo=false로 받은 화면이 사진이 필요해진 시점에 1건만 받아온다.
+export function fetchAdminStudentPhotoUrl(
+  token: string,
+  id: string
+): Promise<string | null> {
+  return request<{ photo_url: string | null }>(
+    `/api/admin/students/${id}/photo-url`,
+    { method: "GET", headers: { Authorization: `Bearer ${token}` } }
+  ).then((r) => r.photo_url);
 }
 
 export function fetchAdminStudentDetail(
@@ -395,15 +442,20 @@ export function bulkDeleteAdminStudents(
 // 반환값은 단계명을 키로 갖는 파싱된 JSON (예: { q7b: {...} }).
 // 호출 측에서 (json as { q7b: Q7BData }).q7b 형태로 캐스팅한다.
 export function generateStage(
+  token: string,
   stage: "q7b" | "q8" | "q9",
   input: Record<string, unknown>
 ): Promise<unknown> {
   // LLM 생성은 정상적으로 수십 초가 걸릴 수 있어 기본 20초보다 넉넉한 상한을 준다.
+  // 인증 필요: AI(유료) 남용 방지를 위해 학생 토큰을 요구한다.
   return request<unknown>(
     `/api/generate/${stage}`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify(input),
     },
     60_000

@@ -73,24 +73,18 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # 로컬 개발에서는 localhost/127.0.0.1 어느 포트든 허용 (Next.js가 3001 등으로 빠지는 경우 대응).
-    # 운영/스테이징은 frontend_origin 단일 origin만 허용.
-    if settings.app_env == "local":
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origin_regex=r"^http://(localhost|127\.0\.0\.1)(:\d+)?$",
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-    else:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=[settings.frontend_origin],
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
+    # CORS — 기본은 전 오리진 개방(CORS_ALLOW_ORIGINS=*). 외부 시스템이 브라우저에서
+    # 관리자 API를 직접 호출할 수 있도록 열어둔다. 특정 오리진으로 좁히려면 .env에서
+    # CORS_ALLOW_ORIGINS를 콤마로 나열한다.
+    # 참고: Starlette은 "*" + allow_credentials 조합일 때 Access-Control-Allow-Origin에
+    # 요청 Origin을 그대로 되돌려주므로(+ Vary: Origin) 인증 요청도 정상 통과한다.
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origin_list,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     register_exception_handlers(app)
 
@@ -100,8 +94,12 @@ def create_app() -> FastAPI:
     app.include_router(students.router)
     app.include_router(operator.router)
     app.include_router(admin.router)
-    app.include_router(dev.router)
     app.include_router(questions.router)
+
+    # /api/dev는 인증이 없고 호출 시 AI 크레딧을 소모한다. CORS가 전 오리진 개방이라
+    # 외부에 노출되면 누구나 크레딧을 태울 수 있으므로 로컬에서만 등록한다.
+    if settings.app_env == "local":
+        app.include_router(dev.router)
 
     @app.get("/healthz", tags=["meta"])
     async def healthz() -> dict[str, str]:

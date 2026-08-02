@@ -44,6 +44,10 @@ class AdminStudentItem(BaseModel):
     password: str = Field(..., description="평문 비밀번호 — 관리자 전용 노출")
     gender: str | None = Field(None, description="성별 ('male' | 'female', 없으면 null)")
     photo_url: str | None = Field(None, description="사진 presigned URL (없으면 null)")
+    has_photo: bool = Field(
+        False,
+        description="사진 보유 여부. include_photo=false여서 photo_url이 null이어도 유무를 알 수 있다.",
+    )
     consent_privacy: bool
     created_at: datetime
     progress: AdminStudentProgress = Field(default_factory=AdminStudentProgress)
@@ -55,6 +59,17 @@ AdminStudentSort = Literal["created_desc", "created_asc", "name_asc"]
 class AdminStudentList(BaseModel):
     total: int
     items: list[AdminStudentItem]
+
+
+class AdminClassProgress(BaseModel):
+    """한 반의 진행 현황 집계 — 좌석표의 학년·반 선택과 완료 배지에 쓴다."""
+
+    grade: int
+    class_no: int
+    total: int
+    completed: int
+    in_progress: int
+    not_started: int
 
 
 class AdminAnswer(BaseModel):
@@ -74,9 +89,7 @@ class AdminSessionDetail(BaseModel):
     completed_at: datetime | None
     answers: list[AdminAnswer]
     persona: PersonaSummary | None = None
-    card_image_url: str | None = Field(
-        None, description="카드 이미지 presigned URL (없으면 null)"
-    )
+    card_image_url: str | None = Field(None, description="카드 이미지 presigned URL (없으면 null)")
 
 
 class AdminStudentDetail(BaseModel):
@@ -94,6 +107,12 @@ class AdminStudentDetail(BaseModel):
     consent_privacy: bool
     created_at: datetime
     sessions: list[AdminSessionDetail] = Field(default_factory=list)
+
+
+class AdminStudentPhoto(BaseModel):
+    """학생 사진 presigned URL 단건 — 목록에서 사진을 뺀 뒤 필요할 때만 받는다."""
+
+    photo_url: str | None = Field(None, description="사진 presigned URL (없으면 null)")
 
 
 class AdminDeleteResponse(BaseModel):

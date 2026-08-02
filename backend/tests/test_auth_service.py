@@ -14,8 +14,7 @@ import pytest
 from app.config import get_settings
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from app.core.security import TokenKind, decode_token
-from app.repositories.student_repo import StudentRecord
-from app.schemas.auth import LoginRequest, RegisterRequest
+from app.repositories.student_repo import ClassProgressRow, StudentRecord
 from app.services.auth_service import AuthService
 
 
@@ -25,6 +24,9 @@ class FakeStudentRepo:
     def __init__(self) -> None:
         self._by_key: dict[tuple[str, int, int, int], StudentRecord] = {}
         self._by_id: dict[UUID, StudentRecord] = {}
+        # 집계 fake용 — 테스트가 학생별 최근 세션 상태를 직접 심는다.
+        # None(키 없음)=세션 없음, "completed"=완료, 그 외=진행중.
+        self.progress_status: dict[UUID, str] = {}
 
     @staticmethod
     def _key(school: str, grade: int, class_no: int, student_no: int) -> tuple[str, int, int, int]:
@@ -125,6 +127,35 @@ class FakeStudentRepo:
         schools = {r.school for r in self._by_id.values() if r.deleted_at is None}
         return sorted(schools)
 
+    async def get_class_progress(self, school: str) -> list[ClassProgressRow]:
+        buckets: dict[tuple[int, int], dict[str, int]] = {}
+        for r in self._by_id.values():
+            if r.deleted_at is not None or r.school != school:
+                continue
+            b = buckets.setdefault(
+                (r.grade, r.class_no),
+                {"total": 0, "completed": 0, "in_progress": 0, "not_started": 0},
+            )
+            b["total"] += 1
+            status = self.progress_status.get(r.id)
+            if status is None:
+                b["not_started"] += 1
+            elif status == "completed":
+                b["completed"] += 1
+            else:
+                b["in_progress"] += 1
+        return [
+            ClassProgressRow(
+                grade=g,
+                class_no=c,
+                total=b["total"],
+                completed=b["completed"],
+                in_progress=b["in_progress"],
+                not_started=b["not_started"],
+            )
+            for (g, c), b in sorted(buckets.items())
+        ]
+
     async def hard_delete(self, student_id: UUID) -> tuple[bool, str | None]:
         record = self._by_id.pop(student_id, None)
         if record is None:
@@ -143,6 +174,7 @@ class FakeStorage:
         self.uploads: list[tuple[str, bytes, str]] = []
         self.deleted: list[str] = []
         self.delete_failures: set[str] = set()
+        self.batch_sign_calls = 0
 
     async def upload_photo(self, path: str, data: bytes, *, content_type: str) -> str:
         self.uploads.append((path, data, content_type))
@@ -150,6 +182,10 @@ class FakeStorage:
 
     async def create_signed_url(self, key: str, *, ttl_seconds: int) -> str:
         return f"https://signed.example/{key}?ttl={ttl_seconds}"
+
+    async def create_signed_urls(self, keys: list[str], *, ttl_seconds: int) -> dict[str, str]:
+        self.batch_sign_calls += 1
+        return {k: f"https://signed.example/{k}?ttl={ttl_seconds}" for k in dict.fromkeys(keys)}
 
     async def delete(self, key: str) -> None:
         if key in self.delete_failures:
@@ -164,7 +200,8 @@ def _service() -> tuple[AuthService, FakeStudentRepo, FakeStorage]:
     return service, repo, storage
 
 
-def _register_req(**overrides: object) -> RegisterRequest:
+def _register_kwargs(**overrides: object) -> dict[str, object]:
+    """register_student 호출 인자. AuthService는 Request 모델이 아니라 값을 받는다."""
     base: dict[str, object] = {
         "school": "한마당고",
         "grade": 2,
@@ -176,13 +213,13 @@ def _register_req(**overrides: object) -> RegisterRequest:
         "consent_privacy": True,
     }
     base.update(overrides)
-    return RegisterRequest(**base)  # type: ignore[arg-type]
+    return base
 
 
 async def test_register_stores_plaintext_password_and_issues_student_token() -> None:
     service, repo, _ = _service()
 
-    student, token = await service.register_student(_register_req())
+    student, token = await service.register_student(**_register_kwargs())
 
     # 비밀번호는 평문 그대로 저장(해시하지 않음)
     assert student.password == "20100101"
@@ -196,22 +233,22 @@ async def test_register_stores_plaintext_password_and_issues_student_token() -> 
 async def test_register_rejected_without_privacy_consent() -> None:
     service, _, _ = _service()
     with pytest.raises(ForbiddenError):
-        await service.register_student(_register_req(consent_privacy=False))
+        await service.register_student(**_register_kwargs(consent_privacy=False))
 
 
 async def test_register_duplicate_login_key_conflicts() -> None:
     service, _, _ = _service()
-    await service.register_student(_register_req())
+    await service.register_student(**_register_kwargs())
     with pytest.raises(ConflictError):
-        await service.register_student(_register_req(name="다른이름", password="99999999"))
+        await service.register_student(**_register_kwargs(name="다른이름", password="99999999"))
 
 
 async def test_login_success_returns_token() -> None:
     service, _, _ = _service()
-    await service.register_student(_register_req())
+    await service.register_student(**_register_kwargs())
 
     student, token = await service.login(
-        LoginRequest(school="한마당고", grade=2, class_no=3, student_no=11, password="20100101")
+        school="한마당고", grade=2, class_no=3, student_no=11, password="20100101"
     )
     payload = decode_token(token, expected_kind=TokenKind.STUDENT, settings=get_settings())
     assert payload["sub"] == str(student.id)
@@ -219,24 +256,20 @@ async def test_login_success_returns_token() -> None:
 
 async def test_login_wrong_password_unauthorized() -> None:
     service, _, _ = _service()
-    await service.register_student(_register_req())
+    await service.register_student(**_register_kwargs())
     with pytest.raises(UnauthorizedError):
-        await service.login(
-            LoginRequest(school="한마당고", grade=2, class_no=3, student_no=11, password="wrong")
-        )
+        await service.login(school="한마당고", grade=2, class_no=3, student_no=11, password="wrong")
 
 
 async def test_login_unknown_student_unauthorized() -> None:
     service, _, _ = _service()
     with pytest.raises(UnauthorizedError):
-        await service.login(
-            LoginRequest(school="없는학교", grade=1, class_no=1, student_no=1, password="x")
-        )
+        await service.login(school="없는학교", grade=1, class_no=1, student_no=1, password="x")
 
 
 async def test_attach_photo_uploads_and_links_key() -> None:
     service, repo, storage = _service()
-    student, _ = await service.register_student(_register_req())
+    student, _ = await service.register_student(**_register_kwargs())
 
     photo_key = await service.attach_photo(student.id, b"jpegbytes", content_type="image/jpeg")
 

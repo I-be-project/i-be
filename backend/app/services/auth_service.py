@@ -17,7 +17,6 @@ from app.config import Settings
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from app.core.security import TokenKind, create_token
 from app.repositories.student_repo import StudentRecord
-from app.schemas.auth import LoginRequest, RegisterRequest
 
 
 class StudentRepo(Protocol):
@@ -89,42 +88,61 @@ class AuthService:
             settings=self._settings,
         )
 
-    async def register_student(self, req: RegisterRequest) -> tuple[StudentRecord, str]:
+    async def register_student(
+        self,
+        *,
+        school: str,
+        grade: int,
+        class_no: int,
+        student_no: int,
+        name: str,
+        password: str,
+        gender: str,
+        consent_privacy: bool,
+    ) -> tuple[StudentRecord, str]:
         """학생 등록 → (레코드, 세션 토큰). 동의 누락은 ForbiddenError, 중복은 ConflictError."""
-        if not req.consent_privacy:
+        if not consent_privacy:
             raise ForbiddenError("개인정보 수집·이용에 동의해야 가입할 수 있습니다.")
 
         existing = await self._students.get_by_login_key(
-            school=req.school,
-            grade=req.grade,
-            class_no=req.class_no,
-            student_no=req.student_no,
+            school=school,
+            grade=grade,
+            class_no=class_no,
+            student_no=student_no,
         )
         if existing is not None:
             raise ConflictError("이미 등록된 학생입니다.")
 
         student = await self._students.create(
-            school=req.school,
-            grade=req.grade,
-            class_no=req.class_no,
-            student_no=req.student_no,
-            name=req.name,
-            password=req.password,  # 평문 저장 (해시하지 않음)
-            gender=req.gender,
-            consent_privacy=req.consent_privacy,
+            school=school,
+            grade=grade,
+            class_no=class_no,
+            student_no=student_no,
+            name=name,
+            password=password,  # 평문 저장 (해시하지 않음)
+            gender=gender,
+            consent_privacy=consent_privacy,
         )
         return student, self._issue_token(student.id)
 
-    async def login(self, req: LoginRequest) -> tuple[StudentRecord, str]:
+    async def login(
+        self,
+        *,
+        school: str,
+        grade: int,
+        class_no: int,
+        student_no: int,
+        password: str,
+    ) -> tuple[StudentRecord, str]:
         """식별 키 + 비밀번호 검증 → (레코드, 세션 토큰). 실패는 UnauthorizedError."""
         student = await self._students.get_by_login_key(
-            school=req.school,
-            grade=req.grade,
-            class_no=req.class_no,
-            student_no=req.student_no,
+            school=school,
+            grade=grade,
+            class_no=class_no,
+            student_no=student_no,
         )
         # 존재 여부를 노출하지 않도록 두 경우 모두 동일한 401. (평문 비교)
-        if student is None or req.password != student.password:
+        if student is None or password != student.password:
             raise UnauthorizedError("학생 정보 또는 비밀번호가 올바르지 않습니다.")
 
         return student, self._issue_token(student.id)
