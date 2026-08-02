@@ -130,6 +130,10 @@ function BoothQrBody({ booth }: BoothQrBodyProps) {
           </Button>
         </div>
 
+        <p className="text-center text-xs text-muted-foreground">
+          학생용 스캔 페이지는 아직 준비 중이에요. 배포 전까지는 인쇄해서 현장에 걸지 마세요.
+        </p>
+
         {copyError && (
           <p className="text-center text-sm text-destructive">{copyError}</p>
         )}
