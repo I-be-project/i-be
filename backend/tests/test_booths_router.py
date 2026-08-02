@@ -44,6 +44,19 @@ def _auth() -> dict[str, str]:
     return {"Authorization": f"Bearer {_admin_token()}"}
 
 
+def _student_token() -> str:
+    return create_token(
+        kind=TokenKind.STUDENT,
+        subject="00000000-0000-0000-0000-000000000000",
+        ttl=timedelta(hours=1),
+        settings=get_settings(),
+    )
+
+
+def _student_auth() -> dict[str, str]:
+    return {"Authorization": f"Bearer {_student_token()}"}
+
+
 async def test_create_requires_admin_token() -> None:
     app, _ = _build()
     gen = _client(app)
@@ -55,12 +68,38 @@ async def test_create_requires_admin_token() -> None:
         await gen.aclose()
 
 
+async def test_create_rejects_student_token() -> None:
+    """관리자 토큰과 같은 JWT_SECRET으로 서명되지만 kind가 다른 학생 토큰은 거부된다."""
+    app, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/admin/booths", json={"name": "드론 체험"}, headers=_student_auth()
+        )
+        assert res.status_code == 401
+    finally:
+        await gen.aclose()
+
+
 async def test_list_requires_admin_token() -> None:
     app, _ = _build()
     gen = _client(app)
     client = await anext(gen)
     try:
         res = await client.get("/api/admin/booths")
+        assert res.status_code == 401
+    finally:
+        await gen.aclose()
+
+
+async def test_list_rejects_student_token() -> None:
+    """관리자 토큰과 같은 JWT_SECRET으로 서명되지만 kind가 다른 학생 토큰은 거부된다."""
+    app, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.get("/api/admin/booths", headers=_student_auth())
         assert res.status_code == 401
     finally:
         await gen.aclose()
@@ -112,6 +151,17 @@ async def test_list_returns_created_booths() -> None:
         await gen.aclose()
 
 
+async def test_patch_requires_admin_token() -> None:
+    app, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.patch(f"/api/admin/booths/{uuid4()}", json={"name": "이름 변경"})
+        assert res.status_code == 401
+    finally:
+        await gen.aclose()
+
+
 async def test_patch_ignores_code_and_keeps_it() -> None:
     """code는 요청 스키마에 없다. 실어 보내도 무시되고 기존 코드가 유지된다."""
     app, _ = _build()
@@ -144,6 +194,17 @@ async def test_patch_missing_booth_returns_404() -> None:
             f"/api/admin/booths/{uuid4()}", json={"name": "없음"}, headers=_auth()
         )
         assert res.status_code == 404
+    finally:
+        await gen.aclose()
+
+
+async def test_delete_requires_admin_token() -> None:
+    app, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.delete(f"/api/admin/booths/{uuid4()}")
+        assert res.status_code == 401
     finally:
         await gen.aclose()
 
