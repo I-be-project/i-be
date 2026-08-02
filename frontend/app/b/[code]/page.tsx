@@ -51,6 +51,11 @@ export default function BoothCheckInPage({
   const router = useRouter();
   const hasHydrated = useSessionStore((s) => s.hasHydrated);
   const studentToken = useSessionStore((s) => s.studentToken);
+  const studentId = useSessionStore((s) => s.studentId);
+  // 인증을 마치면 프로필로 보낸다. /profile/[id]의 id는 표시용 세그먼트일 뿐이고
+  // 화면은 토큰으로 /students/me를 조회하므로, 저장된 id가 없어도 "me"로 열면 된다.
+  // (예전 localStorage 세션엔 studentId가 없어 홈으로 떨어지던 문제)
+  const doneHref = `/profile/${studentId ?? "me"}`;
 
   const [state, setState] = useState<PageState>({ kind: "loading" });
   const [checkingIn, setCheckingIn] = useState(false);
@@ -240,8 +245,8 @@ export default function BoothCheckInPage({
 
             <div className="mt-auto pt-8">
               {state.booth.visited ? (
-                <CtaButton onClick={() => router.replace("/")}>
-                  처음으로
+                <CtaButton onClick={() => router.replace(doneHref)}>
+                  프로필로 가기
                 </CtaButton>
               ) : (
                 <CtaButton onClick={handleCheckIn} disabled={checkingIn}>
