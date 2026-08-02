@@ -144,6 +144,14 @@ class Settings(BaseSettings):
                 "APP_ENV=production에서는 다음 환경변수를 반드시 설정해야 합니다: "
                 + ", ".join(sorted(missing))
             )
+
+        # 스킴이 없으면(예: "i-be.vercel.app") QR을 조립해도 링크가 아니라 문자열이 되어,
+        # 기본 카메라 앱이 눌러도 반응하지 않는다 — URL로 인코딩하는 목적 자체가 깨진다.
+        if not self.frontend_origin.startswith(("http://", "https://")):
+            raise ValueError(
+                "APP_ENV=production에서 FRONTEND_ORIGIN은 http:// 또는 https://로 "
+                "시작하는 절대 URL이어야 합니다."
+            )
         return self
 
 

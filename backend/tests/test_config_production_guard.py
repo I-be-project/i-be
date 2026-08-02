@@ -87,9 +87,11 @@ def test_non_production_allows_defaults(monkeypatch: pytest.MonkeyPatch, env: st
     assert settings.app_env == env
 
 
-def test_production_rejects_localhost_frontend_origin(monkeypatch: pytest.MonkeyPatch) -> None:
-    """QR 링크의 base라, localhost가 남아 있으면 되돌릴 수 없는 인쇄물이 나온다."""
-    _use_production(monkeypatch, FRONTEND_ORIGIN="http://localhost:3000")
+def test_production_rejects_frontend_origin_without_scheme(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """스킴이 없으면 QR을 조립해도 링크가 아니라 문자열이 되어 기본 카메라 앱 폴백이 깨진다."""
+    _use_production(monkeypatch, FRONTEND_ORIGIN="i-be.vercel.app")
 
     with pytest.raises(ValidationError) as exc:
         Settings()
