@@ -150,8 +150,9 @@ QR 렌더는 프론트에서 `qrcode` npm 패키지로 canvas에 그린다. 백�
 
 ### 관리자 내비게이션
 
-`frontend/app/admin/layout.tsx`에 현재 내비가 없어 `/admin`·`/admin/seating` 사이 이동 수단이 없다.
-`/admin/booths`가 추가되면서 필요해지므로, 인증 가드는 그대로 두고 상단 내비 링크 3개를 얹는다.
+내비는 `frontend/components/admin/AdminHeader.tsx:10`의 `NAV` 배열에 이미 있다
+(`/admin` 회원 목록, `/admin/seating` 진행 현황). 여기에 `/admin/booths` 항목 하나를 추가한다.
+새 화면도 기존 두 화면처럼 `<AdminHeader />`를 상단에 둔다.
 
 ## 6. 백엔드 설정 — QR base URL
 
