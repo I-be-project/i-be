@@ -63,6 +63,13 @@ export interface ProfileStudent {
   photo_url: string | null;
 }
 
+// 부스 방문 상태 — 방문 기록 API는 별도 작업 중이라 당분간 없을 수 있다(선택 필드).
+export interface ProfileBoothStatus {
+  id: string;
+  name: string;
+  visited: boolean;
+}
+
 export interface ProfileSummary {
   has_completed: boolean;
   retry_enabled: boolean;
@@ -70,6 +77,7 @@ export interface ProfileSummary {
   // has_completed가 false면 persona/card 둘 다 null. true여도 card는 null일 수 있다(카드 미생성).
   persona: ProfilePersona | null;
   card: ProfileCard | null;
+  booths?: ProfileBoothStatus[];
 }
 
 // API 호출 실패를 status/code와 함께 던진다. 화면에서 분기(409/403/401 등)에 사용.
@@ -232,6 +240,28 @@ export function uploadPhoto(
     },
     60_000
   );
+}
+
+// PATCH /api/students/me — 이름/성별만 수정 가능(식별 키·비밀번호는 대상 아님).
+// 최소 하나는 채워야 한다(둘 다 비우면 백엔드가 422). 응답은 GET과 동일한 ProfileSummary라
+// 호출부가 재조회 없이 최신 상태로 화면을 갱신할 수 있다.
+export interface UpdateProfilePayload {
+  name?: string;
+  gender?: "male" | "female";
+}
+
+export function updateMyProfile(
+  token: string,
+  payload: UpdateProfilePayload
+): Promise<ProfileSummary> {
+  return request<ProfileSummary>("/api/students/me", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
 }
 
 export interface AdminLoginResponse {
