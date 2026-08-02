@@ -35,7 +35,9 @@ class Settings(BaseSettings):
     app_env: Literal["local", "staging", "production"] = "local"
     app_base_url: str = "http://localhost:8000"
     # 프론트 오리진 — 부스 QR 링크(/b/<code>)의 base. 운영에서는 반드시 .env로 채운다.
-    frontend_origin: str = "http://localhost:3000"
+    # 기본값 포트는 프론트 dev 서버(frontend/package.json의 `next dev -p 4000`)와 맞춘다.
+    # 어긋나면 로컬에서 뽑은 QR이 열리지 않아 /b/<code>를 테스트할 수 없다.
+    frontend_origin: str = "http://localhost:4000"
     log_level: str = "INFO"
 
     # CORS 허용 오리진 — 기본 "*"는 전 오리진 개방(외부 시스템의 직접 호출 허용).
