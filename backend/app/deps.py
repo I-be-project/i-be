@@ -19,6 +19,7 @@ from app.adapters.storage_client import StorageClient
 from app.config import Settings, get_settings
 from app.core.errors import UnauthorizedError
 from app.core.security import TokenKind, decode_token
+from app.repositories.booth_repo import BoothRepository
 from app.repositories.card_repo import CardRepository
 from app.repositories.persona_repo import PersonaRepository
 from app.repositories.session_repo import SessionRepository
@@ -26,6 +27,7 @@ from app.repositories.settings_repo import SettingsRepository
 from app.repositories.student_repo import StudentRepository
 from app.services.admin_service import AdminService
 from app.services.auth_service import AuthService
+from app.services.booth_service import BoothService
 from app.services.session_service import SessionService
 
 
@@ -181,3 +183,17 @@ def current_admin(
 
 
 CurrentAdminDep = Annotated[str, Depends(current_admin)]
+
+
+def get_booth_repo(pool: DBPoolDep) -> BoothRepository:
+    return BoothRepository(pool)
+
+
+def get_booth_service(
+    booths: Annotated[BoothRepository, Depends(get_booth_repo)],
+    settings: SettingsDep,
+) -> BoothService:
+    return BoothService(booths=booths, settings=settings)
+
+
+BoothServiceDep = Annotated[BoothService, Depends(get_booth_service)]
