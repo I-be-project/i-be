@@ -18,6 +18,8 @@ from tests.test_auth_service import FakeStorage as AuthFakeStorage
 from tests.test_auth_service import FakeStudentRepo as AuthFakeStudentRepo
 from tests.test_auth_service import _register_kwargs
 from tests.test_session_service import (
+    FakeBoothRepo,
+    FakeBoothVisitRepo,
     FakeCardRepo,
     FakeDBPool,
     FakePersonaRepo,
@@ -41,6 +43,8 @@ def _service(*, latest=None, persona=None, card=None, retry: object = False) -> 
         storage=FakeStorage(),
         settings=get_settings(),
         db_pool=FakeDBPool(),
+        booths=FakeBoothRepo(),
+        visits=FakeBoothVisitRepo(),
     )
 
 
@@ -79,6 +83,7 @@ async def test_me_with_no_session_returns_not_completed() -> None:
             },
             "persona": None,
             "card": None,
+            "booths": [],
         }
     finally:
         await gen.aclose()
@@ -148,6 +153,8 @@ async def test_patch_me_updates_name_and_gender() -> None:
         storage=FakeStorage(),
         settings=get_settings(),
         db_pool=FakeDBPool(),
+        booths=FakeBoothRepo(),
+        visits=FakeBoothVisitRepo(),
     )
     app = _app_with_auth(repo, session_service)
     app.dependency_overrides[current_student] = lambda: student.id
@@ -180,6 +187,8 @@ async def test_patch_me_empty_payload_rejected() -> None:
         storage=FakeStorage(),
         settings=get_settings(),
         db_pool=FakeDBPool(),
+        booths=FakeBoothRepo(),
+        visits=FakeBoothVisitRepo(),
     )
     app = _app_with_auth(repo, session_service)
     app.dependency_overrides[current_student] = lambda: student.id
@@ -203,6 +212,8 @@ async def test_patch_me_requires_auth() -> None:
         storage=FakeStorage(),
         settings=get_settings(),
         db_pool=FakeDBPool(),
+        booths=FakeBoothRepo(),
+        visits=FakeBoothVisitRepo(),
     )
     app = _app_with_auth(repo, session_service)
     gen = _client(app)

@@ -100,6 +100,8 @@ def get_session_service(
     storage: StorageClientDep,
     settings: SettingsDep,
     db_pool: DBPoolDep,
+    booths: Annotated[BoothRepository, Depends(get_booth_repo)],
+    visits: Annotated[BoothVisitRepository, Depends(get_booth_visit_repo)],
 ) -> SessionService:
     return SessionService(
         students=students,
@@ -110,6 +112,8 @@ def get_session_service(
         storage=storage,
         settings=settings,
         db_pool=db_pool,
+        booths=booths,
+        visits=visits,
     )
 
 

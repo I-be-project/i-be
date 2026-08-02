@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import Literal
+from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -56,12 +57,21 @@ class CardSummary(BaseModel):
     )
 
 
+class ProfileBoothStatus(BaseModel):
+    """프로필 화면의 부스 참여 현황 — 부스 탭/성향 탭이 함께 쓴다."""
+
+    id: UUID
+    name: str
+    visited: bool = Field(..., description="이 학생이 이 부스에 방문 기록을 남겼는지")
+
+
 class ProfileSummary(BaseModel):
     """프로필 화면 상태.
 
     has_completed: 가장 최근 세션이 completed 인지.
     retry_enabled: 행사 전역 '다시 하기' 스위치(ops.settings.retry_enabled).
     persona/card: 완료 시에만 채워지고, 없으면 null.
+    booths: 전체 부스 목록 + 이 학생의 방문 여부. 설문 완료 여부와 무관하게 항상 채운다.
     """
 
     has_completed: bool
@@ -69,3 +79,4 @@ class ProfileSummary(BaseModel):
     student: StudentInfo | None = None
     persona: PersonaSummary | None = None
     card: CardSummary | None = None
+    booths: list[ProfileBoothStatus] = Field(default_factory=list)

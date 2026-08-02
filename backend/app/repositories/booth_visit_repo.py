@@ -53,6 +53,17 @@ class BoothVisitRepository(BaseRepository):
             row = await conn.fetchrow(query, student_id, booth_id)
         return _to_record(row) if row is not None else None
 
+    async def list_for_student(self, student_id: UUID) -> list[BoothVisitRecord]:
+        """그 학생의 모든 방문 기록(프로필 화면의 부스 탭/성향 탭용)."""
+        query = f"""
+            select {_COLUMNS}
+              from ops.booth_visits
+             where student_id = $1
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, student_id)
+        return [_to_record(row) for row in rows]
+
     async def get(self, *, student_id: UUID, booth_id: UUID) -> BoothVisitRecord | None:
         """그 학생의 그 부스 방문 기록. 없으면 None."""
         query = f"""

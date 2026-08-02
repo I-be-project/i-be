@@ -10,11 +10,14 @@ from uuid import UUID, uuid4
 
 from app.config import get_settings
 from app.core.errors import ConflictError, ForbiddenError, InvalidStageError, NotFoundError
+from app.repositories.booth_repo import BoothRecord
+from app.repositories.booth_visit_repo import BoothVisitRecord
 from app.repositories.card_repo import CardRecord
 from app.repositories.persona_repo import PersonaRecord
 from app.repositories.session_repo import SessionRecord
 from app.repositories.student_repo import StudentRecord
 from app.schemas.persona import Persona
+from app.schemas.students import ProfileBoothStatus
 from app.services.session_service import ANSWER_STAGES, SessionService
 
 
@@ -124,6 +127,22 @@ class FakeCardRepo:
         return self.card
 
 
+class FakeBoothRepo:
+    def __init__(self, booths: list[BoothRecord] | None = None) -> None:
+        self.booths = booths or []
+
+    async def list_all(self) -> list[BoothRecord]:
+        return self.booths
+
+
+class FakeBoothVisitRepo:
+    def __init__(self, visits: list[BoothVisitRecord] | None = None) -> None:
+        self.visits = visits or []
+
+    async def list_for_student(self, student_id: UUID) -> list[BoothVisitRecord]:
+        return [v for v in self.visits if v.student_id == student_id]
+
+
 class FakeSettingsRepo:
     def __init__(self, value: object | None = False) -> None:
         self.value = value
@@ -191,6 +210,26 @@ def _persona() -> PersonaRecord:
     )
 
 
+def _booth(name: str = "체험부스") -> BoothRecord:
+    return BoothRecord(
+        id=uuid4(),
+        code="ABC123",
+        name=name,
+        description=None,
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
+    )
+
+
+def _visit(*, student_id: UUID, booth_id: UUID) -> BoothVisitRecord:
+    return BoothVisitRecord(
+        id=uuid4(),
+        student_id=student_id,
+        booth_id=booth_id,
+        created_at=datetime.now(UTC),
+    )
+
+
 def _build(
     *,
     latest: SessionRecord | None,
@@ -198,6 +237,8 @@ def _build(
     card: CardRecord | None = None,
     retry: object = False,
     student: StudentRecord | None = None,
+    booths: list[BoothRecord] | None = None,
+    visits: list[BoothVisitRecord] | None = None,
 ) -> tuple[SessionService, FakeStorage, FakeDBPool]:
     storage = FakeStorage()
     db_pool = FakeDBPool()
@@ -210,6 +251,8 @@ def _build(
         storage=storage,
         settings=get_settings(),
         db_pool=db_pool,
+        booths=FakeBoothRepo(booths),
+        visits=FakeBoothVisitRepo(visits),
     )
     return service, storage, db_pool
 
@@ -334,10 +377,51 @@ async def test_missing_student_returns_none_student() -> None:
         storage=storage,
         settings=get_settings(),
         db_pool=FakeDBPool(),
+        booths=FakeBoothRepo(),
+        visits=FakeBoothVisitRepo(),
     )
     summary = await service.get_profile_summary(uuid4())
     assert summary.student is None
     assert summary.has_completed is False
+
+
+async def test_profile_summary_marks_visited_booths() -> None:
+    student_id = uuid4()
+    visited = _booth("방문한 부스")
+    unvisited = _booth("안 가본 부스")
+    service, _, _ = _build(
+        latest=None,
+        booths=[visited, unvisited],
+        visits=[_visit(student_id=student_id, booth_id=visited.id)],
+    )
+
+    summary = await service.get_profile_summary(student_id)
+
+    assert {b.id: b.visited for b in summary.booths} == {
+        visited.id: True,
+        unvisited.id: False,
+    }
+    assert [b.name for b in summary.booths] == ["방문한 부스", "안 가본 부스"]
+
+
+async def test_profile_summary_ignores_other_students_visits() -> None:
+    # 방문 기록은 student_id로 걸러져야 한다 — 다른 학생 기록이 섞이면 안 된다.
+    booth = _booth()
+    service, _, _ = _build(
+        latest=None,
+        booths=[booth],
+        visits=[_visit(student_id=uuid4(), booth_id=booth.id)],
+    )
+
+    summary = await service.get_profile_summary(uuid4())
+
+    assert summary.booths == [ProfileBoothStatus(id=booth.id, name=booth.name, visited=False)]
+
+
+async def test_profile_summary_no_booths_returns_empty_list() -> None:
+    service, _, _ = _build(latest=None)
+    summary = await service.get_profile_summary(uuid4())
+    assert summary.booths == []
 
 
 def _persona_input() -> Persona:
