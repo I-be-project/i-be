@@ -131,7 +131,7 @@ function BoothQrBody({ booth }: BoothQrBodyProps) {
         </div>
 
         <p className="text-center text-xs text-muted-foreground">
-          학생용 스캔 페이지는 아직 준비 중이에요. 배포 전까지는 인쇄해서 현장에 걸지 마세요.
+          학생이 카드를 받은 뒤에 이 QR을 찍으면 방문이 기록돼요.
         </p>
 
         {copyError && (
