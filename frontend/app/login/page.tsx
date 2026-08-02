@@ -7,8 +7,8 @@ import { ChevronLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { IdentityFields, type IdentityValues } from "@/components/auth/IdentityFields";
 import { useSessionStore } from "@/store/useSessionStore";
-import { ApiError, loginStudent } from "@/lib/api";
-import { resumeScreen, resumePath } from "@/lib/explore/flow";
+import { ApiError, getMyProfile, loginStudent } from "@/lib/api";
+import { reconcileCompletionFromProfile, resumeScreen, resumePath } from "@/lib/explore/flow";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
 
@@ -60,6 +60,15 @@ export default function LoginPage() {
         password,
       });
       setAuth(res.student_token, res.student_id);
+      // 로컬 진행상황(surveyCompleted 등)은 localStorage 영속이라 다른 기기·초기화된
+      // 저장소에서는 실제로 완료했어도 "진행 이력 없음"으로 보일 수 있다. 라우팅을
+      // 결정하기 전에 백엔드 완료 여부로 한 번 동기화한다(조회 실패 시 로컬 기준 진행).
+      try {
+        const profile = await getMyProfile(res.student_token);
+        reconcileCompletionFromProfile(profile);
+      } catch {
+        // 무시 — 로컬 상태 기준으로 계속 진행(fail-open)
+      }
       // 같은 학생의 재로그인이면 진행상황이 보존된다(setAuth). 진행 중이던 설문이
       // 있거나 이미 완료했으면 그 화면으로 바로 이어가고(완료 시 공개 대기 화면),
       // 아직 시작 전(신규/다른 학생)이면 프로필로 간다.
