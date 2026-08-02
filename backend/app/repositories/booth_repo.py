@@ -59,6 +59,16 @@ class BoothRepository(BaseRepository):
             row = await conn.fetchrow(query, booth_id)
         return _to_record(row) if row is not None else None
 
+    async def get_by_code(self, code: str) -> BoothRecord | None:
+        """QR/수동 입력으로 들어온 code로 부스를 찾는다. 없으면 None.
+
+        code 정규화(대문자·공백 제거)는 호출부(BoothVisitService)의 책임이다.
+        """
+        query = f"select {_COLUMNS} from ops.booths where code = $1"
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, code)
+        return _to_record(row) if row is not None else None
+
     async def list_all(self) -> list[BoothRecord]:
         """전체 부스 — 등록 순. 부스는 행사당 수십 개라 페이지네이션을 두지 않는다."""
         query = f"select {_COLUMNS} from ops.booths order by created_at"

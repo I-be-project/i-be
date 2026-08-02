@@ -45,6 +45,9 @@ class FakeBoothRepo:
     async def get(self, booth_id: UUID) -> BoothRecord | None:
         return self.rows.get(booth_id)
 
+    async def get_by_code(self, code: str) -> BoothRecord | None:
+        return next((r for r in self.rows.values() if r.code == code), None)
+
     async def list_all(self) -> list[BoothRecord]:
         return sorted(self.rows.values(), key=lambda r: r.created_at)
 
