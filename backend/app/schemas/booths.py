@@ -1,4 +1,8 @@
-"""booths 라우터용 Request/Response 모델."""
+"""booths·student_booths 라우터용 Request/Response 모델.
+
+관리자용(BoothCreateRequest 등)과 학생용(StudentBoothResponse 등)을 한 파일에 둔다.
+같은 ops.booths를 서로 다른 시야로 내보내는 것이라 함께 두는 편이 차이를 보기 쉽다.
+"""
 
 from __future__ import annotations
 
@@ -74,3 +78,30 @@ class BoothResponse(BaseModel):
 
 class BoothDeleteResponse(BaseModel):
     booth_id: UUID
+
+
+class StudentBoothResponse(BaseModel):
+    """학생이 QR을 찍고 들어왔을 때 보여줄 부스 정보.
+
+    id·qr_url은 내려주지 않는다. 학생 화면에 쓸 데가 없고, 관리자용 식별자를
+    학생 응답에 섞지 않는 편이 낫다.
+    """
+
+    code: str
+    name: str
+    description: str | None = None
+    visited: bool = Field(..., description="이 학생이 이미 방문 기록을 남겼는지")
+    visited_at: datetime | None = Field(
+        None, description="첫 방문 기록 시각 (visited=false면 null)"
+    )
+
+
+class BoothVisitResponse(BaseModel):
+    """방문 기록 결과."""
+
+    code: str
+    name: str
+    visited_at: datetime = Field(..., description="첫 방문 기록 시각 — 재방문해도 덮이지 않는다")
+    already_visited: bool = Field(
+        ..., description="이번 요청 전에 이미 기록이 있었으면 true (에러가 아니다)"
+    )
