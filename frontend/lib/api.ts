@@ -63,6 +63,13 @@ export interface ProfileStudent {
   photo_url: string | null;
 }
 
+// 부스 방문 상태 — 방문 기록 API는 별도 작업 중이라 당분간 없을 수 있다(선택 필드).
+export interface ProfileBoothStatus {
+  id: string;
+  name: string;
+  visited: boolean;
+}
+
 export interface ProfileSummary {
   has_completed: boolean;
   retry_enabled: boolean;
@@ -70,6 +77,7 @@ export interface ProfileSummary {
   // has_completed가 false면 persona/card 둘 다 null. true여도 card는 null일 수 있다(카드 미생성).
   persona: ProfilePersona | null;
   card: ProfileCard | null;
+  booths?: ProfileBoothStatus[];
 }
 
 // API 호출 실패를 status/code와 함께 던진다. 화면에서 분기(409/403/401 등)에 사용.
@@ -232,6 +240,28 @@ export function uploadPhoto(
     },
     60_000
   );
+}
+
+// PATCH /api/students/me — 이름/성별만 수정 가능(식별 키·비밀번호는 대상 아님).
+// 최소 하나는 채워야 한다(둘 다 비우면 백엔드가 422). 응답은 GET과 동일한 ProfileSummary라
+// 호출부가 재조회 없이 최신 상태로 화면을 갱신할 수 있다.
+export interface UpdateProfilePayload {
+  name?: string;
+  gender?: "male" | "female";
+}
+
+export function updateMyProfile(
+  token: string,
+  payload: UpdateProfilePayload
+): Promise<ProfileSummary> {
+  return request<ProfileSummary>("/api/students/me", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
 }
 
 export interface AdminLoginResponse {
@@ -513,4 +543,119 @@ export function completeSurvey(
     // sessionId가 있으면 그 in_progress 세션을 completed로 승격한다.
     body: JSON.stringify({ ...(persona ?? {}), sessionId }),
   });
+}
+
+// ─── 부스 관리 (관리자) ────────────────────────────────────
+// qr_url은 백엔드가 FRONTEND_ORIGIN 기준으로 조립해 내려준다.
+// 프론트에서 링크를 다시 만들지 않는다(로컬에서 뽑은 인쇄물에 localhost가 박히는 사고 방지).
+
+export interface AdminBooth {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  qr_url: string;
+  created_at: string;
+}
+
+export interface AdminBoothCreatePayload {
+  name: string;
+  description: string | null;
+}
+
+// 보내지 않은 필드는 서버가 기존 값을 유지한다.
+// description에 null을 명시하면 설명이 지워진다.
+export interface AdminBoothUpdatePayload {
+  name?: string;
+  description?: string | null;
+}
+
+export function fetchAdminBooths(token: string): Promise<AdminBooth[]> {
+  return request<AdminBooth[]>("/api/admin/booths", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function createAdminBooth(
+  token: string,
+  payload: AdminBoothCreatePayload
+): Promise<AdminBooth> {
+  return request<AdminBooth>("/api/admin/booths", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateAdminBooth(
+  token: string,
+  boothId: string,
+  payload: AdminBoothUpdatePayload
+): Promise<AdminBooth> {
+  return request<AdminBooth>(`/api/admin/booths/${boothId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function deleteAdminBooth(
+  token: string,
+  boothId: string
+): Promise<{ booth_id: string }> {
+  return request<{ booth_id: string }>(`/api/admin/booths/${boothId}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// ─── 부스 방문 (학생) ──────────────────────────────────────
+// 부스는 uuid가 아니라 인쇄물에 박힌 6자 code로 지목한다. 대소문자는 서버가 정규화한다.
+// 상태 코드 분기: 403 = 카드 발급 전, 404 = 없는 코드, 401 = 토큰 만료/무효.
+
+export interface StudentBooth {
+  code: string;
+  name: string;
+  description: string | null;
+  visited: boolean;
+  // 첫 방문 시각 (ISO). visited가 false면 null.
+  visited_at: string | null;
+}
+
+export interface BoothVisitResult {
+  code: string;
+  name: string;
+  visited_at: string;
+  // 이번 요청 전에 이미 기록이 있었으면 true. 에러가 아니라 정상 응답이다.
+  already_visited: boolean;
+}
+
+export function fetchBoothByCode(
+  token: string,
+  code: string
+): Promise<StudentBooth> {
+  return request<StudentBooth>(`/api/booths/${encodeURIComponent(code)}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function checkInBooth(
+  token: string,
+  code: string
+): Promise<BoothVisitResult> {
+  return request<BoothVisitResult>(
+    `/api/booths/${encodeURIComponent(code)}/visit`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
 }

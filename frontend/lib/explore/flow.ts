@@ -10,6 +10,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSessionStore } from "@/store/useSessionStore";
+import type { ProfileSummary } from "@/lib/api";
 
 export type FlowScreen =
   | "photo"
@@ -77,6 +78,20 @@ export function resumeScreen(s: FlowState): FlowScreen {
 
 export function resumePath(s: FlowState): string {
   return SCREEN_PATH[resumeScreen(s)];
+}
+
+// 로컬 상태(surveyCompleted)는 localStorage 영속이라, 기기를 바꾸거나 저장소가
+// 초기화되면 이미 완료한 학생도 로컬만 보면 "진행 이력 없음"이 된다. 그러면
+// resumeScreen이 처음부터 다시 시키고, 재도전 세션이 하나 더 생겨 관리자 화면에서
+// "완료 안 됨"으로 잘못 보이는 문제로 이어진다(원인 세션은 백엔드가 만들지만, 증상은
+// 프론트가 백엔드 진실을 확인 안 하고 라우팅을 결정하는 데서 시작한다).
+// 로그인·재진입 시 백엔드 프로필을 한 번 확인해 완료 상태를 로컬에 동기화한다.
+// 단방향(완료→완료)만 맞춘다 — 백엔드가 미완료인데 로컬이 완료인 경우는 되돌리지 않는다
+// (그 경우는 방금 이 기기에서 완료를 마친 직후일 뿐, 백엔드 쓰기가 아직 안 보일 수 있어서다).
+export function reconcileCompletionFromProfile(profile: ProfileSummary): void {
+  if (profile.has_completed) {
+    useSessionStore.getState().setSurveyCompleted(true);
+  }
 }
 
 // 각 화면의 하드 진입 조건(뒤로 밀기와 별개로, 정상적으로 그 화면에 있을 수 있는가).

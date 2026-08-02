@@ -8,12 +8,20 @@ from uuid import UUID
 
 from app.config import Settings
 from app.core.errors import ConflictError, ForbiddenError, InvalidStageError, NotFoundError
+from app.repositories.booth_repo import BoothRecord
+from app.repositories.booth_visit_repo import BoothVisitRecord
 from app.repositories.card_repo import CardRecord
 from app.repositories.persona_repo import PersonaRecord
 from app.repositories.session_repo import AnswerRecord, SessionRecord
 from app.repositories.student_repo import StudentRecord
 from app.schemas.persona import Persona
-from app.schemas.students import CardSummary, PersonaSummary, ProfileSummary, StudentInfo
+from app.schemas.students import (
+    CardSummary,
+    PersonaSummary,
+    ProfileBoothStatus,
+    ProfileSummary,
+    StudentInfo,
+)
 
 # 행사 전역 '다시 하기' 스위치 키.
 RETRY_ENABLED_KEY = "retry_enabled"
@@ -77,6 +85,14 @@ class CardImageStorage(Protocol):
     async def create_signed_url(self, key: str, *, ttl_seconds: int) -> str: ...
 
 
+class BoothRepo(Protocol):
+    async def list_all(self) -> list[BoothRecord]: ...
+
+
+class BoothVisitRepo(Protocol):
+    async def list_for_student(self, student_id: UUID) -> list[BoothVisitRecord]: ...
+
+
 class SessionService:
     """세션 시작/답변 흐름(별도 작업)과 프로필 요약 조회."""
 
@@ -91,6 +107,8 @@ class SessionService:
         storage: CardImageStorage,
         settings: Settings,
         db_pool: TxPool,
+        booths: BoothRepo,
+        visits: BoothVisitRepo,
     ) -> None:
         self._students = students
         self._sessions = sessions
@@ -100,6 +118,8 @@ class SessionService:
         self._storage = storage
         self._settings = settings
         self._db_pool = db_pool
+        self._booths = booths
+        self._visits = visits
 
     async def get_profile_summary(self, student_id: UUID) -> ProfileSummary:
         """프로필 화면 상태를 조립한다.
@@ -109,6 +129,7 @@ class SessionService:
         """
         retry_enabled = bool(await self._settings_repo.get(RETRY_ENABLED_KEY))
         student = await self._fetch_student_info(student_id)
+        booths = await self._list_booth_statuses(student_id)
 
         # 진행 중(in_progress) 세션이 있어도 완료 판정은 최근 '완료' 세션 기준.
         latest = await self._sessions.get_latest_completed_for_student(student_id)
@@ -119,6 +140,7 @@ class SessionService:
                 student=student,
                 persona=None,
                 card=None,
+                booths=booths,
             )
 
         persona = await self._personas.get_by_session(latest.id)
@@ -130,12 +152,14 @@ class SessionService:
                 student=student,
                 persona=None,
                 card=None,
+                booths=booths,
             )
 
         return ProfileSummary(
             has_completed=True,
             retry_enabled=retry_enabled,
             student=student,
+            booths=booths,
             persona=PersonaSummary(
                 name=persona.name,
                 tagline=persona.tagline,
@@ -257,6 +281,19 @@ class SessionService:
             gender=student.gender,
             photo_url=photo_url,
         )
+
+    async def _list_booth_statuses(self, student_id: UUID) -> list[ProfileBoothStatus]:
+        """전체 부스 목록에 이 학생의 방문 여부를 표시해 반환한다.
+
+        부스는 행사당 수십 개 수준이라 조인 없이 두 번 조회 후 파이썬에서 합친다.
+        """
+        all_booths = await self._booths.list_all()
+        visits = await self._visits.list_for_student(student_id)
+        visited_ids = {v.booth_id for v in visits}
+        return [
+            ProfileBoothStatus(id=booth.id, name=booth.name, visited=booth.id in visited_ids)
+            for booth in all_booths
+        ]
 
     async def _build_card_summary(self, persona_id: UUID) -> CardSummary | None:
         """카드 이미지가 있으면 Presigned URL로, 없으면 None."""

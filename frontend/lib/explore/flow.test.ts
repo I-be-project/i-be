@@ -1,5 +1,7 @@
-import { describe, it, expect } from "vitest";
-import { resumeScreen, type FlowState } from "./flow";
+import { describe, it, expect, beforeEach } from "vitest";
+import { reconcileCompletionFromProfile, resumeScreen, type FlowState } from "./flow";
+import { useSessionStore } from "@/store/useSessionStore";
+import type { ProfileSummary } from "@/lib/api";
 
 const base: FlowState = {
   answers: [],
@@ -36,5 +38,35 @@ describe("resumeScreen", () => {
     expect(resumeScreen({ ...base, hasPhoto: false, surveyCompleted: true })).toBe(
       "done"
     );
+  });
+});
+
+describe("reconcileCompletionFromProfile", () => {
+  beforeEach(() => {
+    useSessionStore.setState({ surveyCompleted: false });
+  });
+
+  const profile = (has_completed: boolean): ProfileSummary => ({
+    has_completed,
+    retry_enabled: false,
+    student: null,
+    persona: null,
+    card: null,
+  });
+
+  it("백엔드가 완료로 보면 로컬 surveyCompleted를 true로 맞춘다", () => {
+    reconcileCompletionFromProfile(profile(true));
+    expect(useSessionStore.getState().surveyCompleted).toBe(true);
+  });
+
+  it("백엔드가 미완료면 로컬 상태를 건드리지 않는다", () => {
+    reconcileCompletionFromProfile(profile(false));
+    expect(useSessionStore.getState().surveyCompleted).toBe(false);
+  });
+
+  it("로컬이 이미 완료(true)인데 백엔드가 미완료여도 되돌리지 않는다(단방향 동기화)", () => {
+    useSessionStore.setState({ surveyCompleted: true });
+    reconcileCompletionFromProfile(profile(false));
+    expect(useSessionStore.getState().surveyCompleted).toBe(true);
   });
 });

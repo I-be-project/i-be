@@ -18,7 +18,18 @@ from app.adapters.db_pool import DBPool
 from app.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
-from app.routers import admin, auth, cards, dev, operator, questions, sessions, students
+from app.routers import (
+    admin,
+    auth,
+    booths,
+    cards,
+    dev,
+    operator,
+    questions,
+    sessions,
+    student_booths,
+    students,
+)
 from app.workers.card_worker import card_worker_loop
 
 logger = get_logger(__name__)
@@ -94,6 +105,8 @@ def create_app() -> FastAPI:
     app.include_router(students.router)
     app.include_router(operator.router)
     app.include_router(admin.router)
+    app.include_router(booths.router)
+    app.include_router(student_booths.router)
     app.include_router(questions.router)
 
     # /api/dev는 인증이 없고 호출 시 AI 크레딧을 소모한다. CORS가 전 오리진 개방이라
