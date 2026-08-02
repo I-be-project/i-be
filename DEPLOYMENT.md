@@ -98,6 +98,7 @@ CI에는 `backend/.env`가 없으므로, 테스트는 환경변수 없이도 통
 | `JWT_SECRET` | **기동 실패.** 공개된 예시값으로 서명하면 학생 토큰 위조 가능 |
 | `JWT_CARD_SHARE_SECRET` | **기동 실패.** 카드 공유 링크 위조 가능 |
 | `ADMIN_PASSWORD` | **기동 실패.** 관리자 API(회원 조회·삭제) 무단 접근 가능 |
+| `FRONTEND_ORIGIN` | **기동 실패.** 부스 QR 링크(`https://i-be.vercel.app`)의 base — localhost가 박힌 QR 인쇄물은 되돌릴 수 없다 |
 
 `APP_ENV=production`인데 위 시크릿이 예시값이거나 비어 있으면 앱이 기동을 거부하고,
 CD 워크플로의 헬스체크가 실패해 배포가 빨간불로 끝난다. 조용히 뜨는 것보다 안전하다.
@@ -105,7 +106,7 @@ CD 워크플로의 헬스체크가 실패해 배포가 빨간불로 끝난다. �
 **배포 전 서버에서 확인**
 ```bash
 cd <DEPLOY_PATH>/backend
-grep -E '^(APP_ENV|JWT_SECRET|JWT_CARD_SHARE_SECRET|ADMIN_PASSWORD)=' .env
+grep -E '^(APP_ENV|JWT_SECRET|JWT_CARD_SHARE_SECRET|ADMIN_PASSWORD|FRONTEND_ORIGIN)=' .env
 # 값이 change-me-* 이거나 줄이 없으면 교체:  openssl rand -hex 32
 ```
 
@@ -119,3 +120,4 @@ grep -E '^(APP_ENV|JWT_SECRET|JWT_CARD_SHARE_SECRET|ADMIN_PASSWORD)=' .env
 | 2026-07-02 | 백엔드 CD 자동 배포(GitHub Actions + SSH) 추가 |
 | 2026-08-01 | 운영 시크릿 가드 추가 — `APP_ENV=production`에서 `JWT_SECRET`·`JWT_CARD_SHARE_SECRET`·`ADMIN_PASSWORD`가 예시값/빈 값이면 기동 실패. `/api/dev`는 `APP_ENV=local`에서만 등록 |
 | 2026-08-01 | CD에 품질 게이트 추가 — 배포 전 `ruff`·`mypy`·`pytest`를 돌리고 실패 시 배포 중단. production 대상 PR에서도 검증 |
+| 2026-08-02 | 운영 필수 변수에 `FRONTEND_ORIGIN` 추가 — 부스 QR 링크의 base라 `APP_ENV=production`에서 미설정(localhost 기본값)이면 기동 실패 |

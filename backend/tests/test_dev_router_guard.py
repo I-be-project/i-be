@@ -15,6 +15,7 @@ _PRODUCTION_ENV = {
     "JWT_SECRET": "b7f3d1c9a2e84f60b5d7c3a1e9f2b8d4",
     "JWT_CARD_SHARE_SECRET": "3a9e1f7c5b2d8046a1c7e3f9b5d2a806",
     "ADMIN_PASSWORD": "a-real-admin-password",
+    "FRONTEND_ORIGIN": "https://i-be.vercel.app",
 }
 
 
