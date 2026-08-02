@@ -63,6 +63,13 @@ export interface ProfileStudent {
   photo_url: string | null;
 }
 
+// 부스 방문 상태 — 방문 기록 API는 별도 작업 중이라 당분간 없을 수 있다(선택 필드).
+export interface ProfileBoothStatus {
+  id: string;
+  name: string;
+  visited: boolean;
+}
+
 export interface ProfileSummary {
   has_completed: boolean;
   retry_enabled: boolean;
@@ -70,6 +77,7 @@ export interface ProfileSummary {
   // has_completed가 false면 persona/card 둘 다 null. true여도 card는 null일 수 있다(카드 미생성).
   persona: ProfilePersona | null;
   card: ProfileCard | null;
+  booths?: ProfileBoothStatus[];
 }
 
 // API 호출 실패를 status/code와 함께 던진다. 화면에서 분기(409/403/401 등)에 사용.

@@ -24,7 +24,7 @@ import {
 const cardClass =
   "rounded-3xl border border-solid border-white/70 bg-white/85 p-6 shadow-[0_12px_32px_rgba(37,99,235,0.10)] backdrop-blur-xl";
 
-// 이름/성별 편집 폼 스타일 — app/signup/page.tsx와 동일한 값을 그대로 맞췄다.
+// 이름 편집 폼 스타일 — app/signup/page.tsx와 동일한 값을 그대로 맞췄다.
 const labelClass = "mb-1.5 block text-sm font-bold text-zinc-600";
 const inputClass =
   "h-13 rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none focus-visible:border-sky-400 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-sky-100";
@@ -35,7 +35,6 @@ const MAX_PHOTO_BYTES = 10 * 1024 * 1024;
 
 export default function ProfilePage() {
   const router = useRouter();
-  const hasHydrated = useSessionStore((state) => state.hasHydrated);
   const studentToken = useSessionStore((state) => state.studentToken);
   const studentInfo = useSessionStore((state) => state.studentInfo);
   const setStudentInfo = useSessionStore((state) => state.setStudentInfo);
@@ -54,14 +53,10 @@ export default function ProfilePage() {
 
   const photoInputRef = useRef<HTMLInputElement>(null);
 
-  // 토큰이 없으면 로그인으로 — signup/photo와 동일 패턴.
-  // 단, localStorage 복원(hasHydrated) 전에는 판단·조회를 보류한다.
+  // 인증가드는 상위 app/(tabs)/layout.tsx가 이미 보장한다(hasHydrated 대기 → 없으면 /login).
+  // 여기서는 토큰이 확보된 뒤 프로필만 조회한다.
   useEffect(() => {
-    if (!hasHydrated) return;
-    if (!studentToken) {
-      router.replace("/login");
-      return;
-    }
+    if (!studentToken) return;
 
     let active = true;
     setLoading(true);
@@ -88,7 +83,7 @@ export default function ProfilePage() {
     return () => {
       active = false;
     };
-  }, [hasHydrated, studentToken, router]);
+  }, [studentToken, router]);
 
   // 언마운트 시 마지막 미리보기 URL 해제(메모리 누수 방지).
   useEffect(() => {
@@ -185,11 +180,8 @@ export default function ProfilePage() {
     }
   };
 
-  // 토큰 확인 전에는 빈 화면 (리다이렉트 진행 중)
-  if (!studentToken) return null;
-
   return (
-    <main className="relative flex min-h-[100dvh] flex-col items-center overflow-hidden px-5 py-10 font-sans">
+    <main className="relative flex min-h-[100dvh] flex-col items-center overflow-hidden px-5 pb-28 pt-10 font-sans">
       <VoyageBackground variant="soft" />
       {/* 사진 수정용 숨겨진 입력 */}
       <input
