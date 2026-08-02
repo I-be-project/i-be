@@ -1,10 +1,11 @@
 "use client";
 
-import { Inbox, Pencil, Plus, Trash2 } from "lucide-react";
+import { Inbox, Pencil, Plus, QrCode, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { BoothFormDialog } from "@/components/admin/BoothFormDialog";
+import { BoothQrDialog } from "@/components/admin/BoothQrDialog";
 import { Toast, type ToastVariant } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -34,6 +35,7 @@ export default function AdminBoothsPage() {
   const [editing, setEditing] = useState<AdminBooth | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [qrBooth, setQrBooth] = useState<AdminBooth | null>(null);
   const [toast, setToast] = useState<{
     message: string;
     variant: ToastVariant;
@@ -189,6 +191,15 @@ export default function AdminBoothsPage() {
                           variant="ghost"
                           size="sm"
                           className="gap-1.5"
+                          onClick={() => setQrBooth(booth)}
+                        >
+                          <QrCode className="size-4" aria-hidden />
+                          QR
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1.5"
                           onClick={() => openEdit(booth)}
                         >
                           <Pencil className="size-4" aria-hidden />
@@ -220,6 +231,11 @@ export default function AdminBoothsPage() {
         error={formError}
         onOpenChange={setFormOpen}
         onSubmit={(values) => void handleSubmit(values)}
+      />
+
+      <BoothQrDialog
+        booth={qrBooth}
+        onOpenChange={(open) => !open && setQrBooth(null)}
       />
 
       <Toast
