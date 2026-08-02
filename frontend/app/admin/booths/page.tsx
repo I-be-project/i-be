@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getAdminToken } from "@/lib/adminAuth";
+import { clearAdminToken, getAdminToken } from "@/lib/adminAuth";
 import {
   ApiError,
   createAdminBooth,
@@ -52,6 +52,7 @@ export default function AdminBoothsPage() {
       setBooths(await fetchAdminBooths(token));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
+        clearAdminToken();
         router.replace("/admin/login");
         return;
       }
@@ -105,6 +106,11 @@ export default function AdminBoothsPage() {
       });
       await load();
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearAdminToken();
+        router.replace("/admin/login");
+        return;
+      }
       setFormError(
         err instanceof ApiError ? err.message : "저장하지 못했어요."
       );
@@ -130,6 +136,11 @@ export default function AdminBoothsPage() {
       setToast({ message: "부스를 삭제했어요.", variant: "info" });
       await load();
     } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearAdminToken();
+        router.replace("/admin/login");
+        return;
+      }
       setToast({
         message: err instanceof ApiError ? err.message : "삭제하지 못했어요.",
         variant: "error",
