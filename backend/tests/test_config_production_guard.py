@@ -11,6 +11,7 @@ _REAL_SECRETS = {
     "JWT_SECRET": "b7f3d1c9a2e84f60b5d7c3a1e9f2b8d4",
     "JWT_CARD_SHARE_SECRET": "3a9e1f7c5b2d8046a1c7e3f9b5d2a806",
     "ADMIN_PASSWORD": "a-real-admin-password",
+    "FRONTEND_ORIGIN": "https://i-be.vercel.app",
 }
 
 
@@ -36,6 +37,7 @@ def test_production_with_real_secrets_is_accepted(monkeypatch: pytest.MonkeyPatc
         ("JWT_SECRET", "jwt_secret"),
         ("JWT_CARD_SHARE_SECRET", "jwt_card_share_secret"),
         ("ADMIN_PASSWORD", "admin_password"),
+        ("FRONTEND_ORIGIN", "frontend_origin"),
     ],
 )
 def test_production_rejects_default_secret(
@@ -83,3 +85,15 @@ def test_non_production_allows_defaults(monkeypatch: pytest.MonkeyPatch, env: st
     settings = Settings()
 
     assert settings.app_env == env
+
+
+def test_production_rejects_frontend_origin_without_scheme(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """스킴이 없으면 QR을 조립해도 링크가 아니라 문자열이 되어 기본 카메라 앱 폴백이 깨진다."""
+    _use_production(monkeypatch, FRONTEND_ORIGIN="i-be.vercel.app")
+
+    with pytest.raises(ValidationError) as exc:
+        Settings()
+
+    assert "FRONTEND_ORIGIN" in str(exc.value)

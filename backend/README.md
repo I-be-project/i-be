@@ -39,7 +39,7 @@ backend/
 │   ├── workers/         백그라운드 잡 워커
 │   ├── schemas/         Pydantic Request/Response
 │   └── core/            보안·예외·로깅·프롬프트
-├── supabase/            마이그레이션·시드 (예정)
+├── supabase/            마이그레이션 (수동 적용 — ../DEPLOYMENT.md의 'DB 마이그레이션' 참고)
 ├── tests/
 └── scripts/             시드·정리 스크립트
 ```
