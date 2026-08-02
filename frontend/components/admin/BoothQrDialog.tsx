@@ -46,6 +46,7 @@ function BoothQrBody({ booth }: BoothQrBodyProps) {
   const [pngDataUrl, setPngDataUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -71,9 +72,16 @@ function BoothQrBody({ booth }: BoothQrBodyProps) {
   }
 
   async function copyLink() {
-    await navigator.clipboard.writeText(booth.qr_url);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
+    setCopyError(null);
+    try {
+      await navigator.clipboard.writeText(booth.qr_url);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // localhost가 아닌 LAN 주소(예: http://192.168.x.x)는 secure context가 아니라
+      // clipboard API 자체가 없거나 거부될 수 있다 — 위에 보이는 링크를 직접 선택하게 안내.
+      setCopyError("복사하지 못했어요. 위 링크를 직접 선택해서 복사해주세요.");
+    }
   }
 
   return (
@@ -121,6 +129,10 @@ function BoothQrBody({ booth }: BoothQrBodyProps) {
             PNG 저장
           </Button>
         </div>
+
+        {copyError && (
+          <p className="text-center text-sm text-destructive">{copyError}</p>
+        )}
       </div>
     </>
   );
