@@ -9,6 +9,7 @@ import {
   fetchAdminStudents,
   generateStage,
   saveAnswer,
+  updateMyProfile,
 } from "@/lib/api";
 
 describe("completeSurvey", () => {
@@ -38,6 +39,43 @@ describe("completeSurvey", () => {
     expect(init.headers.Authorization).toBe("Bearer tok123");
     expect(JSON.parse(init.body as string)).toEqual(persona);
     expect(res.has_completed).toBe(true);
+  });
+});
+
+describe("updateMyProfile", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("PATCHes /api/students/me with bearer token and returns the updated profile", async () => {
+    const payload = {
+      has_completed: false,
+      retry_enabled: false,
+      student: {
+        school: "한마당고",
+        grade: 2,
+        class_no: 3,
+        student_no: 11,
+        name: "새이름",
+        gender: "female",
+        photo_url: null,
+      },
+      persona: null,
+      card: null,
+    };
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(payload), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await updateMyProfile("tok123", { name: "새이름", gender: "female" });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/students/me");
+    expect(init.method).toBe("PATCH");
+    expect(init.headers.Authorization).toBe("Bearer tok123");
+    expect(JSON.parse(init.body as string)).toEqual({ name: "새이름", gender: "female" });
+    expect(res.student?.name).toBe("새이름");
   });
 });
 

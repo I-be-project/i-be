@@ -234,6 +234,28 @@ export function uploadPhoto(
   );
 }
 
+// PATCH /api/students/me — 이름/성별만 수정 가능(식별 키·비밀번호는 대상 아님).
+// 최소 하나는 채워야 한다(둘 다 비우면 백엔드가 422). 응답은 GET과 동일한 ProfileSummary라
+// 호출부가 재조회 없이 최신 상태로 화면을 갱신할 수 있다.
+export interface UpdateProfilePayload {
+  name?: string;
+  gender?: "male" | "female";
+}
+
+export function updateMyProfile(
+  token: string,
+  payload: UpdateProfilePayload
+): Promise<ProfileSummary> {
+  return request<ProfileSummary>("/api/students/me", {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(payload),
+  });
+}
+
 export interface AdminLoginResponse {
   admin_token: string;
 }

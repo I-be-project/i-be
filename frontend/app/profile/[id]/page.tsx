@@ -3,10 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Camera, GraduationCap, RotateCcw } from "lucide-react";
+import { Camera, GraduationCap, Pencil, RotateCcw } from "lucide-react";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Toast, type ToastVariant } from "@/components/Toast";
 import { PersonaCard } from "@/components/card/PersonaCard";
 import { useSessionStore } from "@/store/useSessionStore";
@@ -14,12 +16,18 @@ import { genderLabel } from "@/lib/utils";
 import {
   ApiError,
   getMyProfile,
+  updateMyProfile,
   uploadPhoto,
   type ProfileSummary,
 } from "@/lib/api";
 
 const cardClass =
   "rounded-3xl border border-solid border-white/70 bg-white/85 p-6 shadow-[0_12px_32px_rgba(37,99,235,0.10)] backdrop-blur-xl";
+
+// 이름/성별 편집 폼 스타일 — app/signup/page.tsx와 동일한 값을 그대로 맞췄다.
+const labelClass = "mb-1.5 block text-sm font-bold text-zinc-600";
+const inputClass =
+  "h-13 rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none focus-visible:border-sky-400 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-sky-100";
 
 // 사진 수정 시 프론트 선검증 (백엔드와 동일 기준).
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -30,6 +38,7 @@ export default function ProfilePage() {
   const hasHydrated = useSessionStore((state) => state.hasHydrated);
   const studentToken = useSessionStore((state) => state.studentToken);
   const studentInfo = useSessionStore((state) => state.studentInfo);
+  const setStudentInfo = useSessionStore((state) => state.setStudentInfo);
 
   const [profile, setProfile] = useState<ProfileSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,6 +46,11 @@ export default function ProfilePage() {
   // 업로드한 사진은 백엔드 응답에 URL이 없어, 선택한 파일로 즉시 미리보기를 만든다.
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: ToastVariant } | null>(null);
+
+  // 이름 편집 — 별도 페이지 이동 없이 이 화면 안에서 처리한다. (성별은 수정 대상 아님)
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
 
   const photoInputRef = useRef<HTMLInputElement>(null);
 
@@ -136,6 +150,41 @@ export default function ProfilePage() {
   // 방금 업로드한 미리보기를 우선, 없으면 백엔드 사진 URL을 쓴다.
   const photoSrc = photoPreview ?? displayStudent?.photoUrl ?? null;
 
+  const startEditingProfile = () => {
+    if (!displayStudent) return;
+    setEditName(displayStudent.name);
+    setIsEditing(true);
+  };
+
+  const cancelEditingProfile = () => {
+    setIsEditing(false);
+  };
+
+  const handleSaveProfile = async () => {
+    const trimmedName = editName.trim();
+    if (!studentToken || !trimmedName || savingProfile) return;
+
+    setSavingProfile(true);
+    try {
+      const updated = await updateMyProfile(studentToken, { name: trimmedName });
+      setProfile(updated);
+      // studentInfo(localStorage 폴백)도 이름만 갱신 — 다른 필드(성별 등)는 그대로 둔다.
+      if (updated.student && studentInfo) {
+        setStudentInfo({ ...studentInfo, name: updated.student.name });
+      }
+      setIsEditing(false);
+      setToast({ message: "정보가 수정됐어!", variant: "info" });
+    } catch (err) {
+      setToast({
+        message:
+          err instanceof ApiError ? err.message : "정보 수정에 실패했어. 다시 시도해줘.",
+        variant: "error",
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
+
   // 토큰 확인 전에는 빈 화면 (리다이렉트 진행 중)
   if (!studentToken) return null;
 
@@ -191,21 +240,67 @@ export default function ProfilePage() {
           </button>
 
           {displayStudent ? (
-            <>
-              {/* 이름 — 가운데 정렬, 크게 */}
-              <h2 className="mt-4 text-center text-2xl font-extrabold text-ink">
-                {displayStudent.name}
-              </h2>
-              {/* 학교 / 학년 / 반 / 번호 */}
-              <div className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-ink-muted">
-                <GraduationCap className="h-4 w-4 text-sky-600" />
-                <span>
-                  {displayStudent.school} · {displayStudent.grade}학년{" "}
-                  {displayStudent.classNo}반 {displayStudent.studentNo}번 ·{" "}
-                  {genderLabel(displayStudent.gender)}
-                </span>
+            isEditing ? (
+              <div className="mt-4 w-full max-w-xs space-y-4">
+                <div>
+                  <label htmlFor="edit-name" className={labelClass}>
+                    이름
+                  </label>
+                  <Input
+                    id="edit-name"
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="홍길동"
+                    disabled={savingProfile}
+                    autoComplete="off"
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={cancelEditingProfile}
+                    disabled={savingProfile}
+                    className="h-11 flex-1 rounded-full border-zinc-300 text-sm font-bold text-zinc-600 hover:bg-zinc-50"
+                  >
+                    취소
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={handleSaveProfile}
+                    disabled={savingProfile || !editName.trim()}
+                    className="h-11 flex-1 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-sm font-bold text-white hover:shadow-md"
+                  >
+                    {savingProfile ? "저장 중..." : "저장"}
+                  </Button>
+                </div>
               </div>
-            </>
+            ) : (
+              <>
+                {/* 이름 — 가운데 정렬, 크게 */}
+                <h2 className="mt-4 text-center text-2xl font-extrabold text-ink">
+                  {displayStudent.name}
+                </h2>
+                {/* 학교 / 학년 / 반 / 번호 */}
+                <div className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-ink-muted">
+                  <GraduationCap className="h-4 w-4 text-sky-600" />
+                  <span>
+                    {displayStudent.school} · {displayStudent.grade}학년{" "}
+                    {displayStudent.classNo}반 {displayStudent.studentNo}번 ·{" "}
+                    {genderLabel(displayStudent.gender)}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={startEditingProfile}
+                  className="mt-3 inline-flex items-center gap-1 rounded-full border border-solid border-zinc-200 px-3.5 py-1.5 text-xs font-bold text-zinc-600 transition-colors hover:border-sky-300 hover:text-sky-700"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                  정보 수정
+                </button>
+              </>
+            )
           ) : loading ? (
             <div className="mt-4 flex flex-col items-center gap-2">
               <Skeleton className="h-7 w-32" />
@@ -285,13 +380,7 @@ export default function ProfilePage() {
             // PersonaCard는 name/tagline/keywords만 사용. 타입 호환 위해 빈 배열 채움.
             persona={{ ...profile.persona, recommendedBooths: [] }}
           />
-        ) : (
-          <div className={cardClass}>
-            <p className="text-sm font-medium text-ink-muted">
-              탐험 결과를 불러오는 중이에요.
-            </p>
-          </div>
-        )}
+        ) : null}
 
         {profile.card?.card_image_url ? (
           <div className={cardClass}>
