@@ -79,6 +79,18 @@ class FakeStudentRepo:
             updated
         )
 
+    async def update_info(self, student_id: UUID, *, name: str | None, gender: str | None) -> None:
+        record = self._by_id[student_id]
+        updated = replace(
+            record,
+            name=name if name is not None else record.name,
+            gender=gender if gender is not None else record.gender,
+        )
+        self._by_id[student_id] = updated
+        self._by_key[self._key(record.school, record.grade, record.class_no, record.student_no)] = (
+            updated
+        )
+
     async def list_students(
         self,
         *,
@@ -239,3 +251,33 @@ async def test_attach_photo_unknown_student_not_found() -> None:
     with pytest.raises(NotFoundError):
         await service.attach_photo(uuid4(), b"x", content_type="image/png")
     assert storage.uploads == []
+
+
+async def test_update_profile_updates_name_and_gender() -> None:
+    service, repo, _ = _service()
+    student, _ = await service.register_student(_register_req())
+
+    await service.update_profile(student.id, name="새이름", gender="female")
+
+    updated = await repo.get_by_id(student.id)
+    assert updated is not None
+    assert updated.name == "새이름"
+    assert updated.gender == "female"
+
+
+async def test_update_profile_partial_update_keeps_other_field() -> None:
+    service, repo, _ = _service()
+    student, _ = await service.register_student(_register_req())
+
+    await service.update_profile(student.id, name="새이름", gender=None)
+
+    updated = await repo.get_by_id(student.id)
+    assert updated is not None
+    assert updated.name == "새이름"
+    assert updated.gender == "male"  # 원래 값 유지
+
+
+async def test_update_profile_unknown_student_not_found() -> None:
+    service, _, _ = _service()
+    with pytest.raises(NotFoundError):
+        await service.update_profile(uuid4(), name="새이름", gender=None)

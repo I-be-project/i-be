@@ -52,6 +52,10 @@ class StudentRepo(Protocol):
 
     async def update_photo_key(self, student_id: UUID, photo_key: str) -> None: ...
 
+    async def update_info(
+        self, student_id: UUID, *, name: str | None, gender: str | None
+    ) -> None: ...
+
 
 class PhotoStorage(Protocol):
     """AuthService가 의존하는 사진 업로드 인터페이스.
@@ -148,3 +152,17 @@ class AuthService:
         photo_key = await self._storage.upload_photo(path, data, content_type=content_type)
         await self._students.update_photo_key(student_id, photo_key)
         return photo_key
+
+    async def update_profile(
+        self,
+        student_id: UUID,
+        *,
+        name: str | None,
+        gender: str | None,
+    ) -> None:
+        """이름/성별 부분 수정. 대상이 없으면 NotFoundError."""
+        student = await self._students.get_by_id(student_id)
+        if student is None:
+            raise NotFoundError("학생을 찾을 수 없습니다.")
+
+        await self._students.update_info(student_id, name=name, gender=gender)

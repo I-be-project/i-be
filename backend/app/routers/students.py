@@ -9,7 +9,7 @@ from fastapi import APIRouter, File, UploadFile
 from app.core.errors import DomainError
 from app.deps import AuthServiceDep, CurrentStudentDep, SessionServiceDep
 from app.schemas.auth import PhotoUploadResponse
-from app.schemas.students import ProfileSummary
+from app.schemas.students import ProfileSummary, UpdateProfileRequest
 
 router = APIRouter(prefix="/api/students", tags=["students"])
 
@@ -55,6 +55,18 @@ async def get_my_profile(
     sessions: SessionServiceDep,
 ) -> ProfileSummary:
     """본인 프로필 상태 — 설문 완료 여부, 페르소나·카드, 다시 하기 스위치."""
+    return await sessions.get_profile_summary(student_id)
+
+
+@router.patch("/me", response_model=ProfileSummary)
+async def update_my_profile(
+    req: UpdateProfileRequest,
+    student_id: CurrentStudentDep,
+    auth: AuthServiceDep,
+    sessions: SessionServiceDep,
+) -> ProfileSummary:
+    """본인 이름/성별 수정. 로그인 식별 키(학교/학년/반/번호)·비밀번호는 이 API로 못 바꾼다."""
+    await auth.update_profile(student_id, name=req.name, gender=req.gender)
     return await sessions.get_profile_summary(student_id)
 
 
