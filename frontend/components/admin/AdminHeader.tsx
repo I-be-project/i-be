@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, LogOut, Users } from "lucide-react";
+import { LayoutGrid, LogOut, QrCode, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/admin", label: "회원 목록", icon: Users },
   { href: "/admin/seating", label: "진행 현황", icon: LayoutGrid },
+  { href: "/admin/booths", label: "부스 관리", icon: QrCode },
 ];
 
 /** 관리자 화면 공통 상단 바 — 브랜드 마크 + 페이지 내비 + 로그아웃. */
