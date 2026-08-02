@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   bulkDeleteAdminStudents,
+  checkInBooth,
   completeSurvey,
+  createAdminBooth,
+  deleteAdminBooth,
   deleteAdminStudent,
+  fetchAdminBooths,
   fetchAdminClassProgress,
   fetchAdminStudentDetail,
   fetchAdminStudentPhotoUrl,
   fetchAdminStudents,
+  fetchBoothByCode,
   generateStage,
   saveAnswer,
+  updateAdminBooth,
   updateMyProfile,
 } from "@/lib/api";
 
@@ -280,5 +286,157 @@ describe("fetchAdminStudents include_photo", () => {
     await fetchAdminStudents("tok123", { school: "한마당고" });
 
     expect(fetchMock.mock.calls[0][0] as string).not.toContain("include_photo");
+  });
+});
+
+describe("부스 관리 API", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  const booth = {
+    id: "b1",
+    code: "K7M2QX",
+    name: "드론 체험",
+    description: null,
+    qr_url: "https://i-be.vercel.app/b/K7M2QX",
+    created_at: "2026-08-02T09:00:00Z",
+  };
+
+  it("GETs /api/admin/booths with bearer token", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify([booth]), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await fetchAdminBooths("tok123");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/admin/booths");
+    expect(init.method).toBe("GET");
+    expect(init.headers.Authorization).toBe("Bearer tok123");
+    expect(res[0].qr_url).toBe("https://i-be.vercel.app/b/K7M2QX");
+  });
+
+  it("POSTs name and description to /api/admin/booths", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(booth), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await createAdminBooth("tok123", { name: "드론 체험", description: null });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/admin/booths");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      name: "드론 체험",
+      description: null,
+    });
+  });
+
+  it("PATCHes /api/admin/booths/:id", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(booth), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await updateAdminBooth("tok123", "b1", { name: "새 이름" });
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/admin/booths/b1");
+    expect(init.method).toBe("PATCH");
+    expect(JSON.parse(init.body as string)).toEqual({ name: "새 이름" });
+  });
+
+  it("DELETEs /api/admin/booths/:id", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Response(JSON.stringify({ booth_id: "b1" }), { status: 200 }),
+      );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await deleteAdminBooth("tok123", "b1");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/admin/booths/b1");
+    expect(init.method).toBe("DELETE");
+    expect(res.booth_id).toBe("b1");
+  });
+});
+
+describe("부스 방문 API (학생)", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("GETs /api/booths/:code with bearer token", async () => {
+    const body = {
+      code: "K7M2QX",
+      name: "드론 체험",
+      description: null,
+      visited: false,
+      visited_at: null,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await fetchBoothByCode("tok123", "K7M2QX");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/booths/K7M2QX");
+    expect(init.method).toBe("GET");
+    expect(init.headers.Authorization).toBe("Bearer tok123");
+    expect(res.visited).toBe(false);
+  });
+
+  it("POSTs /api/booths/:code/visit and reports a fresh record", async () => {
+    const body = {
+      code: "K7M2QX",
+      name: "드론 체험",
+      visited_at: "2026-08-02T09:00:00Z",
+      already_visited: false,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await checkInBooth("tok123", "K7M2QX");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/booths/K7M2QX/visit");
+    expect(init.method).toBe("POST");
+    expect(init.headers.Authorization).toBe("Bearer tok123");
+    expect(res.already_visited).toBe(false);
+  });
+
+  it("카드 발급 전 403은 ApiError(status 403)으로 전달된다", async () => {
+    const body = {
+      error: { code: "forbidden", message: "탐험을 끝내고 카드를 받은 뒤에 부스를 인증할 수 있어요." },
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(body), { status: 403 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchBoothByCode("tok123", "K7M2QX")).rejects.toMatchObject({
+      name: "ApiError",
+      status: 403,
+      message: expect.stringContaining("카드"),
+    });
+  });
+
+  it("코드에 URL 예약문자가 섞여도 이스케이프해서 보낸다", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({}), { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(fetchBoothByCode("tok123", "a/b")).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8000/api/booths/a%2Fb");
   });
 });
