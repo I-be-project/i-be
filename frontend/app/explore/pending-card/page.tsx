@@ -2,10 +2,12 @@
 
 import { useState } from "react";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Copy, Check } from "lucide-react";
 import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
 import { FlowLoading } from "@/components/voyage/FlowLoading";
+import { useSessionStore } from "@/store/useSessionStore";
 
 const SUPPORT_EMAIL = "ibesupport.2026@gmail.com";
 
@@ -15,6 +17,9 @@ export default function PendingCardPage() {
   // 종료 화면 — 완료하지 않았으면 진행 화면으로 되돌리고, 완료 후엔 뒤로가기를 막는다.
   const { ready } = useFlowGuard("done");
   useBlockBack();
+
+  const router = useRouter();
+  const studentId = useSessionStore((state) => state.studentId);
 
   // 문의 이메일 복사 — 탭하면 클립보드에 담고 잠시 "복사됨"을 표시한다.
   const [copied, setCopied] = useState(false);
@@ -138,6 +143,16 @@ export default function PendingCardPage() {
               />
             )}
           </button>
+
+          {studentId && (
+            <button
+              type="button"
+              onClick={() => router.push(`/profile/${studentId}`)}
+              className="mt-3 inline-flex items-center justify-center rounded-full border border-ink/25 px-5 py-2.5 text-[15px] font-medium text-ink-soft transition hover:border-ink/45 active:scale-[0.97] [&_*]:[text-shadow:none]"
+            >
+              프로필로 가기
+            </button>
+          )}
         </div>
       </motion.div>
     </main>
