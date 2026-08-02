@@ -42,6 +42,8 @@ class BoothUpdateRequest(BaseModel):
     """부분 수정 — 보내지 않은 필드는 기존 값을 유지한다.
 
     description에 null을 명시하면 설명이 지워진다(서비스가 model_fields_set으로 구분).
+    name은 비워둘 수 없는 값이라 명시적 null(예: {"name": null})은 검증 단계에서 거부한다
+    (Pydantic v2는 필드를 아예 안 보내면 field_validator를 건너뛰지만, 명시적 null에는 실행한다).
     code는 인쇄물에 박혀 있어 변경할 수 없으므로 필드 자체를 두지 않는다.
     """
 
@@ -50,8 +52,10 @@ class BoothUpdateRequest(BaseModel):
 
     @field_validator("name")
     @classmethod
-    def _check_name(cls, value: str | None) -> str | None:
-        return None if value is None else _normalize_name(value)
+    def _check_name(cls, value: str | None) -> str:
+        if value is None:
+            raise ValueError("부스 이름은 비울 수 없어요.")
+        return _normalize_name(value)
 
     @field_validator("description")
     @classmethod

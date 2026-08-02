@@ -66,6 +66,9 @@ class BoothService:
     async def update(self, booth_id: UUID, req: BoothUpdateRequest) -> BoothResponse:
         """보낸 필드만 반영한다. description에 null을 명시하면 설명이 지워진다.
 
+        name에 명시적 null을 보내는 요청은 BoothUpdateRequest 검증기가 이미 막으므로,
+        "name in provided"인 경우 req.name은 항상 값이 채워진 문자열이다.
+
         조회 후 갱신이라 이론상 경합이 있지만, 관리자 단일 계정이 쓰는 화면이라 허용한다.
         """
         current = await self._booths.get(booth_id)
@@ -73,7 +76,8 @@ class BoothService:
             raise NotFoundError("부스를 찾을 수 없습니다.")
 
         provided = req.model_fields_set
-        name = req.name if "name" in provided and req.name is not None else current.name
+        name = req.name if "name" in provided else current.name
+        assert name is not None  # BoothUpdateRequest 검증기가 명시적 null을 이미 거부한다
         description = req.description if "description" in provided else current.description
 
         updated = await self._booths.update(booth_id, name=name, description=description)

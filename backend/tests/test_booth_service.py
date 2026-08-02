@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 
 import asyncpg
 import pytest
+from pydantic import ValidationError
 
 from app.config import Settings
 from app.core.booth_code import BOOTH_CODE_ALPHABET, BOOTH_CODE_LENGTH
@@ -131,6 +132,16 @@ async def test_update_can_clear_description_with_explicit_null() -> None:
 
     assert updated.description is None
     assert updated.name == "드론 체험"
+
+
+def test_update_rejects_explicit_null_name() -> None:
+    """name에 명시적 null을 보내면 스키마 검증(422)에서 막는다 — 서비스까지 가지 않는다.
+
+    name을 아예 보내지 않아 기존 이름이 유지되는 경로는
+    test_update_can_clear_description_with_explicit_null에서 이미 검증한다.
+    """
+    with pytest.raises(ValidationError):
+        BoothUpdateRequest(name=None)
 
 
 async def test_update_missing_booth_raises_not_found() -> None:
