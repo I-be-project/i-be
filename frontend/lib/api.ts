@@ -585,3 +585,47 @@ export function deleteAdminBooth(
     headers: { Authorization: `Bearer ${token}` },
   });
 }
+
+// ─── 부스 방문 (학생) ──────────────────────────────────────
+// 부스는 uuid가 아니라 인쇄물에 박힌 6자 code로 지목한다. 대소문자는 서버가 정규화한다.
+// 상태 코드 분기: 403 = 카드 발급 전, 404 = 없는 코드, 401 = 토큰 만료/무효.
+
+export interface StudentBooth {
+  code: string;
+  name: string;
+  description: string | null;
+  visited: boolean;
+  // 첫 방문 시각 (ISO). visited가 false면 null.
+  visited_at: string | null;
+}
+
+export interface BoothVisitResult {
+  code: string;
+  name: string;
+  visited_at: string;
+  // 이번 요청 전에 이미 기록이 있었으면 true. 에러가 아니라 정상 응답이다.
+  already_visited: boolean;
+}
+
+export function fetchBoothByCode(
+  token: string,
+  code: string
+): Promise<StudentBooth> {
+  return request<StudentBooth>(`/api/booths/${encodeURIComponent(code)}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function checkInBooth(
+  token: string,
+  code: string
+): Promise<BoothVisitResult> {
+  return request<BoothVisitResult>(
+    `/api/booths/${encodeURIComponent(code)}/visit`,
+    {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+}
