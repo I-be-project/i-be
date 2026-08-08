@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { IdentityFields, type IdentityValues } from "@/components/auth/IdentityFields";
+import { IdentityFields, isGuestLevel, type IdentityValues } from "@/components/auth/IdentityFields";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, getMyProfile, loginStudent } from "@/lib/api";
 import { reconcileCompletionFromProfile, resumeScreen, resumePath } from "@/lib/explore/flow";
@@ -31,11 +31,13 @@ function LoginForm() {
   const setAuth = useSessionStore((state) => state.setAuth);
 
   const [identity, setIdentity] = useState<IdentityValues>({
+    level: "중학교",
     school: "",
     grade: "",
     classNo: "",
     studentNo: "",
   });
+  const [name, setName] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -49,7 +51,14 @@ function LoginForm() {
     if (loading) return;
     setError(null);
 
-    if (
+    const guest = isGuestLevel(identity.level);
+
+    if (guest) {
+      if (!name.trim() || !password) {
+        setError("이름과 비밀번호를 입력해줘.");
+        return;
+      }
+    } else if (
       !identity.school.trim() ||
       !identity.grade ||
       !identity.classNo ||
@@ -62,13 +71,17 @@ function LoginForm() {
 
     setLoading(true);
     try {
-      const res = await loginStudent({
-        school: identity.school.trim(),
-        grade: Number(identity.grade),
-        class_no: Number(identity.classNo),
-        student_no: Number(identity.studentNo),
-        password,
-      });
+      const res = await loginStudent(
+        guest
+          ? { name: name.trim(), password }
+          : {
+              school: identity.school.trim(),
+              grade: Number(identity.grade),
+              class_no: Number(identity.classNo),
+              student_no: Number(identity.studentNo),
+              password,
+            }
+      );
       setAuth(res.student_token, res.student_id);
 
       // 딥링크(예: 부스 QR /b/<code>)에서 넘어왔으면 그쪽을 우선한다.
@@ -101,8 +114,12 @@ function LoginForm() {
       }
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        // 백엔드가 학번/비밀번호 중 무엇이 틀렸는지 구분해주지 않으므로 묶어서 안내.
-        setError("학번 또는 비밀번호가 올바르지 않아요.");
+        // 백엔드가 학번(또는 이름)/비밀번호 중 무엇이 틀렸는지 구분해주지 않으므로 묶어서 안내.
+        setError(
+          guest
+            ? "이름 또는 비밀번호가 올바르지 않아요."
+            : "학번 또는 비밀번호가 올바르지 않아요."
+        );
       } else if (err instanceof ApiError) {
         setError(err.message);
       } else {
@@ -154,6 +171,23 @@ function LoginForm() {
               onChange={handleIdentityChange}
               disabled={loading}
             />
+
+            {isGuestLevel(identity.level) && (
+              <div>
+                <label htmlFor="name" className={labelClass}>
+                  이름
+                </label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="가입할 때 적었던 이름"
+                  disabled={loading}
+                  autoComplete="name"
+                  className={inputClass}
+                />
+              </div>
+            )}
 
             <div>
               <label htmlFor="password" className={labelClass}>

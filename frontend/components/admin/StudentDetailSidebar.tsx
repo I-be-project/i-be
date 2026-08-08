@@ -311,15 +311,24 @@ export function StudentDetailSidebar({
                 <SheetTitle className="text-xl" aria-live="polite">
                   {student.name}
                 </SheetTitle>
-                <p className="text-sm text-muted-foreground">{student.school}</p>
+                <p className="text-sm text-muted-foreground">
+                  {student.kind === "test"
+                    ? "테스트 계정"
+                    : student.school || "개인 참여자"}
+                </p>
               </SheetHeader>
 
               <dl className="mt-3 divide-y divide-border">
-                <Field label="학년·반·번호">
-                  <span className="tabular-nums">
-                    {student.grade}학년 {student.class_no}반 {student.student_no}번
-                  </span>
-                </Field>
+                {/* 학교 소속 학생만 학년·반·번호가 의미 있다. 개인 참여자·테스트 계정은
+                    school이 비어 있고 학년·반·번호도 전부 0이라 행 자체를 생략한다.
+                    Step 1 프로필과 같은 조건(school 유무)을 쓴다. */}
+                {student.school && (
+                  <Field label="학년·반·번호">
+                    <span className="tabular-nums">
+                      {student.grade}학년 {student.class_no}반 {student.student_no}번
+                    </span>
+                  </Field>
+                )}
                 <Field label="성별">{genderLabel(student.gender)}</Field>
                 <Field label="비밀번호">
                   <span className="rounded-md bg-muted px-2 py-0.5 font-mono">

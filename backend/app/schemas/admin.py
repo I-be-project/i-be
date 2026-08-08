@@ -48,12 +48,16 @@ class AdminStudentItem(BaseModel):
         False,
         description="사진 보유 여부. include_photo=false여서 photo_url이 null이어도 유무를 알 수 있다.",
     )
+    kind: str = Field("student", description="계정 종류 ('student' | 'guest' | 'test')")
     consent_privacy: bool
     created_at: datetime
     progress: AdminStudentProgress = Field(default_factory=AdminStudentProgress)
 
 
 AdminStudentSort = Literal["created_desc", "created_asc", "name_asc"]
+
+# 목록 종류 필터. 생략하면 테스트 계정을 뺀 실제 참가자(student·guest)를 반환한다.
+AdminStudentKind = Literal["student", "guest", "test"]
 
 
 class AdminStudentList(BaseModel):
@@ -135,4 +139,33 @@ class AdminBulkDeleteResponse(BaseModel):
 
     deleted: list[UUID]
     not_found: list[UUID]
+    removed_storage_objects: int = 0
+
+
+class AdminTestStudentCreateRequest(BaseModel):
+    """테스트 계정 발급 요청 — 비밀번호는 받지 않는다(서버가 랜덤으로 채운다)."""
+
+    name: str = Field(..., min_length=1, max_length=50, description="테스트 계정 이름")
+    gender: Literal["male", "female"] = Field(..., description="성별 (male=남, female=여)")
+
+
+class AdminTestStudent(BaseModel):
+    """발급된 테스트 계정. 비밀번호는 로그인에 쓰이지 않으므로 내려보내지 않는다."""
+
+    id: UUID
+    name: str
+    gender: str
+
+
+class AdminTestToken(BaseModel):
+    """테스트 계정으로 학생 화면에 진입하기 위한 학생 세션 토큰."""
+
+    student_id: UUID
+    student_token: str = Field(..., description="학생 세션 JWT (Bearer)")
+
+
+class AdminTestPurgeResponse(BaseModel):
+    """테스트 계정 일괄 삭제 결과."""
+
+    deleted: int
     removed_storage_objects: int = 0

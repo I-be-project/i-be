@@ -18,7 +18,7 @@ from app.repositories.base import BaseRepository
 
 _COLUMNS = (
     "id, school, grade, class_no, student_no, name, "
-    "password, gender, photo_key, consent_privacy, created_at, deleted_at"
+    "password, gender, photo_key, consent_privacy, kind, created_at, deleted_at"
 )
 
 
@@ -36,6 +36,7 @@ class StudentRecord:
     gender: str | None  # 'male' | 'female' (과거 가입자는 None일 수 있음)
     photo_key: str | None
     consent_privacy: bool
+    kind: str  # 'student' | 'guest' | 'test'
     created_at: datetime
     deleted_at: datetime | None
 
@@ -64,6 +65,7 @@ def _to_record(row: asyncpg.Record) -> StudentRecord:
         gender=row["gender"],
         photo_key=row["photo_key"],
         consent_privacy=row["consent_privacy"],
+        kind=row["kind"],
         created_at=row["created_at"],
         deleted_at=row["deleted_at"],
     )
@@ -81,6 +83,7 @@ class StudentRepository(BaseRepository):
         password: str,
         gender: str,
         consent_privacy: bool,
+        kind: str = "student",
     ) -> StudentRecord:
         """학생 1명 생성 후 저장된 레코드 반환.
 
@@ -89,9 +92,10 @@ class StudentRepository(BaseRepository):
         """
         query = f"""
             insert into pii.students (
-                school, grade, class_no, student_no, name, password, gender, consent_privacy
+                school, grade, class_no, student_no, name, password, gender,
+                consent_privacy, kind
             )
-            values ($1, $2, $3, $4, $5, $6, $7, $8)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             returning {_COLUMNS}
         """
         try:
@@ -106,16 +110,23 @@ class StudentRepository(BaseRepository):
                     password,
                     gender,
                     consent_privacy,
+                    kind,
                 )
         except asyncpg.UniqueViolationError as exc:
+            if kind == "student":
+                raise ConflictError(
+                    "이미 등록된 학생입니다.",
+                    details={
+                        "school": school,
+                        "grade": grade,
+                        "class_no": class_no,
+                        "student_no": student_no,
+                    },
+                ) from exc
+            # 학교 없는 계정은 이름으로 유니크하다(students_name_key).
             raise ConflictError(
-                "이미 등록된 학생입니다.",
-                details={
-                    "school": school,
-                    "grade": grade,
-                    "class_no": class_no,
-                    "student_no": student_no,
-                },
+                "이미 사용 중인 이름입니다.",
+                details={"name": name},
             ) from exc
 
         assert row is not None  # RETURNING 이므로 항상 한 행
@@ -155,6 +166,37 @@ class StudentRepository(BaseRepository):
             row = await conn.fetchrow(query, student_id)
         return _to_record(row) if row is not None else None
 
+    async def get_by_name(self, name: str, *, kinds: tuple[str, ...]) -> StudentRecord | None:
+        """이름으로 학교 없는 계정을 조회한다. 없으면 None.
+
+        kinds로 조회 대상을 좁힌다 — 로그인은 ('guest',)만 넘겨 테스트 계정이
+        학생 로그인 화면으로 진입하지 못하게 한다. students_name_key가
+        (guest, test) 전체에서 이름 유니크를 보장하므로 결과는 최대 1행이다.
+        """
+        query = f"""
+            select {_COLUMNS}
+            from pii.students
+            where name = $1
+              and kind = any($2::text[])
+              and deleted_at is null
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, name, list(kinds))
+        return _to_record(row) if row is not None else None
+
+    async def list_by_kind(self, kind: str) -> list[StudentRecord]:
+        """특정 종류의 계정 전체 조회 — 테스트 계정 일괄 정리에 쓴다."""
+        query = f"""
+            select {_COLUMNS}
+            from pii.students
+            where kind = $1
+              and deleted_at is null
+            order by created_at
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, kind)
+        return [_to_record(row) for row in rows]
+
     async def update_photo_key(self, student_id: UUID, photo_key: str) -> None:
         """학생의 photo_key 갱신. 대상이 없으면 NotFoundError 대신 조용히 통과하지 않도록
         서비스 레이어에서 학생 존재를 보장한다(여기서는 단순 UPDATE)."""
@@ -169,7 +211,11 @@ class StudentRepository(BaseRepository):
 
     async def update_info(self, student_id: UUID, *, name: str | None, gender: str | None) -> None:
         """학생의 이름/성별 부분 갱신(COALESCE). 대상 존재 보장은 서비스 레이어
-        (update_photo_key와 동일 패턴 — 여기서는 단순 UPDATE)."""
+        (update_photo_key와 동일 패턴 — 여기서는 단순 UPDATE).
+
+        name 변경은 students_name_key(학교 없는 계정의 이름 유니크)에 걸릴 수 있다 —
+        create()와 동일하게 ConflictError로 변환한다.
+        """
         query = """
             update pii.students
             set name = coalesce($2, name),
@@ -177,8 +223,14 @@ class StudentRepository(BaseRepository):
             where id = $1
               and deleted_at is null
         """
-        async with self._pool.acquire() as conn:
-            await conn.execute(query, student_id, name, gender)
+        try:
+            async with self._pool.acquire() as conn:
+                await conn.execute(query, student_id, name, gender)
+        except asyncpg.UniqueViolationError as exc:
+            raise ConflictError(
+                "이미 사용 중인 이름입니다.",
+                details={"name": name},
+            ) from exc
 
     # 정렬 키 화이트리스트 — 사용자 입력을 ORDER BY에 직접 넣지 않는다.
     # 안정적 페이지네이션을 위해 항상 id를 마지막 타이브레이커로 붙인다.
@@ -199,9 +251,12 @@ class StudentRepository(BaseRepository):
         limit: int,
         offset: int,
         sort: str | None = None,
+        kind: str | None = None,
     ) -> tuple[int, list[StudentRecord]]:
         """관리자용 목록 — soft-delete 제외, 필터 AND 결합, sort 기준 정렬.
 
+        kind가 없으면 테스트 계정을 뺀 실제 참가자(student·guest)만 반환한다.
+        kind를 주면 그 종류만 반환한다 — 관리자 화면의 '테스트 계정' 탭이 kind='test'로 부른다.
         sort가 없으면 (학교,학년,반,번호) 기본 정렬. 반환: (전체 개수, 현재 페이지 레코드).
         """
         conditions = ["deleted_at is null"]
@@ -210,6 +265,12 @@ class StudentRepository(BaseRepository):
         def _add(expr: str, value: object) -> None:
             params.append(value)
             conditions.append(expr.format(n=len(params)))
+
+        if kind is None:
+            # 테스트 계정은 실제 데이터가 아니므로 기본 목록·집계에서 제외한다.
+            conditions.append("kind <> 'test'")
+        else:
+            _add("kind = ${n}", kind)
 
         if q:
             _add("name ilike '%' || ${n} || '%'", q)
@@ -237,7 +298,10 @@ class StudentRepository(BaseRepository):
 
     async def list_schools(self) -> list[str]:
         """가입 학생이 있는 학교 이름 목록(중복 제거, 가나다순) — 관리자 필터용."""
-        query = "select distinct school from pii.students where deleted_at is null order by school"
+        query = (
+            "select distinct school from pii.students "
+            "where deleted_at is null and kind = 'student' order by school"
+        )
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(query)
         return [row["school"] for row in rows]
@@ -267,7 +331,7 @@ class StudentRepository(BaseRepository):
                 order by se.created_at desc
                 limit 1
             ) ls on true
-            where s.school = $1 and s.deleted_at is null
+            where s.school = $1 and s.deleted_at is null and s.kind = 'student'
             group by s.grade, s.class_no
             order by s.grade, s.class_no
         """

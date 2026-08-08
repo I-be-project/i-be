@@ -15,9 +15,14 @@ from app.schemas.admin import (
     AdminLoginRequest,
     AdminLoginResponse,
     AdminStudentDetail,
+    AdminStudentKind,
     AdminStudentList,
     AdminStudentPhoto,
     AdminStudentSort,
+    AdminTestPurgeResponse,
+    AdminTestStudent,
+    AdminTestStudentCreateRequest,
+    AdminTestToken,
 )
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
@@ -41,11 +46,15 @@ async def list_students(
     offset: int = 0,
     sort: AdminStudentSort | None = None,
     include_photo: bool = True,
+    kind: AdminStudentKind | None = None,
 ) -> AdminStudentList:
-    """가입한 모든 학생 목록 — 검색/필터/정렬/페이지네이션, 사진 presigned URL 포함.
+    """가입한 참가자 목록 — 검색/필터/정렬/페이지네이션, 사진 presigned URL 포함.
 
     include_photo=false면 사진 서명을 건너뛰어 훨씬 빠르다(사진이 필요 없는 관리자 UI용).
     기본값 true는 외부 공개 계약이므로 바꾸지 않는다.
+
+    kind를 생략하면 실제 참가자(student·guest)만 나오고 테스트 계정은 빠진다.
+    kind=test면 테스트 계정만 나온다 — 관리자 화면의 '테스트 계정' 탭이 이 경로를 쓴다.
     """
     return await admin.list_students(
         q=q,
@@ -56,6 +65,7 @@ async def list_students(
         offset=offset,
         sort=sort,
         include_photo=include_photo,
+        kind=kind,
     )
 
 
@@ -78,6 +88,37 @@ async def bulk_delete_students(
 ) -> AdminBulkDeleteResponse:
     """여러 학생을 한 번에 하드 삭제(DB cascade + S3 사진/카드 이미지)."""
     return await admin.delete_students(req.ids)
+
+
+# 주의: 아래 /students/test 계열은 /students/{student_id}보다 먼저 선언해야 한다.
+# (그렇지 않으면 "test"가 UUID 경로 파라미터로 매칭되어 422가 난다.)
+@router.post("/students/test", response_model=AdminTestStudent, status_code=201)
+async def create_test_student(
+    req: AdminTestStudentCreateRequest,
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> AdminTestStudent:
+    """테스트 계정 발급 — 관리자 화면에서만 만들 수 있고 학생 로그인 화면엔 노출되지 않는다."""
+    return await admin.create_test_student(name=req.name, gender=req.gender)
+
+
+@router.post("/students/test/{student_id}/token", response_model=AdminTestToken)
+async def issue_test_student_token(
+    student_id: UUID,
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> AdminTestToken:
+    """테스트 계정으로 학생 화면에 진입할 학생 세션 토큰 발급."""
+    return await admin.issue_test_student_token(student_id)
+
+
+@router.delete("/students/test", response_model=AdminTestPurgeResponse)
+async def purge_test_students(
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> AdminTestPurgeResponse:
+    """테스트 계정 전부 삭제 — DB cascade + S3 사진/카드 이미지."""
+    return await admin.purge_test_students()
 
 
 @router.get("/progress/classes", response_model=list[AdminClassProgress])

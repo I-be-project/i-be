@@ -28,6 +28,9 @@ from app.schemas.admin import (
     AdminStudentList,
     AdminStudentPhoto,
     AdminStudentProgress,
+    AdminTestPurgeResponse,
+    AdminTestStudent,
+    AdminTestToken,
 )
 from app.schemas.students import PersonaSummary
 
@@ -98,12 +101,17 @@ class AdminService:
         offset: int,
         sort: str | None = None,
         include_photo: bool = True,
+        kind: str | None = None,
     ) -> AdminStudentList:
         """관리자 목록.
 
         include_photo 기본값이 true인 이유: 이 응답의 photo_url은 외부에 공개된
         계약이다(docs/2026-07-31-admin-api-usage.md, scripts/export_students.py).
         사진을 쓰지 않는 관리자 UI만 false로 호출해 서명 비용을 건너뛴다.
+
+        kind를 생략하면 테스트 계정을 뺀 실제 참가자만 반환한다 — 테스트 계정은 실제
+        데이터가 아니라 목록·통계를 오염시키기 때문이다. 관리자 화면의 '테스트 계정'
+        탭이 kind='test'로 불러 따로 관리한다.
         """
         total, records = await self._students.list_students(
             q=q,
@@ -113,6 +121,7 @@ class AdminService:
             limit=limit,
             offset=offset,
             sort=sort,
+            kind=kind,
         )
         progress = await self._sessions.get_progress_for_students([r.id for r in records])
         photo_urls = (
@@ -134,6 +143,7 @@ class AdminService:
                     gender=r.gender,
                     photo_url=photo_urls.get(r.photo_key) if r.photo_key else None,
                     has_photo=bool(r.photo_key),
+                    kind=r.kind,
                     consent_privacy=r.consent_privacy,
                     created_at=r.created_at,
                     progress=_to_progress(progress.get(r.id)),
@@ -256,6 +266,55 @@ class AdminService:
             deleted=deleted,
             not_found=not_found,
             removed_storage_objects=removed_total,
+        )
+
+    # 테스트 계정 비밀번호 길이(바이트) — 로그인에 쓰이지 않으므로 사람이 읽을 필요가 없다.
+    _TEST_PASSWORD_BYTES = 24
+
+    async def create_test_student(self, *, name: str, gender: str) -> AdminTestStudent:
+        """관리자 전용 테스트 계정 발급.
+
+        비밀번호는 랜덤으로 채우고 응답에 담지 않는다. 이 계정은 학생 로그인 화면으로
+        진입할 수 없고(AuthService.login이 kind='guest'만 조회한다),
+        issue_test_student_token으로 받은 토큰으로만 들어간다.
+        """
+        record = await self._students.create(
+            school="",
+            grade=0,
+            class_no=0,
+            student_no=0,
+            name=name,
+            password=secrets.token_urlsafe(self._TEST_PASSWORD_BYTES),
+            gender=gender,
+            consent_privacy=True,
+            kind="test",
+        )
+        return AdminTestStudent(id=record.id, name=record.name, gender=gender)
+
+    async def issue_test_student_token(self, student_id: UUID) -> AdminTestToken:
+        """테스트 계정으로 학생 화면에 진입할 학생 세션 토큰 발급.
+
+        대상이 kind='test'가 아니면 NotFoundError — 이 경로로 실제 학생의 토큰을
+        발급받아 남의 계정에 들어가는 것을 막는다.
+        """
+        record = await self._students.get_by_id(student_id)
+        if record is None or record.kind != "test":
+            raise NotFoundError("테스트 계정을 찾을 수 없습니다.")
+        token = create_token(
+            kind=TokenKind.STUDENT,
+            subject=student_id,
+            ttl=timedelta(hours=self._settings.student_token_ttl_hours),
+            settings=self._settings,
+        )
+        return AdminTestToken(student_id=student_id, student_token=token)
+
+    async def purge_test_students(self) -> AdminTestPurgeResponse:
+        """테스트 계정 전체를 하드 삭제 — DB cascade + S3 사진·카드 이미지 정리."""
+        records = await self._students.list_by_kind("test")
+        result = await self.delete_students([r.id for r in records])
+        return AdminTestPurgeResponse(
+            deleted=len(result.deleted),
+            removed_storage_objects=result.removed_storage_objects,
         )
 
 

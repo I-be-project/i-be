@@ -45,13 +45,17 @@ import {
 import {
   ApiError,
   bulkDeleteAdminStudents,
+  createAdminTestStudent,
   fetchAdminSchools,
   fetchAdminStudentPhotoUrl,
   fetchAdminStudents,
+  issueAdminTestToken,
+  purgeAdminTestStudents,
   type AdminStudentItem,
 } from "@/lib/api";
 import { clearAdminToken, getAdminToken } from "@/lib/adminAuth";
 import { ProgressBadge } from "@/components/admin/ProgressBadge";
+import { useSessionStore } from "@/store/useSessionStore";
 import { cn, genderLabel } from "@/lib/utils";
 
 function StudentAvatar({
@@ -147,6 +151,10 @@ function ConsentTag({ agreed }: { agreed: boolean }) {
 
 type SortKey = "name_asc" | "created_desc" | "created_asc";
 
+// 목록 탭. "members"는 실제 참가자(학교 소속 학생 + 개인 참여자),
+// "test"는 관리자가 발급한 테스트 계정. 서버 조회 자체를 kind로 나눠 섞이지 않게 한다.
+type AdminTab = "members" | "test";
+
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "created_desc", label: "최신 가입순" },
   { value: "created_asc", label: "오래된 가입순" },
@@ -182,6 +190,24 @@ export default function AdminStudentsPage() {
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(0);
 
+  // 탭 — 가입 회원(student·guest)과 테스트 계정을 완전히 갈라서 보여준다.
+  // 목록 조회 자체를 kind로 나누므로 두 탭의 데이터가 섞일 여지가 없다.
+  const [tab, setTab] = useState<AdminTab>("members");
+  // 테스트 계정 개수 — 탭 라벨 배지용. 목록과 별개로 가볍게 받아온다.
+  const [testTotal, setTestTotal] = useState(0);
+
+  // 테스트 계정 발급 — 로그인 화면으로 들어올 수 없는 kind='test' 계정을 여기서만 만든다.
+  const [testName, setTestName] = useState("");
+  const [issuing, setIssuing] = useState(false);
+  const [issueError, setIssueError] = useState<string | null>(null);
+  // 테스트 계정 일괄 삭제 — DB cascade + S3 사진·카드 이미지까지 지워 되돌릴 수 없다.
+  const [purgeConfirming, setPurgeConfirming] = useState(false);
+  const [purging, setPurging] = useState(false);
+  const [purgeError, setPurgeError] = useState<string | null>(null);
+  const [purgeResult, setPurgeResult] = useState<string | null>(null);
+  // "이 계정으로 테스트 시작" 실패 — 목록 로딩 실패(error)와 원인이 달라 배너를 분리한다.
+  const [testStartError, setTestStartError] = useState<string | null>(null);
+
   // 목록 로드 — 검색·필터·정렬·페이지네이션을 모두 서버에 위임한다.
   const load = useCallback(async () => {
     const token = getAdminToken();
@@ -191,14 +217,19 @@ export default function AdminStudentsPage() {
     }
     setLoading(true);
     try {
-      const res = await fetchAdminStudents(token, {
+      const filters = {
         q: submittedQuery || undefined,
         school: schoolFilter === ALL_SCHOOLS ? undefined : schoolFilter,
         sort: sortKey,
+      };
+      const res = await fetchAdminStudents(token, {
+        ...filters,
         limit: pageSize,
         offset: page * pageSize,
         // 아바타는 클릭해야 보이므로 목록에서는 사진을 받지 않는다(서명 50건 절약).
         include_photo: false,
+        // 가입 회원 탭은 kind를 생략해 테스트 계정이 빠진 실제 참가자만 받는다.
+        kind: tab === "test" ? "test" : undefined,
       });
       setTotal(res.total);
       // 삭제 등으로 현재 페이지가 범위를 벗어나면 첫 페이지로 되돌린다.
@@ -221,12 +252,33 @@ export default function AdminStudentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [router, submittedQuery, schoolFilter, sortKey, pageSize, page]);
+  }, [router, submittedQuery, schoolFilter, sortKey, pageSize, page, tab]);
 
   useEffect(() => {
-    // 검색어·필터·정렬·페이지 크기·페이지가 바뀔 때마다 다시 로드한다.
+    // 검색어·필터·정렬·페이지 크기·페이지·탭이 바뀔 때마다 다시 로드한다.
     load();
   }, [load]);
+
+  // 테스트 계정 개수 — 탭 배지용. 실패해도 목록 표시를 막지 않도록 조용히 무시한다.
+  const loadTestCount = useCallback(async () => {
+    const token = getAdminToken();
+    if (!token) return;
+    try {
+      const res = await fetchAdminStudents(token, {
+        limit: 1,
+        offset: 0,
+        include_photo: false,
+        kind: "test",
+      });
+      setTestTotal(res.total);
+    } catch {
+      // 배지 숫자는 부가 정보다 — 실패는 무시한다.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTestCount();
+  }, [loadTestCount]);
 
   // 학교 필터 드롭다운 목록 — 마운트 시 1회, 삭제 후 갱신.
   const loadSchools = useCallback(async () => {
@@ -244,6 +296,21 @@ export default function AdminStudentsPage() {
   }, [loadSchools]);
 
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  const isTestTab = tab === "test";
+
+  // 탭을 바꾸면 페이지·검색·선택을 초기화한다 — 두 목록은 서로 다른 집합이라
+  // 이전 탭의 페이지 번호나 선택 항목을 그대로 들고 가면 어긋난다.
+  function switchTab(next: AdminTab) {
+    if (next === tab) return;
+    setTab(next);
+    setPage(0);
+    setQuery("");
+    setSubmittedQuery("");
+    setSchoolFilter(ALL_SCHOOLS);
+    setCheckedIds(new Set());
+    setError(null);
+    setTestStartError(null);
+  }
 
   function toggleReveal(id: string) {
     setRevealed((prev) => {
@@ -346,6 +413,86 @@ export default function AdminStudentsPage() {
     }
   }
 
+  // 테스트 계정 발급 — 비밀번호는 서버가 랜덤으로 채우므로 이름만 받는다.
+  // 성별은 카드 생성·표시 어디에도 쓰이지 않아(백엔드 확인) 값을 고정한다.
+  async function handleCreateTestStudent() {
+    const token = getAdminToken();
+    if (!token) {
+      router.replace("/admin/login");
+      return;
+    }
+    const trimmed = testName.trim();
+    if (!trimmed) return;
+    setIssuing(true);
+    setIssueError(null);
+    try {
+      await createAdminTestStudent(token, { name: trimmed, gender: "male" });
+      setTestName("");
+      await load();
+      await loadTestCount();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearAdminToken();
+        router.replace("/admin/login");
+        return;
+      }
+      setIssueError(err instanceof ApiError ? err.message : "발급하지 못했습니다.");
+    } finally {
+      setIssuing(false);
+    }
+  }
+
+  async function handlePurgeTestStudents() {
+    const token = getAdminToken();
+    if (!token) {
+      router.replace("/admin/login");
+      return;
+    }
+    setPurging(true);
+    setPurgeError(null);
+    try {
+      const res = await purgeAdminTestStudents(token);
+      setPurgeConfirming(false);
+      setPurgeResult(`테스트 계정 ${res.deleted}개를 삭제했습니다.`);
+      await load();
+      await loadTestCount();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearAdminToken();
+        router.replace("/admin/login");
+        return;
+      }
+      setPurgeError(err instanceof ApiError ? err.message : "삭제하지 못했습니다.");
+    } finally {
+      setPurging(false);
+    }
+  }
+
+  // 테스트 계정은 학생 로그인 화면으로 들어올 수 없으므로 여기서 토큰을 발급받아
+  // 관리자 화면과 학생 화면이 공유하는 세션 store에 바로 채워 넣고 이동한다.
+  async function handleStartAsTestStudent(studentId: string) {
+    const token = getAdminToken();
+    if (!token) {
+      router.replace("/admin/login");
+      return;
+    }
+    setTestStartError(null);
+    try {
+      const { student_token } = await issueAdminTestToken(token, studentId);
+      useSessionStore.getState().setAuth(student_token, studentId);
+      router.push(`/profile/${studentId}`);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearAdminToken();
+        router.replace("/admin/login");
+        return;
+      }
+      setTestStartError(
+        err instanceof ApiError ? err.message : "테스트 시작에 실패했습니다."
+      );
+    }
+  }
+
   return (
     <div
       className={cn(
@@ -366,16 +513,105 @@ export default function AdminStudentsPage() {
               회원 관리
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">
-              가입 회원
+              {isTestTab ? "테스트 계정" : "가입 회원"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              회원가입한 모든 학생의 정보와 사진을 확인합니다.
+              {isTestTab
+                ? "관리자가 발급한 테스트 계정입니다. 학생 로그인 화면으로는 들어올 수 없고, 가입 회원 목록·좌석표·통계에도 잡히지 않습니다."
+                : "회원가입한 학생과 개인 참여자의 정보와 사진을 확인합니다."}
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm font-medium shadow-sm">
             <span className="tabular-nums">{total}</span>
-            <span className="text-muted-foreground">명</span>
+            <span className="text-muted-foreground">
+              {isTestTab ? "개" : "명"}
+            </span>
           </span>
+        </div>
+
+        {/* 탭 — 가입 회원과 테스트 계정은 서로 다른 집합이라 목록 자체를 분리한다. */}
+        <div
+          role="tablist"
+          aria-label="목록 종류"
+          className="mb-4 inline-flex gap-1 rounded-lg border bg-muted/40 p-1"
+        >
+          {(["members", "test"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => switchTab(t)}
+              className={
+                tab === t
+                  ? "rounded-md bg-background px-3 py-1.5 text-sm font-semibold shadow-sm"
+                  : "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              }
+            >
+              {t === "members" ? "가입 회원" : "테스트 계정"}
+              {t === "test" && testTotal > 0 && (
+                <span className="ml-1.5 tabular-nums text-muted-foreground">
+                  {testTotal}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* 테스트 계정 관리 — 학생 로그인 화면으로 들어올 수 없는 kind='test' 계정을
+            여기서만 발급·정리한다. 테스트 탭에서만 노출한다. */}
+        <div
+          className="mb-4 rounded-lg border bg-card px-4 py-3"
+          hidden={!isTestTab}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <form
+              className="flex flex-wrap items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateTestStudent();
+              }}
+            >
+              <Input
+                aria-label="테스트 계정 이름"
+                placeholder="테스트 계정 이름"
+                value={testName}
+                onChange={(e) => setTestName(e.target.value)}
+                disabled={issuing}
+                className="h-9 w-48"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={issuing || !testName.trim()}
+              >
+                {issuing ? "발급 중…" : "테스트 계정 발급"}
+              </Button>
+              {issueError && (
+                <span className="text-sm text-destructive">{issueError}</span>
+              )}
+            </form>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-destructive hover:text-destructive"
+              onClick={() => {
+                setPurgeError(null);
+                setPurgeResult(null);
+                setPurgeConfirming(true);
+              }}
+            >
+              <Trash2 className="size-4" aria-hidden />
+              테스트 계정 일괄 삭제
+            </Button>
+          </div>
+          {purgeResult && (
+            <p className="mt-2 text-sm text-muted-foreground">{purgeResult}</p>
+          )}
+          {testStartError && (
+            <p className="mt-2 text-sm text-destructive">{testStartError}</p>
+          )}
         </div>
 
         {/* 검색 */}
@@ -408,36 +644,42 @@ export default function AdminStudentsPage() {
                   {page * pageSize + 1}–
                   {Math.min((page + 1) * pageSize, total)}
                 </span>{" "}
-                / 총 <span className="tabular-nums">{total}</span>명
+                / 총 <span className="tabular-nums">{total}</span>
+                {isTestTab ? "개" : "명"}
               </>
+            ) : isTestTab ? (
+              "발급한 테스트 계정이 없습니다"
             ) : (
               "표시할 회원이 없습니다"
             )}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={schoolFilter}
-              onValueChange={(v) => {
-                setSchoolFilter(v ?? ALL_SCHOOLS);
-                setPage(0);
-              }}
-            >
-              <SelectTrigger className="w-[160px]" aria-label="학교 필터">
-                <SelectValue>
-                  {(v: string | null) =>
-                    !v || v === ALL_SCHOOLS ? "전체 학교" : v
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_SCHOOLS}>전체 학교</SelectItem>
-                {schools.map((school) => (
-                  <SelectItem key={school} value={school}>
-                    {school}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* 테스트 계정은 학교가 없으므로 테스트 탭에서는 학교 필터를 감춘다. */}
+            {!isTestTab && (
+              <Select
+                value={schoolFilter}
+                onValueChange={(v) => {
+                  setSchoolFilter(v ?? ALL_SCHOOLS);
+                  setPage(0);
+                }}
+              >
+                <SelectTrigger className="w-[160px]" aria-label="학교 필터">
+                  <SelectValue>
+                    {(v: string | null) =>
+                      !v || v === ALL_SCHOOLS ? "전체 학교" : v
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_SCHOOLS}>전체 학교</SelectItem>
+                  {schools.map((school) => (
+                    <SelectItem key={school} value={school}>
+                      {school}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select
               value={sortKey}
               onValueChange={(v) => {
@@ -541,7 +783,8 @@ export default function AdminStudentsPage() {
                 <TableHead>진행도</TableHead>
                 <TableHead>가입일</TableHead>
                 <TableHead>비밀번호</TableHead>
-                <TableHead className="pr-5">동의</TableHead>
+                <TableHead>동의</TableHead>
+                <TableHead className="pr-5">관리</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -554,7 +797,7 @@ export default function AdminStudentsPage() {
                     <TableCell>
                       <Skeleton className="size-10 rounded-full" />
                     </TableCell>
-                    {Array.from({ length: 8 }).map((__, j) => (
+                    {Array.from({ length: 9 }).map((__, j) => (
                       <TableCell key={j}>
                         <Skeleton className="h-4 w-20" />
                       </TableCell>
@@ -563,7 +806,7 @@ export default function AdminStudentsPage() {
                 ))
               ) : items.length === 0 ? (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={10} className="py-16">
+                  <TableCell colSpan={11} className="py-16">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
                       <Inbox className="size-8" aria-hidden />
                       <p className="text-sm">
@@ -604,10 +847,18 @@ export default function AdminStudentsPage() {
                     </TableCell>
                     <TableCell className="font-medium">{s.name}</TableCell>
                     <TableCell className="text-muted-foreground">
-                      {s.school}
+                      {s.kind === "test"
+                        ? "테스트"
+                        : s.kind === "guest"
+                          ? "개인"
+                          : s.school}
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
-                      {s.grade}학년 {s.class_no}반 {s.student_no}번
+                      {/* 학교 소속이 아니면(개인 참여자·테스트 계정) 전부 0이라
+                          의미가 없다 — StudentDetailSidebar와 같은 조건(school 유무). */}
+                      {s.school
+                        ? `${s.grade}학년 ${s.class_no}반 ${s.student_no}번`
+                        : "-"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {genderLabel(s.gender)}
@@ -640,8 +891,23 @@ export default function AdminStudentsPage() {
                         )}
                       </button>
                     </TableCell>
-                    <TableCell className="pr-5">
+                    <TableCell>
                       <ConsentTag agreed={s.consent_privacy} />
+                    </TableCell>
+                    <TableCell
+                      className="pr-5"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {s.kind === "test" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleStartAsTestStudent(s.id)}
+                        >
+                          이 계정으로 테스트 시작
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -734,6 +1000,50 @@ export default function AdminStudentsPage() {
             >
               <Trash2 className="size-4" aria-hidden />
               {bulkDeleting ? "삭제 중…" : `${checkedIds.size}명 영구 삭제`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* 테스트 계정 일괄 삭제 확인 */}
+      <Dialog
+        open={purgeConfirming}
+        onOpenChange={(o) => !purging && setPurgeConfirming(o)}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="size-5" aria-hidden />
+              테스트 계정 일괄 삭제
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            모든 테스트 계정을 삭제합니다. 설문 답변·페르소나·카드와 사진까지
+            모두 영구 삭제되며 되돌릴 수 없습니다.
+          </p>
+          {purgeError && (
+            <p className="text-sm text-destructive">{purgeError}</p>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={purging}
+              onClick={() => setPurgeConfirming(false)}
+              className="gap-1.5"
+            >
+              <X className="size-4" aria-hidden />
+              취소
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={purging}
+              onClick={handlePurgeTestStudents}
+              className="gap-1.5"
+            >
+              <Trash2 className="size-4" aria-hidden />
+              {purging ? "삭제 중…" : "전체 영구 삭제"}
             </Button>
           </DialogFooter>
         </DialogContent>

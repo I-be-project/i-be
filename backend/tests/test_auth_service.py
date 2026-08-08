@@ -43,10 +43,15 @@ class FakeStudentRepo:
         password: str,
         gender: str,
         consent_privacy: bool,
+        kind: str = "student",
     ) -> StudentRecord:
-        key = self._key(school, grade, class_no, student_no)
-        if key in self._by_key:
-            raise ConflictError("이미 등록된 학생입니다.")
+        if kind == "student":
+            key = self._key(school, grade, class_no, student_no)
+            if key in self._by_key:
+                raise ConflictError("이미 등록된 학생입니다.")
+        elif any(r.name == name and r.kind in ("guest", "test") for r in self._by_id.values()):
+            raise ConflictError("이미 사용 중인 이름입니다.")
+
         record = StudentRecord(
             id=uuid4(),
             school=school,
@@ -58,10 +63,12 @@ class FakeStudentRepo:
             gender=gender,
             photo_key=None,
             consent_privacy=consent_privacy,
+            kind=kind,
             created_at=datetime.now(UTC),
             deleted_at=None,
         )
-        self._by_key[key] = record
+        if kind == "student":
+            self._by_key[self._key(school, grade, class_no, student_no)] = record
         self._by_id[record.id] = record
         return record
 
@@ -73,6 +80,15 @@ class FakeStudentRepo:
     async def get_by_id(self, student_id: UUID) -> StudentRecord | None:
         return self._by_id.get(student_id)
 
+    async def get_by_name(self, name: str, *, kinds: tuple[str, ...]) -> StudentRecord | None:
+        for record in self._by_id.values():
+            if record.name == name and record.kind in kinds and record.deleted_at is None:
+                return record
+        return None
+
+    async def list_by_kind(self, kind: str) -> list[StudentRecord]:
+        return [r for r in self._by_id.values() if r.kind == kind and r.deleted_at is None]
+
     async def update_photo_key(self, student_id: UUID, photo_key: str) -> None:
         record = self._by_id[student_id]
         updated = replace(record, photo_key=photo_key)
@@ -83,6 +99,17 @@ class FakeStudentRepo:
 
     async def update_info(self, student_id: UUID, *, name: str | None, gender: str | None) -> None:
         record = self._by_id[student_id]
+        # 실제 students_name_key와 같은 의미: 학교 없는 계정(guest/test)만 이름이
+        # 유니크하다. 다른 계정이 이미 그 이름을 쓰고 있으면 ConflictError.
+        if (
+            name is not None
+            and record.kind in ("guest", "test")
+            and any(
+                r.id != student_id and r.name == name and r.kind in ("guest", "test")
+                for r in self._by_id.values()
+            )
+        ):
+            raise ConflictError("이미 사용 중인 이름입니다.", details={"name": name})
         updated = replace(
             record,
             name=name if name is not None else record.name,
@@ -103,8 +130,15 @@ class FakeStudentRepo:
         limit: int,
         offset: int,
         sort: str | None = None,
+        kind: str | None = None,
     ) -> tuple[int, list[StudentRecord]]:
         records = [r for r in self._by_id.values() if r.deleted_at is None]
+        if kind is None:
+            # 실제 SQL의 "kind <> 'test'" 조건과 같은 의미 — 테스트 계정은 기본 제외.
+            records = [r for r in records if r.kind != "test"]
+        else:
+            # 실제 SQL의 "kind = $n" 조건과 같은 의미 — 그 종류만.
+            records = [r for r in records if r.kind == kind]
         if q:
             records = [r for r in records if q in r.name]
         if school:
@@ -124,13 +158,16 @@ class FakeStudentRepo:
         return len(records), records[offset : offset + limit]
 
     async def list_schools(self) -> list[str]:
-        schools = {r.school for r in self._by_id.values() if r.deleted_at is None}
+        # 실제 SQL과 같이 학교 소속(kind == 'student')만 본다.
+        schools = {
+            r.school for r in self._by_id.values() if r.deleted_at is None and r.kind == "student"
+        }
         return sorted(schools)
 
     async def get_class_progress(self, school: str) -> list[ClassProgressRow]:
         buckets: dict[tuple[int, int], dict[str, int]] = {}
         for r in self._by_id.values():
-            if r.deleted_at is not None or r.school != school:
+            if r.deleted_at is not None or r.school != school or r.kind != "student":
                 continue
             b = buckets.setdefault(
                 (r.grade, r.class_no),
@@ -216,6 +253,11 @@ def _register_kwargs(**overrides: object) -> dict[str, object]:
     return base
 
 
+def _guest_kwargs(**overrides: object) -> dict[str, object]:
+    """개인 참여자 등록 인자 — 학교 4개 필드를 전부 None으로 둔다."""
+    return _register_kwargs(school=None, grade=None, class_no=None, student_no=None, **overrides)
+
+
 async def test_register_stores_plaintext_password_and_issues_student_token() -> None:
     service, repo, _ = _service()
 
@@ -248,7 +290,7 @@ async def test_login_success_returns_token() -> None:
     await service.register_student(**_register_kwargs())
 
     student, token = await service.login(
-        school="한마당고", grade=2, class_no=3, student_no=11, password="20100101"
+        school="한마당고", grade=2, class_no=3, student_no=11, name=None, password="20100101"
     )
     payload = decode_token(token, expected_kind=TokenKind.STUDENT, settings=get_settings())
     assert payload["sub"] == str(student.id)
@@ -258,13 +300,17 @@ async def test_login_wrong_password_unauthorized() -> None:
     service, _, _ = _service()
     await service.register_student(**_register_kwargs())
     with pytest.raises(UnauthorizedError):
-        await service.login(school="한마당고", grade=2, class_no=3, student_no=11, password="wrong")
+        await service.login(
+            school="한마당고", grade=2, class_no=3, student_no=11, name=None, password="wrong"
+        )
 
 
 async def test_login_unknown_student_unauthorized() -> None:
     service, _, _ = _service()
     with pytest.raises(UnauthorizedError):
-        await service.login(school="없는학교", grade=1, class_no=1, student_no=1, password="x")
+        await service.login(
+            school="없는학교", grade=1, class_no=1, student_no=1, name=None, password="x"
+        )
 
 
 async def test_attach_photo_uploads_and_links_key() -> None:
@@ -314,3 +360,87 @@ async def test_update_profile_unknown_student_not_found() -> None:
     service, _, _ = _service()
     with pytest.raises(NotFoundError):
         await service.update_profile(uuid4(), name="새이름", gender=None)
+
+
+async def test_register_stores_student_kind() -> None:
+    """학교 소속 가입은 kind='student'로 저장된다."""
+    service, _repo, _ = _service()
+
+    student, _token = await service.register_student(**_register_kwargs())
+
+    assert student.kind == "student"
+
+
+async def test_register_guest_without_school_fields() -> None:
+    """학교 정보 없이 가입하면 kind='guest'로 저장되고 학교 필드는 비워진다."""
+    service, _, _ = _service()
+
+    student, token = await service.register_student(**_guest_kwargs())
+
+    assert student.kind == "guest"
+    assert student.school == ""
+    assert (student.grade, student.class_no, student.student_no) == (0, 0, 0)
+    payload = decode_token(token, expected_kind=TokenKind.STUDENT, settings=get_settings())
+    assert payload["sub"] == str(student.id)
+
+
+async def test_guest_login_by_name() -> None:
+    """개인 참여자는 이름 + 비밀번호로 로그인한다."""
+    service, _, _ = _service()
+    created, _ = await service.register_student(**_guest_kwargs())
+
+    student, _token = await service.login(
+        school=None,
+        grade=None,
+        class_no=None,
+        student_no=None,
+        name="홍길동",
+        password="20100101",
+    )
+
+    assert student.id == created.id
+
+
+async def test_guest_duplicate_name_rejected() -> None:
+    """같은 이름의 개인 참여자는 가입할 수 없다."""
+    service, _, _ = _service()
+    await service.register_student(**_guest_kwargs())
+
+    with pytest.raises(ConflictError):
+        await service.register_student(**_guest_kwargs(password="99999999"))
+
+
+async def test_update_profile_guest_duplicate_name_conflicts() -> None:
+    """개인 참여자가 이미 다른 계정이 쓰고 있는 이름으로 바꾸려 하면 ConflictError."""
+    service, _, _ = _service()
+    await service.register_student(**_guest_kwargs())  # 이름: 홍길동
+    other, _ = await service.register_student(**_guest_kwargs(name="김민수"))
+
+    with pytest.raises(ConflictError):
+        await service.update_profile(other.id, name="홍길동", gender=None)
+
+
+async def test_test_account_cannot_login_by_name() -> None:
+    """테스트 계정은 이름·비밀번호가 맞아도 학생 로그인 화면으로 들어갈 수 없다."""
+    service, repo, _ = _service()
+    await repo.create(
+        school="",
+        grade=0,
+        class_no=0,
+        student_no=0,
+        name="테스트1",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+        kind="test",
+    )
+
+    with pytest.raises(UnauthorizedError):
+        await service.login(
+            school=None,
+            grade=None,
+            class_no=None,
+            student_no=None,
+            name="테스트1",
+            password="20100101",
+        )

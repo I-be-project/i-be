@@ -9,24 +9,27 @@
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
-export interface RegisterPayload {
+// 학교 소속 학생의 식별 키. 개인 참여자는 이 네 필드를 아예 보내지 않는다.
+export interface SchoolIdentity {
   school: string;
   grade: number;
   class_no: number;
   student_no: number;
+}
+
+// 계정 종류와 무관하게 항상 보내는 항목.
+export interface AccountFields {
   name: string;
   password: string;
   gender: "male" | "female";
   consent_privacy: boolean;
 }
 
-export interface LoginPayload {
-  school: string;
-  grade: number;
-  class_no: number;
-  student_no: number;
-  password: string;
-}
+export type RegisterPayload = AccountFields | (AccountFields & SchoolIdentity);
+
+export type LoginPayload =
+  | (SchoolIdentity & { password: string })
+  | { name: string; password: string };
 
 export interface AuthResponse {
   student_id: string;
@@ -293,6 +296,7 @@ export interface AdminStudentItem {
   consent_privacy: boolean;
   created_at: string;
   progress: AdminStudentProgress;
+  kind: "student" | "guest" | "test";
 }
 
 export interface AdminStudentList {
@@ -372,6 +376,9 @@ export interface AdminStudentQuery {
   // 사진 presigned URL을 받을지. 생략하면 백엔드 기본값(true)이 적용된다.
   // 사진을 쓰지 않는 화면은 false로 보내 서명 비용을 건너뛴다.
   include_photo?: boolean;
+  // 계정 종류 필터. 생략하면 테스트 계정을 뺀 실제 참가자(student·guest)만 나온다.
+  // "test"를 주면 테스트 계정만 나온다 — 관리자 화면의 '테스트 계정' 탭이 쓴다.
+  kind?: AdminStudentItem["kind"];
 }
 
 export function adminLogin(
@@ -398,6 +405,7 @@ export function fetchAdminStudents(
   if (params.offset != null) sp.set("offset", String(params.offset));
   if (params.sort) sp.set("sort", params.sort);
   if (params.include_photo != null) sp.set("include_photo", String(params.include_photo));
+  if (params.kind) sp.set("kind", params.kind);
   const qs = sp.toString();
   return request<AdminStudentList>(
     `/api/admin/students${qs ? `?${qs}` : ""}`,
@@ -465,6 +473,57 @@ export function bulkDeleteAdminStudents(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ ids }),
+  });
+}
+
+export interface AdminTestStudent {
+  id: string;
+  name: string;
+  gender: string;
+}
+
+export interface AdminTestToken {
+  student_id: string;
+  student_token: string;
+}
+
+export interface AdminTestPurgeResponse {
+  deleted: number;
+  removed_storage_objects: number;
+}
+
+export function createAdminTestStudent(
+  token: string,
+  body: { name: string; gender: "male" | "female" }
+): Promise<AdminTestStudent> {
+  return request<AdminTestStudent>("/api/admin/students/test", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+// 테스트 계정으로 학생 화면에 진입할 학생 토큰을 받는다.
+// 테스트 계정은 학생 로그인 화면으로 들어갈 수 없으므로 이 경로가 유일한 진입점이다.
+export function issueAdminTestToken(
+  token: string,
+  studentId: string
+): Promise<AdminTestToken> {
+  return request<AdminTestToken>(
+    `/api/admin/students/test/${studentId}/token`,
+    { method: "POST", headers: { Authorization: `Bearer ${token}` } }
+  );
+}
+
+export function purgeAdminTestStudents(
+  token: string
+): Promise<AdminTestPurgeResponse> {
+  return request<AdminTestPurgeResponse>("/api/admin/students/test", {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
   });
 }
 

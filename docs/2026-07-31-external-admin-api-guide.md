@@ -120,9 +120,60 @@ CORS_ALLOW_ORIGINS=https://admin.example.com,https://partner.example.com
 - `progress/classes` 응답은 학생 개인정보를 전혀 포함하지 않는다. 지금은 관리자 화면 내부용으로만
   쓰며, 외부 API 소비자에게 노출할지는 이번 변경의 범위 밖이다.
 
+## 6. 계정 종류(`kind`) 도입 — 테스트 계정 분리 (2026-08-08)
+
+### 배경
+
+개발·QA 중 학생 계정을 새로 만들어 테스트하는데, 그 계정이 실제 학생 데이터와 같은 테이블에
+섞여 관리자 목록·좌석표·학교 필터를 오염시켰다. 여기에 더해 학교 없는 개인 참여자도 받아야
+했다. 설계 상세는 [`2026-08-08-guest-and-test-accounts-design.md`](superpowers/specs/2026-08-08-guest-and-test-accounts-design.md) 참고.
+
+### 변경 내용
+
+`pii.students`에 `kind`(`'student'` | `'guest'` | `'test'`) 컬럼이 생겼다. 기존 행은 전부
+`'student'`로 백필돼 동작이 바뀌지 않는다. 이 구분이 관리자 API에 다음과 같이 반영됐다.
+
+- **`GET /api/admin/students`의 기본 행 집합이 바뀌었다.** 이제 `kind <> 'test'`만 반환한다
+  (`student`·`guest`). 이전에는 테스트 계정이라는 개념 자체가 없었으므로 실질적으로 동작은
+  같다 — 관리자가 발급한 테스트 계정만 새로 생겨서 걸러진다.
+- `kind` 쿼리 파라미터 신설(`student` | `guest` | `test`). 생략하면 위 기본 집합이 내려오고,
+  `kind=test`면 테스트 계정만 내려온다. 테스트 계정과 실제 참가자가 한 응답에 섞이는 조합은 없다
+  — 관리자 화면이 두 목록을 별도 탭으로 나눠 관리한다.
+- 응답 항목(`AdminStudentItem`)에 `kind` 필드 추가(`"student"` | `"guest"` | `"test"`). **목록
+  응답에만 있다 — `GET /api/admin/students/{id}` 상세 응답(`AdminStudentDetail`)에는 없다.**
+- `kind`가 `guest`·`test`인 계정은 `school=""`, `grade`/`class_no`/`student_no`가 모두 `0`으로
+  내려온다(학교 없는 계정의 플레이스홀더 값 — 실제 반·번호가 아니다).
+- 테스트 계정 발급·진입·정리 엔드포인트 3개 신설(관리자 화면 전용, 외부 연동 대상 아님).
+  - `POST /api/admin/students/test` — `{ name, gender }` → 발급된 계정(`id`, `name`, `gender`).
+    비밀번호는 서버가 랜덤 생성하며 응답에 담지 않는다. `name`은 개인 참여자(`guest`)와 같은
+    이름 공간을 공유해 중복 시 `409`.
+  - `POST /api/admin/students/test/{id}/token` — 그 테스트 계정으로 학생 화면에 진입할
+    `student_token` 발급. 대상이 `kind='test'`가 아니면 `404`.
+  - `DELETE /api/admin/students/test` — `kind='test'` 전체 하드 삭제(DB cascade + S3 사진/카드
+    이미지) → `{ deleted, removed_storage_objects }`.
+
+외부 전달용 사용법은 [사용 설명서](2026-07-31-admin-api-usage.md)의 3.2절(`kind` 파라미터)·3.7절(테스트 계정 엔드포인트)·4절(`kind` 필드)·부록에 반영했다.
+
+관련 테스트: `backend/tests/test_admin_router.py`
+(`test_create_test_student_issues_token_for_student_screen`,
+`test_issue_token_for_non_test_student_returns_404`,
+`test_purge_test_students_removes_only_test_accounts` 등),
+`backend/tests/test_admin_service.py`
+(`test_list_students_hides_test_accounts_by_default`,
+`test_create_test_student_generates_random_password`,
+`test_purge_test_students_removes_only_test_accounts` 등).
+
+### 짚어둘 점
+
+- **`kind`를 생략하는 것이 기본이다.** 기존 외부 연동·`export_students.py`는 아무것도 바꾸지
+  않아도 그대로 동작하고, 결과적으로 테스트 계정이 섞이지 않는다는 점에서 더 안전해졌다.
+- 로그인의 이름 조회는 `kind='guest'`만 본다 — 테스트 계정은 학생 로그인 화면으로 들어올 수
+  없고, 이 3개 엔드포인트로만 도달한다.
+
 ## 변경 이력
 
 | 날짜 | 내용 |
 |---|---|
 | 2026-07-31 | 최초 작성. CORS 전 오리진 개방(`CORS_ALLOW_ORIGINS` 신설), 수집 스크립트·테스트 추가 |
 | 2026-08-01 | `include_photo` 파라미터와 `has_photo` 필드 추가, 반별 집계·사진 단건 엔드포인트 추가. 기존 동작·기본값은 그대로 |
+| 2026-08-08 | 계정 종류(`kind`) 도입 — `GET /api/admin/students` 기본 응답에서 테스트 계정 제외, `kind` 쿼리 파라미터·`kind` 응답 필드 추가, 테스트 계정 발급·진입·정리 엔드포인트 3개 신설 |
