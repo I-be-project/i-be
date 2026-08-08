@@ -11,6 +11,7 @@ _REAL_SECRETS = {
     "JWT_SECRET": "b7f3d1c9a2e84f60b5d7c3a1e9f2b8d4",
     "JWT_CARD_SHARE_SECRET": "3a9e1f7c5b2d8046a1c7e3f9b5d2a806",
     "ADMIN_PASSWORD": "a-real-admin-password",
+    "OPERATOR_PASSWORD": "a-real-operator-password",
     "FRONTEND_ORIGIN": "https://i-be.vercel.app",
 }
 
@@ -37,6 +38,7 @@ def test_production_with_real_secrets_is_accepted(monkeypatch: pytest.MonkeyPatc
         ("JWT_SECRET", "jwt_secret"),
         ("JWT_CARD_SHARE_SECRET", "jwt_card_share_secret"),
         ("ADMIN_PASSWORD", "admin_password"),
+        ("OPERATOR_PASSWORD", "operator_password"),
         ("FRONTEND_ORIGIN", "frontend_origin"),
     ],
 )

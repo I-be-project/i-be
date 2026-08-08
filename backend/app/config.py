@@ -19,6 +19,7 @@ _PRODUCTION_REQUIRED_SETTINGS = {
     "jwt_secret": "JWT_SECRET",
     "jwt_card_share_secret": "JWT_CARD_SHARE_SECRET",
     "admin_password": "ADMIN_PASSWORD",
+    "operator_password": "OPERATOR_PASSWORD",
     "frontend_origin": "FRONTEND_ORIGIN",
 }
 
@@ -76,6 +77,10 @@ class Settings(BaseSettings):
     admin_username: str = "admin"
     admin_password: str = "change-me-admin"
     admin_token_ttl_hours: int = 12
+
+    # 운영진(단일 공유 비밀번호) — 아이디 없이 비밀번호만 받는다. 운영 배포 시 .env로 주입.
+    # TTL은 위쪽 Auth 블록의 operator_token_ttl_hours를 쓴다.
+    operator_password: str = "change-me-operator"
 
     # AI — OpenRouter 키 하나로 chat·image 통합.
     openrouter_api_key: str = ""

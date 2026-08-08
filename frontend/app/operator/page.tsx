@@ -2,6 +2,6 @@
 
 import { StudentListView } from "@/components/console/StudentListView";
 
-export default function AdminStudentsPage() {
+export default function OperatorStudentsPage() {
   return <StudentListView />;
 }

@@ -1,26 +1,59 @@
 "use client";
 
-import { LayoutGrid, LogOut, QrCode, Users } from "lucide-react";
+import {
+  BarChart3,
+  LayoutGrid,
+  LogOut,
+  QrCode,
+  Users,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { clearAdminToken } from "@/lib/adminAuth";
+import {
+  useConsole,
+  type ConsoleRole,
+} from "@/components/console/ConsoleProvider";
 import { cn } from "@/lib/utils";
 
-const NAV = [
-  { href: "/admin", label: "회원 목록", icon: Users },
-  { href: "/admin/seating", label: "진행 현황", icon: LayoutGrid },
-  { href: "/admin/booths", label: "부스 관리", icon: QrCode },
-];
+interface NavItem {
+  /** basePath 뒤에 붙는 조각. 빈 문자열이면 basePath 자신. */
+  path: string;
+  label: string;
+  icon: LucideIcon;
+}
 
-/** 관리자 화면 공통 상단 바 — 브랜드 마크 + 페이지 내비 + 로그아웃. */
-export function AdminHeader() {
+// 관리자와 운영진의 차이는 부스 화면 이름뿐이다 — 관리자는 편집까지, 운영진은 확인만.
+const NAV: Record<ConsoleRole, NavItem[]> = {
+  admin: [
+    { path: "", label: "회원 목록", icon: Users },
+    { path: "/seating", label: "진행 현황", icon: LayoutGrid },
+    { path: "/booths", label: "부스 관리", icon: QrCode },
+    { path: "/visits", label: "부스별 참여인원", icon: BarChart3 },
+  ],
+  operator: [
+    { path: "", label: "회원 목록", icon: Users },
+    { path: "/seating", label: "진행 현황", icon: LayoutGrid },
+    { path: "/booths", label: "부스 확인", icon: QrCode },
+    { path: "/visits", label: "부스별 참여인원", icon: BarChart3 },
+  ],
+};
+
+const TITLE: Record<ConsoleRole, string> = {
+  admin: "관리자 콘솔",
+  operator: "운영진 콘솔",
+};
+
+/** 콘솔 공통 상단 바 — 브랜드 마크 + 역할별 내비 + 로그아웃. */
+export function ConsoleHeader() {
   const router = useRouter();
   const pathname = usePathname();
+  const { role, clearToken, loginPath, basePath } = useConsole();
 
   function logout() {
-    clearAdminToken();
-    router.replace("/admin/login");
+    clearToken();
+    router.replace(loginPath);
   }
 
   return (
@@ -35,11 +68,14 @@ export function AdminHeader() {
               <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 나Be한마당
               </p>
-              <p className="text-sm font-semibold tracking-tight">관리자 콘솔</p>
+              <p className="text-sm font-semibold tracking-tight">
+                {TITLE[role]}
+              </p>
             </div>
           </div>
           <nav className="flex items-center gap-1">
-            {NAV.map(({ href, label, icon: Icon }) => {
+            {NAV[role].map(({ path, label, icon: Icon }) => {
+              const href = `${basePath}${path}`;
               const active = pathname === href;
               return (
                 <Link
