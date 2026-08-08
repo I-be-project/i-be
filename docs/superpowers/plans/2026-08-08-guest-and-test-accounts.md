@@ -1543,17 +1543,29 @@ export function IdentityFields({ values, onChange, disabled }: IdentityFieldsPro
 
 기존 파일의 학년/반/번호 JSX를 그대로 옮기되, 위 구조에 맞춰 `<>...</>` 안에 넣는다. 원본에서 세 입력란의 정확한 마크업을 복사해 쓴다.
 
-- [ ] **Step 3: 타입 체크**
+- [ ] **Step 3: 두 페이지의 초기값에 `level` 추가 (빌드를 살려두는 최소 변경)**
 
-Run: `cd frontend && npx tsc --noEmit`
-Expected: `app/login/page.tsx`·`app/signup/page.tsx`에서 `IdentityValues`에 `level`이 없다는 오류 — 다음 태스크에서 고친다.
+`IdentityValues`에 `level`이 생겼으므로 이걸 쓰는 두 페이지가 컴파일되지 않는다.
+이 커밋도 빌드되도록 초기값만 먼저 넣는다. **실제 모드 분기는 Task 9에서 한다.**
 
-- [ ] **Step 4: 커밋 (다음 태스크와 함께 검증되므로 lint만)**
+`frontend/app/login/page.tsx`의 `useState<IdentityValues>({` 초기값에 한 줄:
+
+```tsx
+    level: "중학교",
+```
+
+`frontend/app/signup/page.tsx:25`의 `useState<IdentityValues>({` 초기값에도 같은 한 줄을 넣는다.
+
+- [ ] **Step 4: 타입 체크 + 빌드**
+
+Run: `cd frontend && npx tsc --noEmit && npm run lint && npm run build`
+Expected: PASS — 이 시점의 화면은 중학교/고등학교만 동작하고 "개인" 탭을 눌러도
+학교 입력란만 사라진다(가입·로그인 제출은 Task 9에서 연결된다).
+
+- [ ] **Step 5: 커밋**
 
 ```bash
-cd frontend && npm run lint
-cd ..
-git add frontend/components/auth/
+git add frontend/components/auth/ frontend/app/login/page.tsx frontend/app/signup/page.tsx
 git commit -m "feat: 가입·로그인에 참여 유형 탭(중학교·고등학교·개인) 추가"
 ```
 
@@ -1573,17 +1585,13 @@ git commit -m "feat: 가입·로그인에 참여 유형 탭(중학교·고등학
 
 `frontend/app/login/page.tsx`:
 
+import에 `isGuestLevel`을 추가하고(초기값의 `level`은 Task 8 Step 3에서 이미 들어가 있다),
+개인 모드에서 쓸 이름 state를 추가한다:
+
 ```tsx
 import { IdentityFields, isGuestLevel, type IdentityValues } from "@/components/auth/IdentityFields";
 
-// ...
-  const [identity, setIdentity] = useState<IdentityValues>({
-    level: "중학교",
-    school: "",
-    grade: "",
-    classNo: "",
-    studentNo: "",
-  });
+// ... 기존 identity useState 아래에 추가
   const [name, setName] = useState("");
 ```
 
@@ -1667,7 +1675,7 @@ import { IdentityFields, isGuestLevel, type IdentityValues } from "@/components/
 `frontend/app/signup/page.tsx`:
 
 - import를 바꾼다: `import { IdentityFields, isGuestLevel, type IdentityValues } from "@/components/auth/IdentityFields";`
-- `identity` 초기값(`:25`)에 `level: "중학교"`를 추가한다.
+- `identity` 초기값의 `level`은 Task 8 Step 3에서 이미 넣었다 — 다시 넣지 않는다.
 - `handleSubmit`의 검증부(`:57-89`)를 교체한다. 개인 모드에서는 `grade`·`classNo`·`studentNo`가
   `NaN`이므로 학교 관련 검사를 통째로 건너뛰어야 한다:
 
