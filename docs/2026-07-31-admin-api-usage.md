@@ -92,13 +92,14 @@ curl -H "Authorization: Bearer $TOKEN" \
 | `offset`        | int     | `0`    | 건너뛸 개수                                                                               |
 | `sort`          | enum    | –      | `created_desc` \| `created_asc` \| `name_asc`                                            |
 | `include_photo` | boolean | `true` | `false`면 `photo_url`을 서명하지 않고 `null`로 내려준다. 사진이 필요 없으면 응답이 크게 빨라진다(832명 기준 31초 → 0.5초) |
-| `include_test`  | boolean | `false` | `true`면 관리자가 발급한 테스트 계정(`kind="test"`)도 목록에 포함한다. 기본값은 `false`로, 실제 학생·개인 참여자만 내려온다 |
+| `kind`          | enum    | –      | `student` \| `guest` \| `test`. 생략하면 테스트 계정을 뺀 실제 참가자(`student`+`guest`)가 내려온다. `test`를 주면 테스트 계정만 내려온다 |
 
 `sort`를 생략하면 **학교 → 학년 → 반 → 번호** 순으로 정렬된다. 반별로 명단을 만들 때 가장 편한 순서다.
 
 > **기본 응답에는 테스트 계정이 없다.** 이 API가 반환하는 계정은 학교 소속 학생(`kind="student"`)과
 > 학교 없는 개인 참여자(`kind="guest"`)뿐이다. 관리자가 QA용으로 발급한 테스트 계정(`kind="test"`)은
-> `include_test=true`를 명시해야만 보인다. 학생 수 집계·명단 추출 목적이라면 기본값 그대로 두면 된다.
+> `kind=test`로 명시해 따로 조회해야 보인다. 학생 수 집계·명단 추출 목적이라면 `kind`를 생략하면 된다.
+> 테스트 계정과 실제 참가자가 한 응답에 섞여 나오는 조합은 없다.
 
 ```bash
 curl -G -H "Authorization: Bearer $TOKEN" \
@@ -141,7 +142,7 @@ curl -G -H "Authorization: Bearer $TOKEN" \
 
 `total`은 **필터 조건에 맞는 전체 개수**이며 `limit`의 영향을 받지 않는다. 페이지네이션의 종료 조건으로 쓴다.
 
-`kind`가 `"guest"`(학교 없는 개인 참여자, `include_test=true`일 때는 `"test"`도)이면
+`kind`가 `"guest"`(학교 없는 개인 참여자, `kind=test`로 조회한 `"test"`도)이면
 `school`은 빈 문자열, `grade`·`class_no`·`student_no`는 모두 `0`으로 온다 — 학교 소속이 아니라는
 뜻이며 실제 반·번호가 아니다.
 
@@ -304,7 +305,7 @@ QA용 테스트 계정을 만들고 학생 화면으로 들어갈 토큰을 발�
 | `gender`          | string \| null | `"male"` \| `"female"`                                                 |
 | `photo_url`       | string \| null | 사진 임시 URL. 없으면 `null`                                           |
 | `has_photo`       | bool           | 사진 보유 여부. `include_photo=false`로 받아 `photo_url`이 `null`이어도 유효 |
-| `kind`            | string         | 계정 종류: `"student"`(학교 소속) \| `"guest"`(개인 참여자) \| `"test"`(테스트 계정, `include_test=true`일 때만). **목록 응답(3.2)에만 있다 — 상세 응답(3.3)에는 없다.** |
+| `kind`            | string         | 계정 종류: `"student"`(학교 소속) \| `"guest"`(개인 참여자) \| `"test"`(테스트 계정, `kind=test`로 조회할 때만). **목록 응답(3.2)에만 있다 — 상세 응답(3.3)에는 없다.** |
 | `consent_privacy` | bool           | 개인정보 수집 동의 여부                                                |
 | `created_at`      | datetime       | 가입 시각 (ISO 8601, UTC)                                              |
 | `progress`        | object         | 설문 진행 상태 (아래)                                                  |
@@ -541,4 +542,4 @@ export/
 | ---------- | --------------------------------------------------------------------------------------------------------------------------- |
 | 2026-07-31 | 최초 작성 (외부 전달용). 관련 내부 문서: [`2026-07-31-external-admin-api-guide.md`](2026-07-31-external-admin-api-guide.md) |
 | 2026-08-01 | `include_photo` 파라미터와 `has_photo` 필드 추가, 반별 집계·사진 단건 엔드포인트 추가. 기존 동작·기본값은 그대로 |
-| 2026-08-08 | 계정 종류(`kind`) 도입. `GET /api/admin/students` 기본 응답에서 테스트 계정(`kind="test"`) 제외, `include_test` 파라미터와 `kind` 필드(목록 응답) 추가. 테스트 계정 발급·진입 토큰·일괄 삭제 엔드포인트 3개 추가(3.7절, 관리자 화면 전용) |
+| 2026-08-08 | 계정 종류(`kind`) 도입. `GET /api/admin/students` 기본 응답에서 테스트 계정(`kind="test"`) 제외, `kind` 쿼리 파라미터와 `kind` 응답 필드(목록) 추가. 테스트 계정 발급·진입 토큰·일괄 삭제 엔드포인트 3개 추가(3.7절, 관리자 화면 전용) |

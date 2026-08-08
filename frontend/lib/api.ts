@@ -376,8 +376,9 @@ export interface AdminStudentQuery {
   // 사진 presigned URL을 받을지. 생략하면 백엔드 기본값(true)이 적용된다.
   // 사진을 쓰지 않는 화면은 false로 보내 서명 비용을 건너뛴다.
   include_photo?: boolean;
-  // 테스트 계정(kind: "test") 포함 여부. 생략하면 백엔드 기본값(false)이 적용되어 숨겨진다.
-  include_test?: boolean;
+  // 계정 종류 필터. 생략하면 테스트 계정을 뺀 실제 참가자(student·guest)만 나온다.
+  // "test"를 주면 테스트 계정만 나온다 — 관리자 화면의 '테스트 계정' 탭이 쓴다.
+  kind?: AdminStudentItem["kind"];
 }
 
 export function adminLogin(
@@ -404,7 +405,7 @@ export function fetchAdminStudents(
   if (params.offset != null) sp.set("offset", String(params.offset));
   if (params.sort) sp.set("sort", params.sort);
   if (params.include_photo != null) sp.set("include_photo", String(params.include_photo));
-  if (params.include_test != null) sp.set("include_test", String(params.include_test));
+  if (params.kind) sp.set("kind", params.kind);
   const qs = sp.toString();
   return request<AdminStudentList>(
     `/api/admin/students${qs ? `?${qs}` : ""}`,

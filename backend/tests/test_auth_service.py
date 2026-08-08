@@ -130,12 +130,15 @@ class FakeStudentRepo:
         limit: int,
         offset: int,
         sort: str | None = None,
-        include_test: bool = False,
+        kind: str | None = None,
     ) -> tuple[int, list[StudentRecord]]:
         records = [r for r in self._by_id.values() if r.deleted_at is None]
-        if not include_test:
+        if kind is None:
             # 실제 SQL의 "kind <> 'test'" 조건과 같은 의미 — 테스트 계정은 기본 제외.
             records = [r for r in records if r.kind != "test"]
+        else:
+            # 실제 SQL의 "kind = $n" 조건과 같은 의미 — 그 종류만.
+            records = [r for r in records if r.kind == kind]
         if q:
             records = [r for r in records if q in r.name]
         if school:

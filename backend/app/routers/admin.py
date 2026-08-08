@@ -15,6 +15,7 @@ from app.schemas.admin import (
     AdminLoginRequest,
     AdminLoginResponse,
     AdminStudentDetail,
+    AdminStudentKind,
     AdminStudentList,
     AdminStudentPhoto,
     AdminStudentSort,
@@ -45,13 +46,15 @@ async def list_students(
     offset: int = 0,
     sort: AdminStudentSort | None = None,
     include_photo: bool = True,
-    include_test: bool = False,
+    kind: AdminStudentKind | None = None,
 ) -> AdminStudentList:
-    """가입한 모든 학생 목록 — 검색/필터/정렬/페이지네이션, 사진 presigned URL 포함.
+    """가입한 참가자 목록 — 검색/필터/정렬/페이지네이션, 사진 presigned URL 포함.
 
     include_photo=false면 사진 서명을 건너뛰어 훨씬 빠르다(사진이 필요 없는 관리자 UI용).
     기본값 true는 외부 공개 계약이므로 바꾸지 않는다.
-    include_test=true면 관리자 발급 테스트 계정도 함께 보인다(기본은 숨김).
+
+    kind를 생략하면 실제 참가자(student·guest)만 나오고 테스트 계정은 빠진다.
+    kind=test면 테스트 계정만 나온다 — 관리자 화면의 '테스트 계정' 탭이 이 경로를 쓴다.
     """
     return await admin.list_students(
         q=q,
@@ -62,7 +65,7 @@ async def list_students(
         offset=offset,
         sort=sort,
         include_photo=include_photo,
-        include_test=include_test,
+        kind=kind,
     )
 
 

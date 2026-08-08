@@ -79,7 +79,7 @@ def _svc(
 
 
 async def test_list_students_hides_test_accounts_by_default() -> None:
-    """테스트 계정은 기본 목록에 나오지 않고, include_test=True로만 보인다."""
+    """테스트 계정은 기본 목록에 나오지 않고, kind='test'로만 따로 조회된다."""
     repo, storage = FakeStudentRepo(), FakeStorage()
     await repo.create(
         school="한마당고",
@@ -115,7 +115,7 @@ async def test_list_students_hides_test_accounts_by_default() -> None:
     )
     assert [i.name for i in default.items] == ["홍길동"]
 
-    with_test = await service.list_students(
+    only_test = await service.list_students(
         q=None,
         school=None,
         grade=None,
@@ -123,10 +123,52 @@ async def test_list_students_hides_test_accounts_by_default() -> None:
         limit=50,
         offset=0,
         include_photo=False,
-        include_test=True,
+        kind="test",
     )
-    assert {i.name for i in with_test.items} == {"홍길동", "테스트1"}
-    assert {i.kind for i in with_test.items} == {"student", "test"}
+    # 테스트 탭은 테스트 계정만 본다 — 실제 참가자가 섞이면 안 된다.
+    assert [i.name for i in only_test.items] == ["테스트1"]
+    assert [i.kind for i in only_test.items] == ["test"]
+    assert only_test.total == 1
+
+
+async def test_list_students_kind_filter_selects_guests_only() -> None:
+    """kind='guest'는 개인 참여자만 반환한다(학교 소속 학생 제외)."""
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="",
+        grade=0,
+        class_no=0,
+        student_no=0,
+        name="박서준",
+        password="1029",
+        gender="male",
+        consent_privacy=True,
+        kind="guest",
+    )
+    service = _svc(repo, storage)
+
+    guests = await service.list_students(
+        q=None,
+        school=None,
+        grade=None,
+        class_no=None,
+        limit=50,
+        offset=0,
+        include_photo=False,
+        kind="guest",
+    )
+
+    assert [i.name for i in guests.items] == ["박서준"]
 
 
 async def test_list_returns_all_sorted() -> None:

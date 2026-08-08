@@ -101,7 +101,7 @@ class AdminService:
         offset: int,
         sort: str | None = None,
         include_photo: bool = True,
-        include_test: bool = False,
+        kind: str | None = None,
     ) -> AdminStudentList:
         """관리자 목록.
 
@@ -109,8 +109,9 @@ class AdminService:
         계약이다(docs/2026-07-31-admin-api-usage.md, scripts/export_students.py).
         사진을 쓰지 않는 관리자 UI만 false로 호출해 서명 비용을 건너뛴다.
 
-        include_test 기본값이 false인 이유: 관리자 발급 테스트 계정은 실제 데이터가
-        아니라 목록·통계를 오염시킨다. 명시적으로 요청할 때만 함께 보여준다.
+        kind를 생략하면 테스트 계정을 뺀 실제 참가자만 반환한다 — 테스트 계정은 실제
+        데이터가 아니라 목록·통계를 오염시키기 때문이다. 관리자 화면의 '테스트 계정'
+        탭이 kind='test'로 불러 따로 관리한다.
         """
         total, records = await self._students.list_students(
             q=q,
@@ -120,7 +121,7 @@ class AdminService:
             limit=limit,
             offset=offset,
             sort=sort,
-            include_test=include_test,
+            kind=kind,
         )
         progress = await self._sessions.get_progress_for_students([r.id for r in records])
         photo_urls = (

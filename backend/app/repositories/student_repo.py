@@ -251,21 +251,26 @@ class StudentRepository(BaseRepository):
         limit: int,
         offset: int,
         sort: str | None = None,
-        include_test: bool = False,
+        kind: str | None = None,
     ) -> tuple[int, list[StudentRecord]]:
         """관리자용 목록 — soft-delete 제외, 필터 AND 결합, sort 기준 정렬.
 
+        kind가 없으면 테스트 계정을 뺀 실제 참가자(student·guest)만 반환한다.
+        kind를 주면 그 종류만 반환한다 — 관리자 화면의 '테스트 계정' 탭이 kind='test'로 부른다.
         sort가 없으면 (학교,학년,반,번호) 기본 정렬. 반환: (전체 개수, 현재 페이지 레코드).
         """
         conditions = ["deleted_at is null"]
-        if not include_test:
-            # 테스트 계정은 실제 데이터가 아니므로 기본 목록·집계에서 제외한다.
-            conditions.append("kind <> 'test'")
         params: list[object] = []
 
         def _add(expr: str, value: object) -> None:
             params.append(value)
             conditions.append(expr.format(n=len(params)))
+
+        if kind is None:
+            # 테스트 계정은 실제 데이터가 아니므로 기본 목록·집계에서 제외한다.
+            conditions.append("kind <> 'test'")
+        else:
+            _add("kind = ${n}", kind)
 
         if q:
             _add("name ilike '%' || ${n} || '%'", q)

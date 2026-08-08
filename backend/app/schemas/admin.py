@@ -56,6 +56,9 @@ class AdminStudentItem(BaseModel):
 
 AdminStudentSort = Literal["created_desc", "created_asc", "name_asc"]
 
+# 목록 종류 필터. 생략하면 테스트 계정을 뺀 실제 참가자(student·guest)를 반환한다.
+AdminStudentKind = Literal["student", "guest", "test"]
+
 
 class AdminStudentList(BaseModel):
     total: int

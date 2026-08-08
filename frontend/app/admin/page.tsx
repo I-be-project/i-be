@@ -151,6 +151,10 @@ function ConsentTag({ agreed }: { agreed: boolean }) {
 
 type SortKey = "name_asc" | "created_desc" | "created_asc";
 
+// 목록 탭. "members"는 실제 참가자(학교 소속 학생 + 개인 참여자),
+// "test"는 관리자가 발급한 테스트 계정. 서버 조회 자체를 kind로 나눠 섞이지 않게 한다.
+type AdminTab = "members" | "test";
+
 const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "created_desc", label: "최신 가입순" },
   { value: "created_asc", label: "오래된 가입순" },
@@ -186,9 +190,11 @@ export default function AdminStudentsPage() {
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(0);
 
-  // 실제 가입 회원 수(테스트 계정 제외) — "총 N명" 표시용. total(=list 페이지네이션
-  // 기준값)은 include_test:true라 테스트 계정이 섞여 있어 회원 수로 쓸 수 없다.
-  const [memberTotal, setMemberTotal] = useState(0);
+  // 탭 — 가입 회원(student·guest)과 테스트 계정을 완전히 갈라서 보여준다.
+  // 목록 조회 자체를 kind로 나누므로 두 탭의 데이터가 섞일 여지가 없다.
+  const [tab, setTab] = useState<AdminTab>("members");
+  // 테스트 계정 개수 — 탭 라벨 배지용. 목록과 별개로 가볍게 받아온다.
+  const [testTotal, setTestTotal] = useState(0);
 
   // 테스트 계정 발급 — 로그인 화면으로 들어올 수 없는 kind='test' 계정을 여기서만 만든다.
   const [testName, setTestName] = useState("");
@@ -216,22 +222,16 @@ export default function AdminStudentsPage() {
         school: schoolFilter === ALL_SCHOOLS ? undefined : schoolFilter,
         sort: sortKey,
       };
-      const [res, memberRes] = await Promise.all([
-        fetchAdminStudents(token, {
-          ...filters,
-          limit: pageSize,
-          offset: page * pageSize,
-          // 아바타는 클릭해야 보이므로 목록에서는 사진을 받지 않는다(서명 50건 절약).
-          include_photo: false,
-          // 관리자는 테스트 계정도 관리(발급 확인·진입·삭제)해야 하므로 목록에 포함시킨다.
-          include_test: true,
-        }),
-        // "총 N명" 배지용 — 테스트 계정을 뺀 실제 회원 수만 필요하므로 include_test를
-        // 생략(백엔드 기본값 false)하고 items는 버릴 것이라 limit을 최소로 준다.
-        fetchAdminStudents(token, { ...filters, limit: 1, offset: 0, include_photo: false }),
-      ]);
+      const res = await fetchAdminStudents(token, {
+        ...filters,
+        limit: pageSize,
+        offset: page * pageSize,
+        // 아바타는 클릭해야 보이므로 목록에서는 사진을 받지 않는다(서명 50건 절약).
+        include_photo: false,
+        // 가입 회원 탭은 kind를 생략해 테스트 계정이 빠진 실제 참가자만 받는다.
+        kind: tab === "test" ? "test" : undefined,
+      });
       setTotal(res.total);
-      setMemberTotal(memberRes.total);
       // 삭제 등으로 현재 페이지가 범위를 벗어나면 첫 페이지로 되돌린다.
       if (page > 0 && res.items.length === 0 && res.total > 0) {
         setPage(0);
@@ -252,12 +252,33 @@ export default function AdminStudentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [router, submittedQuery, schoolFilter, sortKey, pageSize, page]);
+  }, [router, submittedQuery, schoolFilter, sortKey, pageSize, page, tab]);
 
   useEffect(() => {
-    // 검색어·필터·정렬·페이지 크기·페이지가 바뀔 때마다 다시 로드한다.
+    // 검색어·필터·정렬·페이지 크기·페이지·탭이 바뀔 때마다 다시 로드한다.
     load();
   }, [load]);
+
+  // 테스트 계정 개수 — 탭 배지용. 실패해도 목록 표시를 막지 않도록 조용히 무시한다.
+  const loadTestCount = useCallback(async () => {
+    const token = getAdminToken();
+    if (!token) return;
+    try {
+      const res = await fetchAdminStudents(token, {
+        limit: 1,
+        offset: 0,
+        include_photo: false,
+        kind: "test",
+      });
+      setTestTotal(res.total);
+    } catch {
+      // 배지 숫자는 부가 정보다 — 실패는 무시한다.
+    }
+  }, []);
+
+  useEffect(() => {
+    loadTestCount();
+  }, [loadTestCount]);
 
   // 학교 필터 드롭다운 목록 — 마운트 시 1회, 삭제 후 갱신.
   const loadSchools = useCallback(async () => {
@@ -275,8 +296,21 @@ export default function AdminStudentsPage() {
   }, [loadSchools]);
 
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
-  // 현재 필터 조건에서 테스트 계정이 몇 개인지(= 전체 - 실제 회원). 음수 방지용 max.
-  const testTotal = Math.max(0, total - memberTotal);
+  const isTestTab = tab === "test";
+
+  // 탭을 바꾸면 페이지·검색·선택을 초기화한다 — 두 목록은 서로 다른 집합이라
+  // 이전 탭의 페이지 번호나 선택 항목을 그대로 들고 가면 어긋난다.
+  function switchTab(next: AdminTab) {
+    if (next === tab) return;
+    setTab(next);
+    setPage(0);
+    setQuery("");
+    setSubmittedQuery("");
+    setSchoolFilter(ALL_SCHOOLS);
+    setCheckedIds(new Set());
+    setError(null);
+    setTestStartError(null);
+  }
 
   function toggleReveal(id: string) {
     setRevealed((prev) => {
@@ -395,6 +429,7 @@ export default function AdminStudentsPage() {
       await createAdminTestStudent(token, { name: trimmed, gender: "male" });
       setTestName("");
       await load();
+      await loadTestCount();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearAdminToken();
@@ -420,7 +455,7 @@ export default function AdminStudentsPage() {
       setPurgeConfirming(false);
       setPurgeResult(`테스트 계정 ${res.deleted}개를 삭제했습니다.`);
       await load();
-      await loadSchools();
+      await loadTestCount();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         clearAdminToken();
@@ -478,31 +513,57 @@ export default function AdminStudentsPage() {
               회원 관리
             </p>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">
-              가입 회원
+              {isTestTab ? "테스트 계정" : "가입 회원"}
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              회원가입한 학생의 정보와 사진을 확인하고, 관리자가 발급한 테스트
-              계정을 관리합니다.
+              {isTestTab
+                ? "관리자가 발급한 테스트 계정입니다. 학생 로그인 화면으로는 들어올 수 없고, 가입 회원 목록·좌석표·통계에도 잡히지 않습니다."
+                : "회원가입한 학생과 개인 참여자의 정보와 사진을 확인합니다."}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {/* 실제 가입 회원만 센다 — 테스트 계정은 관리자 픽스처라 회원 수에서 뺀다. */}
-            <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm font-medium shadow-sm">
-              <span className="tabular-nums">{memberTotal}</span>
-              <span className="text-muted-foreground">명</span>
+          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm font-medium shadow-sm">
+            <span className="tabular-nums">{total}</span>
+            <span className="text-muted-foreground">
+              {isTestTab ? "개" : "명"}
             </span>
-            {testTotal > 0 && (
-              <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed bg-muted/40 px-3 py-1 text-sm font-medium text-muted-foreground">
-                <span className="tabular-nums">{testTotal}</span>
-                테스트 계정
-              </span>
-            )}
-          </div>
+          </span>
+        </div>
+
+        {/* 탭 — 가입 회원과 테스트 계정은 서로 다른 집합이라 목록 자체를 분리한다. */}
+        <div
+          role="tablist"
+          aria-label="목록 종류"
+          className="mb-4 inline-flex gap-1 rounded-lg border bg-muted/40 p-1"
+        >
+          {(["members", "test"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => switchTab(t)}
+              className={
+                tab === t
+                  ? "rounded-md bg-background px-3 py-1.5 text-sm font-semibold shadow-sm"
+                  : "rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              }
+            >
+              {t === "members" ? "가입 회원" : "테스트 계정"}
+              {t === "test" && testTotal > 0 && (
+                <span className="ml-1.5 tabular-nums text-muted-foreground">
+                  {testTotal}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
 
         {/* 테스트 계정 관리 — 학생 로그인 화면으로 들어올 수 없는 kind='test' 계정을
-            여기서만 발급·정리한다. */}
-        <div className="mb-4 rounded-lg border bg-card px-4 py-3">
+            여기서만 발급·정리한다. 테스트 탭에서만 노출한다. */}
+        <div
+          className="mb-4 rounded-lg border bg-card px-4 py-3"
+          hidden={!isTestTab}
+        >
           <div className="flex flex-wrap items-center justify-between gap-3">
             <form
               className="flex flex-wrap items-center gap-2"
@@ -583,39 +644,42 @@ export default function AdminStudentsPage() {
                   {page * pageSize + 1}–
                   {Math.min((page + 1) * pageSize, total)}
                 </span>{" "}
-                {/* 이 표는 테스트 계정도 함께 보여주므로 "명"이 아니라 "건"으로 —
-                    회원 수 표기는 위 배지(memberTotal)가 담당한다. */}
-                / 총 <span className="tabular-nums">{total}</span>건
-                {testTotal > 0 && `(테스트 계정 ${testTotal}개 포함)`}
+                / 총 <span className="tabular-nums">{total}</span>
+                {isTestTab ? "개" : "명"}
               </>
+            ) : isTestTab ? (
+              "발급한 테스트 계정이 없습니다"
             ) : (
               "표시할 회원이 없습니다"
             )}
           </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={schoolFilter}
-              onValueChange={(v) => {
-                setSchoolFilter(v ?? ALL_SCHOOLS);
-                setPage(0);
-              }}
-            >
-              <SelectTrigger className="w-[160px]" aria-label="학교 필터">
-                <SelectValue>
-                  {(v: string | null) =>
-                    !v || v === ALL_SCHOOLS ? "전체 학교" : v
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={ALL_SCHOOLS}>전체 학교</SelectItem>
-                {schools.map((school) => (
-                  <SelectItem key={school} value={school}>
-                    {school}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* 테스트 계정은 학교가 없으므로 테스트 탭에서는 학교 필터를 감춘다. */}
+            {!isTestTab && (
+              <Select
+                value={schoolFilter}
+                onValueChange={(v) => {
+                  setSchoolFilter(v ?? ALL_SCHOOLS);
+                  setPage(0);
+                }}
+              >
+                <SelectTrigger className="w-[160px]" aria-label="학교 필터">
+                  <SelectValue>
+                    {(v: string | null) =>
+                      !v || v === ALL_SCHOOLS ? "전체 학교" : v
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={ALL_SCHOOLS}>전체 학교</SelectItem>
+                  {schools.map((school) => (
+                    <SelectItem key={school} value={school}>
+                      {school}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Select
               value={sortKey}
               onValueChange={(v) => {

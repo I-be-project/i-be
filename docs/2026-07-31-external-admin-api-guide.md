@@ -136,7 +136,9 @@ CORS_ALLOW_ORIGINS=https://admin.example.com,https://partner.example.com
 - **`GET /api/admin/students`의 기본 행 집합이 바뀌었다.** 이제 `kind <> 'test'`만 반환한다
   (`student`·`guest`). 이전에는 테스트 계정이라는 개념 자체가 없었으므로 실질적으로 동작은
   같다 — 관리자가 발급한 테스트 계정만 새로 생겨서 걸러진다.
-- `include_test` 쿼리 파라미터 신설(기본 `false`). `true`면 `kind='test'` 계정도 함께 내려온다.
+- `kind` 쿼리 파라미터 신설(`student` | `guest` | `test`). 생략하면 위 기본 집합이 내려오고,
+  `kind=test`면 테스트 계정만 내려온다. 테스트 계정과 실제 참가자가 한 응답에 섞이는 조합은 없다
+  — 관리자 화면이 두 목록을 별도 탭으로 나눠 관리한다.
 - 응답 항목(`AdminStudentItem`)에 `kind` 필드 추가(`"student"` | `"guest"` | `"test"`). **목록
   응답에만 있다 — `GET /api/admin/students/{id}` 상세 응답(`AdminStudentDetail`)에는 없다.**
 - `kind`가 `guest`·`test`인 계정은 `school=""`, `grade`/`class_no`/`student_no`가 모두 `0`으로
@@ -150,8 +152,7 @@ CORS_ALLOW_ORIGINS=https://admin.example.com,https://partner.example.com
   - `DELETE /api/admin/students/test` — `kind='test'` 전체 하드 삭제(DB cascade + S3 사진/카드
     이미지) → `{ deleted, removed_storage_objects }`.
 
-외부 전달용 사용법은 [사용 설명서](2026-07-31-admin-api-usage.md)의 3.2절(`include_test`,
-`kind`)·3.7절(테스트 계정 엔드포인트)·4절(`kind` 필드)·부록에 반영했다.
+외부 전달용 사용법은 [사용 설명서](2026-07-31-admin-api-usage.md)의 3.2절(`kind` 파라미터)·3.7절(테스트 계정 엔드포인트)·4절(`kind` 필드)·부록에 반영했다.
 
 관련 테스트: `backend/tests/test_admin_router.py`
 (`test_create_test_student_issues_token_for_student_screen`,
@@ -164,7 +165,7 @@ CORS_ALLOW_ORIGINS=https://admin.example.com,https://partner.example.com
 
 ### 짚어둘 점
 
-- **`include_test` 기본값은 `false`다.** 기존 외부 연동·`export_students.py`는 아무것도 바꾸지
+- **`kind`를 생략하는 것이 기본이다.** 기존 외부 연동·`export_students.py`는 아무것도 바꾸지
   않아도 그대로 동작하고, 결과적으로 테스트 계정이 섞이지 않는다는 점에서 더 안전해졌다.
 - 로그인의 이름 조회는 `kind='guest'`만 본다 — 테스트 계정은 학생 로그인 화면으로 들어올 수
   없고, 이 3개 엔드포인트로만 도달한다.
@@ -175,4 +176,4 @@ CORS_ALLOW_ORIGINS=https://admin.example.com,https://partner.example.com
 |---|---|
 | 2026-07-31 | 최초 작성. CORS 전 오리진 개방(`CORS_ALLOW_ORIGINS` 신설), 수집 스크립트·테스트 추가 |
 | 2026-08-01 | `include_photo` 파라미터와 `has_photo` 필드 추가, 반별 집계·사진 단건 엔드포인트 추가. 기존 동작·기본값은 그대로 |
-| 2026-08-08 | 계정 종류(`kind`) 도입 — `GET /api/admin/students` 기본 응답에서 테스트 계정 제외, `include_test` 파라미터·`kind` 필드 추가, 테스트 계정 발급·진입·정리 엔드포인트 3개 신설 |
+| 2026-08-08 | 계정 종류(`kind`) 도입 — `GET /api/admin/students` 기본 응답에서 테스트 계정 제외, `kind` 쿼리 파라미터·`kind` 응답 필드 추가, 테스트 계정 발급·진입·정리 엔드포인트 3개 신설 |
