@@ -77,8 +77,8 @@ create unique index students_name_key on pii.students
 - 기존 인덱스를 `kind = 'student'`로 좁힌다. 기존 행은 전부 `student`라 제약이 그대로다.
 - 학교 없는 계정은 **이름으로** 유니크하다. 동명이인 가입은 409로 거부하고
   "이미 쓰고 있는 이름이야, 다르게 정해줘"로 안내한다.
-- `guest`와 `test`가 같은 이름 공간을 쓴다. 로그인이 이름 하나로 계정을 찾아야 하므로
-  둘을 분리하면 `guest` "테스트1"과 `test` "테스트1"이 공존해 조회가 모호해진다.
+- `guest`와 `test`가 **같은 이름 공간**을 쓴다. 로그인은 `guest`만 조회하므로(§3) 분리해도
+  모호해지지 않지만, 관리자 목록에 같은 이름이 둘 보이는 혼동을 막기 위해 공통으로 둔다.
 
 ### 왜 순번 자동 배정이 아닌가
 
@@ -104,11 +104,16 @@ create unique index students_name_key on pii.students
 | 종류 | 로그인 키 |
 |---|---|
 | `student` | `(school, grade, class_no, student_no)` + `password` — 기존 그대로 |
-| `guest` · `test` | `name` + `password` |
+| `guest` | `name` + `password` |
+| `test` | **로그인 화면으로 진입 불가** — 관리자 토큰 발급만 (§4) |
 
 - 학교 4개 필드가 **전부 있으면** 학교 소속, **전부 없으면** 개인. 일부만 오면 422.
 - 기존 프론트는 항상 학교 4개를 보내므로 하위 호환이 유지된다.
 - 로그인 실패는 기존과 같이 존재 여부를 노출하지 않는 단일 401.
+
+**이름 로그인 조회는 `kind = 'guest'`로 한정한다.** 비밀번호가 숫자 4자리로 강제되므로
+(`frontend/app/signup/page.tsx:75`), 테스트 계정을 이 경로에 두면 이름만 알면 사실상
+누구나 들어갈 수 있다. 테스트 계정은 학생 로그인 화면에서 도달할 수 없어야 한다.
 
 ### 학교 없는 계정의 화면 표시
 
@@ -123,21 +128,36 @@ create unique index students_name_key on pii.students
 
 ## 4. 테스트 계정 발급 (관리자)
 
+세 엔드포인트 모두 관리자 인증(`CurrentAdminDep`)을 요구한다.
+
 ```
-POST   /api/admin/students/test    body: { name, gender, password }  → 발급된 계정
-DELETE /api/admin/students/test                                       → { deleted: N }
+POST   /api/admin/students/test              body: { name, gender }  → 발급된 계정
+POST   /api/admin/students/test/{id}/token                           → { student_token }
+DELETE /api/admin/students/test                                      → { deleted: N }
 ```
 
 - 발급은 `kind='test'`로 계정을 만든다. 이름은 `students_name_key`가 유니크를 강제한다.
+- **비밀번호는 받지 않는다.** 서버가 랜덤 문자열로 채운다. 로그인에 쓰이지 않으므로
+  관리자도 알 필요가 없고, 알 수 없으면 어딘가에 적어두다 새는 경로도 생기지 않는다.
 - 일괄 삭제는 기존 `AdminService.delete_students`를 재사용한다
   (DB cascade + S3 사진·카드 이미지 정리).
 - **라우트 선언 순서 주의**: `DELETE /students/test`를 `DELETE /students/{student_id}`보다
   먼저 선언해야 한다. 그렇지 않으면 `test`가 UUID 경로 파라미터로 매칭되어 422가 난다
   (`app/routers/admin.py:62`의 `/students/schools`와 같은 함정).
 
-관리자 화면(`frontend/app/admin/page.tsx`)에 발급 버튼과 결과 다이얼로그를 둔다.
-발급 결과에 비밀번호를 그대로 보여준다 — 평문 저장 정책이라 조회가 가능하고,
-관리자가 그 값으로 로그인해 테스트해야 하기 때문이다.
+### 관리자 화면에서 테스트 시작
+
+`frontend/app/admin/page.tsx`에 발급 버튼과 계정별 **"이 계정으로 테스트 시작"** 버튼을 둔다.
+
+1. 버튼이 `POST /api/admin/students/test/{id}/token`으로 학생 토큰을 받는다.
+2. `useSessionStore.setAuth(token, id)`로 학생 세션을 심는다.
+3. 학생 화면으로 이동한다.
+
+관리자 화면과 학생 화면이 같은 Next 앱이라 Zustand store를 그대로 공유하므로 추가 배선이 없다.
+모바일 실기기 테스트는 폰 브라우저에서 관리자 로그인 후 같은 버튼을 누르면 된다.
+
+발급받은 이름·비밀번호를 받아적어 로그인 화면에서 다시 칠 필요가 없어지므로,
+보안을 얻으면서 조작 단계도 줄어든다.
 
 ### 왜 학생 화면에 트리거를 두지 않는가
 
@@ -201,11 +221,11 @@ AI 이미지 생성 비용이 나가는 계정을 외부에서 만들 수 없다
 
 | 파일 | 확인할 것 |
 |---|---|
-| `test_auth_service.py` | 개인 가입·로그인, 이름 중복 409, 학교 소속 기존 동작 유지 |
+| `test_auth_service.py` | 개인 가입·로그인, 이름 중복 409, 학교 소속 기존 동작 유지, **`test` 계정은 이름·비밀번호가 맞아도 401** |
 | `test_auth_router.py` | 요청 스키마 validator — 학교 4개 전부/전무만 통과, 일부만 오면 422 |
 | `test_session_service.py` | `test`는 완료 후에도 반복 가능, `student`는 기존대로 409 |
 | `test_admin_service.py` | `include_test` 필터, `list_schools`·`class_progress` 제외 |
-| `test_admin_router.py` | 테스트 계정 발급·일괄 삭제, `/students/test`와 `/{student_id}` 라우트 순서 |
+| `test_admin_router.py` | 테스트 계정 발급·일괄 삭제, 토큰 발급(관리자 인증 없으면 401, `test`가 아닌 계정이면 거부), `/students/test`와 `/{student_id}` 라우트 순서 |
 | `frontend/lib/api.test.ts` | 개인 모드 로그인·가입 요청 바디에 학교 필드가 빠지는지 |
 
 프론트는 `npm run lint` · `npm run build` · `npm run test`, 백엔드는
