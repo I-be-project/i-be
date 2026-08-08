@@ -7,7 +7,7 @@ import { ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
-import { IdentityFields, type IdentityValues } from "@/components/auth/IdentityFields";
+import { IdentityFields, isGuestLevel, type IdentityValues } from "@/components/auth/IdentityFields";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, registerStudent } from "@/lib/api";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
@@ -23,6 +23,7 @@ export default function SignupPage() {
   const setStudentInfo = useSessionStore((state) => state.setStudentInfo);
 
   const [identity, setIdentity] = useState<IdentityValues>({
+    level: "중학교",
     school: "",
     grade: "",
     classNo: "",
@@ -55,20 +56,18 @@ export default function SignupPage() {
     setIsConflict(false);
 
     // 기본 입력 검증 (백엔드도 검증하지만 사용자 경험상 먼저 막아준다)
+    const guest = isGuestLevel(identity.level);
     const grade = Number(identity.grade);
     const classNo = Number(identity.classNo);
     const studentNo = Number(identity.studentNo);
 
-    if (
+    const schoolFieldsMissing =
       !identity.school.trim() ||
       !identity.grade ||
       !identity.classNo ||
-      !identity.studentNo ||
-      !name.trim() ||
-      !gender ||
-      !password ||
-      !confirmPassword
-    ) {
+      !identity.studentNo;
+
+    if ((!guest && schoolFieldsMissing) || !name.trim() || !gender || !password || !confirmPassword) {
       setError("모든 항목을 입력해줘.");
       return;
     }
@@ -80,11 +79,11 @@ export default function SignupPage() {
       setError("비밀번호가 서로 달라. 다시 확인해줘.");
       return;
     }
-    if (grade < 1 || grade > 12) {
+    if (!guest && (grade < 1 || grade > 12)) {
       setError("학년은 1~12 사이로 입력해줘.");
       return;
     }
-    if (classNo < 1 || classNo > 99 || studentNo < 1 || studentNo > 99) {
+    if (!guest && (classNo < 1 || classNo > 99 || studentNo < 1 || studentNo > 99)) {
       setError("반과 번호는 1~99 사이로 입력해줘.");
       return;
     }
@@ -96,23 +95,27 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      const res = await registerStudent({
-        school: identity.school.trim(),
-        grade,
-        class_no: classNo,
-        student_no: studentNo,
-        name: name.trim(),
-        password,
-        gender,
-        consent_privacy: consent,
-      });
+      const res = await registerStudent(
+        guest
+          ? { name: name.trim(), password, gender, consent_privacy: consent }
+          : {
+              school: identity.school.trim(),
+              grade,
+              class_no: classNo,
+              student_no: studentNo,
+              name: name.trim(),
+              password,
+              gender,
+              consent_privacy: consent,
+            }
+      );
       setAuth(res.student_token, res.student_id);
       // 백엔드가 학교/학년/반/번호/이름을 돌려주지 않으므로, 입력값을 프로필용으로 보관.
       setStudentInfo({
-        school: identity.school.trim(),
-        grade,
-        classNo,
-        studentNo,
+        school: guest ? "" : identity.school.trim(),
+        grade: guest ? 0 : grade,
+        classNo: guest ? 0 : classNo,
+        studentNo: guest ? 0 : studentNo,
         name: name.trim(),
         gender,
       });
@@ -120,9 +123,16 @@ export default function SignupPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          // 이미 가입된 학생 → 로그인으로 유도
-          setIsConflict(true);
-          setError("이미 등록되어 있어요. 로그인해주세요.");
+          if (guest) {
+            // 개인 참여자는 같은 이름 공간을 공유하므로, 409는 "이미 가입했다"가
+            // 아니라 "남이 그 이름을 쓰고 있다"는 뜻이다. 로그인으로 유도하면 안 된다.
+            setIsConflict(false);
+            setError("이미 쓰고 있는 이름이야. 다른 이름으로 정해줘.");
+          } else {
+            // 이미 가입된 학생 → 로그인으로 유도
+            setIsConflict(true);
+            setError("이미 등록되어 있어요. 로그인해주세요.");
+          }
         } else if (err.status === 403) {
           // 동의 누락 (혹시 클라이언트 검증을 우회한 경우)
           setError(err.message);

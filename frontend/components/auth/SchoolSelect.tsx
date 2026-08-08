@@ -1,36 +1,29 @@
 "use client";
 
-// 학교 선택: 학교급(중/고) 토글 + 입력창에서 바로 검색하는 타입어헤드.
+// 학교 선택: 입력창에서 바로 검색하는 타입어헤드.
+// 학교급(중/고)은 상위(IdentityFields)가 소유하고, 여기서는 그 학교급 안에서만 검색한다.
 // 입력창에 학교명을 타이핑하면 아래 목록이 실시간 필터링되고, 선택하면 확정된다.
 // 선택 결과는 학교명 문자열로, 백엔드 식별 키(school)로 그대로 사용된다.
 
 import { useRef, useState } from "react";
 import { cn } from "@/lib/utils";
-import { SCHOOLS, type School } from "@/lib/data/schools";
+import { SCHOOLS } from "@/lib/data/schools";
 
-type Level = School["level"];
-
-const LEVELS: Level[] = ["중학교", "고등학교"];
+type Level = "중학교" | "고등학교";
 
 interface SchoolSelectProps {
+  /** 상위(IdentityFields)가 소유하는 학교급 */
+  level: Level;
   /** 선택된 학교명 (백엔드 식별 키) */
   value: string;
   onChange: (school: string) => void;
   disabled?: boolean;
 }
 
-// 학교명 접미사로 학교급을 복원 (예: "…고등학교" → 고등학교).
-function deriveLevel(name: string): Level {
-  return name.endsWith("고등학교") ? "고등학교" : "중학교";
-}
-
 const inputClass =
   "h-13 w-full rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none outline-hidden transition-colors focus:border-sky-400 focus:bg-white focus:ring-4 focus:ring-sky-100 disabled:cursor-not-allowed disabled:opacity-50";
 
-export function SchoolSelect({ value, onChange, disabled }: SchoolSelectProps) {
-  const [level, setLevel] = useState<Level>(() =>
-    value ? deriveLevel(value) : "중학교",
-  );
+export function SchoolSelect({ level, value, onChange, disabled }: SchoolSelectProps) {
   // 입력창 텍스트 (검색어). 포커스 중에만 사용하고, 비포커스 땐 확정된 value를 보여준다.
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -44,17 +37,6 @@ export function SchoolSelect({ value, onChange, disabled }: SchoolSelectProps) {
       s.level === level &&
       (!typed || s.name.includes(query.trim())),
   );
-
-  const handleLevelChange = (next: Level) => {
-    if (next === level) return;
-    setLevel(next);
-    setQuery("");
-    setTyped(false);
-    // 현재 선택 학교가 새 학교급에 속하지 않으면 선택 해제.
-    if (value && deriveLevel(value) !== next) {
-      onChange("");
-    }
-  };
 
   const handleFocus = () => {
     if (blurTimer.current) clearTimeout(blurTimer.current);
@@ -83,28 +65,8 @@ export function SchoolSelect({ value, onChange, disabled }: SchoolSelectProps) {
 
   return (
     <div className="space-y-2">
-      {/* "학교" 라벨 + 학교급 토글 */}
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-bold text-zinc-600">학교</span>
-        <div className="flex gap-1 rounded-full bg-zinc-100 p-1">
-          {LEVELS.map((lv) => (
-            <button
-              key={lv}
-              type="button"
-              disabled={disabled}
-              onClick={() => handleLevelChange(lv)}
-              className={cn(
-                "rounded-full px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
-                level === lv
-                  ? "bg-sky-500 text-white shadow-sm shadow-sky-200"
-                  : "text-zinc-500 hover:text-zinc-700",
-              )}
-            >
-              {lv}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* "학교" 라벨 */}
+      <span className="text-sm font-bold text-zinc-600">학교</span>
 
       {/* 입력=검색 타입어헤드 */}
       <div className="relative">

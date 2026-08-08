@@ -98,7 +98,15 @@ CI에는 `backend/.env`가 없으므로, 테스트는 환경변수 없이도 통
 | `JWT_SECRET` | **기동 실패.** 공개된 예시값으로 서명하면 학생 토큰 위조 가능 |
 | `JWT_CARD_SHARE_SECRET` | **기동 실패.** 카드 공유 링크 위조 가능 |
 | `ADMIN_PASSWORD` | **기동 실패.** 관리자 API(회원 조회·삭제) 무단 접근 가능 |
+| `OPERATOR_PASSWORD` | **기동 실패.** 운영진 콘솔(회원 목록·부스 확인) 무단 접근 가능 |
 | `FRONTEND_ORIGIN` | **기동 실패.** 부스 QR 링크(`https://i-be.vercel.app`)의 base — localhost가 박힌 QR 인쇄물은 되돌릴 수 없다 |
+
+> `OPERATOR_PASSWORD`는 `APP_ENV=production`에서 필수다. 서버 `backend/.env`에
+> 넣기 전에 `production`으로 머지하면 앱 기동이 실패한다. `backend/**` 변경은
+> push 즉시 자동 재배포되므로 순서를 지킨다.
+> 1. 서버 `backend/.env`에 `OPERATOR_PASSWORD=...` 추가
+> 2. PR을 `production`에 머지
+> 3. `https://api.cnu-likelion.kr/healthz` 확인
 
 `APP_ENV=production`인데 위 시크릿이 예시값이거나 비어 있으면 앱이 기동을 거부하고,
 CD 워크플로의 헬스체크가 실패해 배포가 빨간불로 끝난다. 조용히 뜨는 것보다 안전하다.
@@ -114,7 +122,7 @@ CD 워크플로의 헬스체크가 실패해 배포가 빨간불로 끝난다. �
 **배포 전 서버에서 확인**
 ```bash
 cd <DEPLOY_PATH>/backend
-grep -E '^(APP_ENV|JWT_SECRET|JWT_CARD_SHARE_SECRET|ADMIN_PASSWORD|FRONTEND_ORIGIN)=' .env
+grep -E '^(APP_ENV|JWT_SECRET|JWT_CARD_SHARE_SECRET|ADMIN_PASSWORD|OPERATOR_PASSWORD|FRONTEND_ORIGIN)=' .env
 # 값이 change-me-* 이거나 줄이 없으면 교체:  openssl rand -hex 32
 ```
 
@@ -144,3 +152,4 @@ grep -E '^(APP_ENV|JWT_SECRET|JWT_CARD_SHARE_SECRET|ADMIN_PASSWORD|FRONTEND_ORIG
 | 2026-08-02 | 운영 필수 변수에 `FRONTEND_ORIGIN` 추가 — 부스 QR 링크의 base라 `APP_ENV=production`에서 미설정(localhost 기본값)이면 기동 실패 |
 | 2026-08-02 | 운영 필수 변수 절에 적용 순서 명시 — 필수 변수는 `production` 머지 전에 서버 `.env`에 먼저 있어야 하며, 누락 시 재시작 루프로 API 전체가 내려가고 CD에 롤백 단계가 없음을 기록 |
 | 2026-08-02 | `## DB 마이그레이션` 절 추가 — 마이그레이션 파일 위치, 수동 적용 방식, 코드 배포보다 먼저 적용해야 하는 이유 정리 |
+| 2026-08-08 | 운영진 콘솔 추가 — `OPERATOR_PASSWORD` 환경변수 필수화 |

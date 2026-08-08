@@ -2,7 +2,10 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { getAdminToken } from "@/lib/adminAuth";
+import {
+  ADMIN_CONSOLE,
+  ConsoleProvider,
+} from "@/components/console/ConsoleProvider";
 
 export default function AdminLayout({
   children,
@@ -23,7 +26,7 @@ export default function AdminLayout({
       setReady(true);
       return;
     }
-    if (!getAdminToken()) {
+    if (!ADMIN_CONSOLE.getToken()) {
       router.replace("/admin/login");
       return;
     }
@@ -31,5 +34,5 @@ export default function AdminLayout({
   }, [isLoginPage, router]);
 
   if (!ready) return null;
-  return <>{children}</>;
+  return <ConsoleProvider value={ADMIN_CONSOLE}>{children}</ConsoleProvider>;
 }

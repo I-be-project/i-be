@@ -64,6 +64,25 @@ async def test_login_wrong_credentials_unauthorized() -> None:
         await gen.aclose()
 
 
+async def test_login_non_ascii_password_unauthorized_not_500() -> None:
+    """한글 등 비-ASCII 비밀번호는 500(TypeError)이 아니라 401이어야 한다.
+
+    secrets.compare_digest는 str끼리 비교할 때 비-ASCII 조합을 지원하지 않는다.
+    한국어 UI에서 IME가 켜진 채 비밀번호를 입력하면 실제로 벌어질 수 있는 상황.
+    """
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/admin/login",
+            json={"username": "admin", "password": "한글비밀번호"},
+        )
+        assert res.status_code == 401, res.text
+    finally:
+        await gen.aclose()
+
+
 def _admin_token() -> str:
     settings = get_settings()
     from datetime import timedelta
@@ -519,5 +538,142 @@ async def test_class_progress_requires_admin_token() -> None:
     try:
         res = await client.get("/api/admin/progress/classes?school=한마당고")
         assert res.status_code == 401
+    finally:
+        await gen.aclose()
+
+
+# --- 테스트 계정 발급·토큰·일괄 삭제 --------------------------------------------
+
+
+async def test_test_account_endpoints_require_admin() -> None:
+    """관리자 토큰 없이는 테스트 계정 API를 쓸 수 없다."""
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/admin/students/test", json={"name": "테스트1", "gender": "male"}
+        )
+        assert res.status_code == 401
+
+        # 존재하지 않는 id라도 인증이 먼저 걸려야 한다 — 404가 아니라 401.
+        # 세 엔드포인트 중 가장 민감한 경로(학생 세션 토큰 발급)이므로 빠뜨리면 안 된다.
+        res = await client.post(f"/api/admin/students/test/{uuid4()}/token")
+        assert res.status_code == 401
+
+        res = await client.delete("/api/admin/students/test")
+        assert res.status_code == 401
+    finally:
+        await gen.aclose()
+
+
+async def test_create_test_student_issues_token_for_student_screen() -> None:
+    """발급 → 토큰 발급까지 이어지는 정상 흐름. 비밀번호는 응답에 담기지 않는다."""
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/admin/students/test",
+            json={"name": "테스트1", "gender": "male"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 201, res.text
+        body = res.json()
+        assert body["name"] == "테스트1"
+        assert "password" not in body
+
+        res = await client.post(
+            f"/api/admin/students/test/{body['id']}/token",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        token_body = res.json()
+        assert token_body["student_id"] == body["id"]
+        assert token_body["student_token"]
+    finally:
+        await gen.aclose()
+
+
+async def test_issue_token_for_non_test_student_returns_404() -> None:
+    """일반 학생 id로는 테스트 계정 토큰을 발급받을 수 없다."""
+    app, repo, _, _ = _build()
+    student = await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+    )
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            f"/api/admin/students/test/{student.id}/token",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 404
+    finally:
+        await gen.aclose()
+
+
+async def test_delete_students_test_route_precedes_uuid_route() -> None:
+    """DELETE /students/test가 /{student_id}로 잡히지 않는다(422가 아니어야 한다)."""
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.delete(
+            "/api/admin/students/test",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        assert "deleted" in res.json()
+    finally:
+        await gen.aclose()
+
+
+async def test_purge_test_students_removes_only_test_accounts() -> None:
+    app, repo, _, _ = _build()
+    await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+    )
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        await client.post(
+            "/api/admin/students/test",
+            json={"name": "테스트1", "gender": "male"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        await client.post(
+            "/api/admin/students/test",
+            json={"name": "테스트2", "gender": "female"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+
+        res = await client.delete(
+            "/api/admin/students/test",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        assert res.json()["deleted"] == 2
+
+        # 일반 학생은 그대로 남아 있다.
+        res = await client.get(
+            "/api/admin/students",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.json()["total"] == 1
     finally:
         await gen.aclose()

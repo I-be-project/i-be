@@ -12,7 +12,10 @@ import {
   fetchAdminStudentPhotoUrl,
   fetchAdminStudents,
   fetchBoothByCode,
+  fetchBoothStats,
   generateStage,
+  loginStudent,
+  operatorLogin,
   saveAnswer,
   updateAdminBooth,
   updateMyProfile,
@@ -289,6 +292,53 @@ describe("fetchAdminStudents include_photo", () => {
   });
 });
 
+describe("operatorLogin", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("POSTs {password}만 /api/operator/login으로 보내고 operator_token을 반환한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ operator_token: "op-tok" }), { status: 200 }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await operatorLogin("비밀번호1234");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/operator/login");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ password: "비밀번호1234" });
+    expect(res.operator_token).toBe("op-tok");
+  });
+});
+
+describe("fetchBoothStats", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("GETs /api/admin/booths/stats with bearer token and parses the summary", async () => {
+    const body = {
+      booths: [{ booth_id: "b1", code: "K7M2QX", name: "드론 체험", visit_count: 3 }],
+      total_visits: 3,
+      unique_students: 2,
+    };
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(body), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await fetchBoothStats("tok123");
+
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/admin/booths/stats");
+    expect(init.method).toBe("GET");
+    expect(init.headers.Authorization).toBe("Bearer tok123");
+    expect(res.booths[0].visit_count).toBe(3);
+    expect(res.total_visits).toBe(3);
+    expect(res.unique_students).toBe(2);
+  });
+});
+
 describe("부스 관리 API", () => {
   beforeEach(() => vi.restoreAllMocks());
   afterEach(() => vi.unstubAllGlobals());
@@ -438,5 +488,25 @@ describe("부스 방문 API (학생)", () => {
       status: 404,
     });
     expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8000/api/booths/a%2Fb");
+  });
+});
+
+describe("loginStudent", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("개인 로그인은 학교 필드 없이 이름만 보낸다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ student_id: "s1", student_token: "t1" }), {
+        status: 200,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await loginStudent({ name: "박서준", password: "1029" });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body).toEqual({ name: "박서준", password: "1029" });
+    expect(body.school).toBeUndefined();
   });
 });

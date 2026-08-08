@@ -183,6 +183,7 @@ def _student() -> StudentRecord:
         gender="male",
         photo_key=None,
         consent_privacy=True,
+        kind="student",
         created_at=datetime.now(UTC),
         deleted_at=None,
     )
@@ -356,6 +357,16 @@ async def test_retry_enabled_flag_propagates() -> None:
     assert summary.retry_enabled is True
 
 
+async def test_test_account_profile_reports_retry_enabled() -> None:
+    """테스트 계정 프로필은 전역 스위치가 꺼져 있어도 retry_enabled=true로 내려간다."""
+    student = replace(_student(), kind="test")
+    service, _, _ = _build(latest=None, retry=False, student=student)
+
+    summary = await service.get_profile_summary(student.id)
+
+    assert summary.retry_enabled is True
+
+
 async def test_student_info_included_when_completed() -> None:
     service, _, _ = _build(latest=_session("completed"), persona=_persona())
     summary = await service.get_profile_summary(uuid4())
@@ -479,6 +490,16 @@ async def test_complete_survey_without_persona_conflict_when_completed_and_retry
     service, _, _ = _build(latest=_session("completed"), retry=False)
     with pytest.raises(ConflictError):
         await service.complete_survey(uuid4(), None)
+
+
+async def test_test_account_can_complete_survey_when_retry_off() -> None:
+    """kind='test' 계정은 전역 retry_enabled가 꺼져 있어도 설문을 다시 완료할 수 있다."""
+    student = replace(_student(), kind="test")
+    service, _, _ = _build(latest=_session("completed"), retry=False, student=student)
+
+    summary = await service.complete_survey(student.id, None)
+
+    assert summary.has_completed is True
 
 
 # --- submit_answer ---

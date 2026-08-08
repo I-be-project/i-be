@@ -127,8 +127,13 @@ class SessionService:
         완료 판단 = 가장 최근 세션이 completed. 미완료/세션 없음은 동일하게
         has_completed=false 로 내린다. 완료 시 persona→card 까지 따라간다.
         """
-        retry_enabled = bool(await self._settings_repo.get(RETRY_ENABLED_KEY))
-        student = await self._fetch_student_info(student_id)
+        record = await self._students.get_by_id(student_id)
+        # 테스트 계정은 전역 스위치와 무관하게 항상 다시 할 수 있다 — 그래야 계정 하나로
+        # 반복 테스트가 되고, 테스트할 때마다 새 계정을 만들어 DB에 쌓지 않는다.
+        retry_enabled = bool(await self._settings_repo.get(RETRY_ENABLED_KEY)) or (
+            record is not None and record.kind == "test"
+        )
+        student = await self._build_student_info(record)
         booths = await self._list_booth_statuses(student_id)
 
         # 진행 중(in_progress) 세션이 있어도 완료 판정은 최근 '완료' 세션 기준.
@@ -224,9 +229,13 @@ class SessionService:
         최근 '완료' 세션이 있고 retry_enabled가 false면 409(ConflictError).
         session_id가 주어지면 그 in_progress 세션을 completed로 올리고(진행 중 답변 유지),
         없으면 새 completed 세션을 만든다. 상태 변경/생성과 persona INSERT는 한 트랜잭션.
+        테스트 계정(kind='test')은 전역 스위치와 무관하게 항상 반복할 수 있다.
         """
+        record = await self._students.get_by_id(student_id)
         latest = await self._sessions.get_latest_completed_for_student(student_id)
-        retry_enabled = bool(await self._settings_repo.get(RETRY_ENABLED_KEY))
+        retry_enabled = bool(await self._settings_repo.get(RETRY_ENABLED_KEY)) or (
+            record is not None and record.kind == "test"
+        )
         if latest is not None and not retry_enabled:
             raise ConflictError("이미 설문을 완료했습니다.")
 
@@ -260,9 +269,8 @@ class SessionService:
 
         return await self.get_profile_summary(student_id)
 
-    async def _fetch_student_info(self, student_id: UUID) -> StudentInfo | None:
-        """학생 식별 정보 조회. 소프트 삭제/없음이면 None(비밀번호는 노출하지 않음)."""
-        student = await self._students.get_by_id(student_id)
+    async def _build_student_info(self, student: StudentRecord | None) -> StudentInfo | None:
+        """학생 레코드 → 응답 모델. 없으면 None(비밀번호는 노출하지 않음)."""
         if student is None:
             return None
         # 사진이 있으면 카드 이미지와 동일하게 Presigned URL로 내린다.
