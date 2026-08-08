@@ -105,3 +105,20 @@ class BoothVisitResponse(BaseModel):
     already_visited: bool = Field(
         ..., description="이번 요청 전에 이미 기록이 있었으면 true (에러가 아니다)"
     )
+
+
+class BoothVisitStat(BaseModel):
+    """부스 1개의 방문 집계."""
+
+    booth_id: UUID
+    code: str
+    name: str
+    visit_count: int = Field(..., description="이 부스를 찍은 학생 수")
+
+
+class BoothStatsResponse(BaseModel):
+    """부스별 참여인원 — 관리자·운영진 공통 조회."""
+
+    booths: list[BoothVisitStat]
+    total_visits: int = Field(..., description="연인원 — 부스별 방문 수의 합")
+    unique_students: int = Field(..., description="실인원 — 부스를 하나라도 찍은 학생 수")
