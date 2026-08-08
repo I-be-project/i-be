@@ -64,8 +64,12 @@ npm start         # 프로덕션 서버
 /explore/result             결과 화면
 /explore/card               카드 발급
 /profile/[id]               개인 페이지
-/operator/*                 운영자용 (미구현)
-/admin/*                    관리자용 (미구현)
+/operator/login             운영진 로그인 (비밀번호만, 아이디 없음)
+/operator                   회원 목록 (읽기 전용 — 삭제·설문 답변 없음)
+/operator/seating           진행 현황
+/operator/booths            부스 확인·QR (읽기 전용)
+/operator/visits            부스별 참여인원
+/admin/*                    관리자용
 ```
 
 ### 데이터 흐름

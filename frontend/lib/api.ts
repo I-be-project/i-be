@@ -392,6 +392,20 @@ export function adminLogin(
   });
 }
 
+export interface OperatorLoginResponse {
+  operator_token: string;
+}
+
+export function operatorLogin(
+  password: string
+): Promise<OperatorLoginResponse> {
+  return request<OperatorLoginResponse>("/api/operator/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+}
+
 export function fetchAdminStudents(
   token: string,
   params: AdminStudentQuery = {}
@@ -671,6 +685,28 @@ export function deleteAdminBooth(
 ): Promise<{ booth_id: string }> {
   return request<{ booth_id: string }>(`/api/admin/booths/${boothId}`, {
     method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// GET /api/admin/booths/stats 응답 1행 — 부스 1개의 방문 집계.
+export interface BoothVisitStat {
+  booth_id: string;
+  code: string;
+  name: string;
+  visit_count: number;
+}
+
+// total_visits는 연인원(부스별 합), unique_students는 실인원(중복 제거)이다.
+export interface BoothStats {
+  booths: BoothVisitStat[];
+  total_visits: number;
+  unique_students: number;
+}
+
+export function fetchBoothStats(token: string): Promise<BoothStats> {
+  return request<BoothStats>("/api/admin/booths/stats", {
+    method: "GET",
     headers: { Authorization: `Bearer ${token}` },
   });
 }

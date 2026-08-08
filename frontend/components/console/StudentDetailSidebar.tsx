@@ -3,7 +3,7 @@
 import { AlertTriangle, Check, ImageOff, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { SURVEY_STAGES } from "@/components/admin/ProgressBadge";
+import { SURVEY_STAGES } from "@/components/console/ProgressBadge";
 import { Button } from "@/components/ui/button";
 import {
   Sheet,
@@ -20,7 +20,7 @@ import {
   type AdminStudentDetail,
   type AdminStudentItem,
 } from "@/lib/api";
-import { clearAdminToken, getAdminToken } from "@/lib/adminAuth";
+import { useConsole } from "@/components/console/ConsoleProvider";
 import { genderLabel } from "@/lib/utils";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -88,7 +88,13 @@ function AnswerPayload({ payload }: { payload: Record<string, unknown> }) {
 }
 
 /** 한 세션(설문 1회 시도)의 결과·내용. */
-function SessionBlock({ session }: { session: AdminSessionDetail }) {
+function SessionBlock({
+  session,
+  showAnswers,
+}: {
+  session: AdminSessionDetail;
+  showAnswers: boolean;
+}) {
   return (
     <div className="rounded-lg border bg-card p-3">
       <div className="mb-2 flex items-center justify-between">
@@ -140,20 +146,23 @@ function SessionBlock({ session }: { session: AdminSessionDetail }) {
         />
       )}
 
-      {session.answers.length > 0 ? (
-        <div className="space-y-2">
-          {session.answers.map((a) => (
-            <div key={a.stage} className="rounded-md border p-2">
-              <p className="mb-1 text-xs font-semibold text-muted-foreground">
-                {a.stage}
-              </p>
-              <AnswerPayload payload={a.payload} />
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-muted-foreground">저장된 답변이 없습니다.</p>
-      )}
+      {/* 운영진에게는 서버가 answers를 비워 보내지만, 빈 배열이면 "저장된 답변이 없습니다"로
+          보여 오해를 부른다. 운영진 화면에서는 섹션 자체를 렌더하지 않는다. */}
+      {showAnswers &&
+        (session.answers.length > 0 ? (
+          <div className="space-y-2">
+            {session.answers.map((a) => (
+              <div key={a.stage} className="rounded-md border p-2">
+                <p className="mb-1 text-xs font-semibold text-muted-foreground">
+                  {a.stage}
+                </p>
+                <AnswerPayload payload={a.payload} />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">저장된 답변이 없습니다.</p>
+        ))}
     </div>
   );
 }
@@ -168,6 +177,7 @@ export function StudentDetailSidebar({
   onDeleted: () => void;
 }) {
   const router = useRouter();
+  const { role, getToken, clearToken, loginPath } = useConsole();
   const [detail, setDetail] = useState<AdminStudentDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -179,9 +189,9 @@ export function StudentDetailSidebar({
 
   useEffect(() => {
     if (!studentId) return;
-    const token = getAdminToken();
+    const token = getToken();
     if (!token) {
-      router.replace("/admin/login");
+      router.replace(loginPath);
       return;
     }
     let alive = true;
@@ -201,8 +211,8 @@ export function StudentDetailSidebar({
       .catch((err) => {
         if (!alive) return;
         if (err instanceof ApiError && err.status === 401) {
-          clearAdminToken();
-          router.replace("/admin/login");
+          clearToken();
+          router.replace(loginPath);
           return;
         }
         setDetailError(
@@ -215,13 +225,13 @@ export function StudentDetailSidebar({
     return () => {
       alive = false;
     };
-  }, [studentId, router]);
+  }, [studentId, router, getToken, loginPath, clearToken]);
 
   async function handleDelete() {
     if (!student) return;
-    const token = getAdminToken();
+    const token = getToken();
     if (!token) {
-      router.replace("/admin/login");
+      router.replace(loginPath);
       return;
     }
     setDeleting(true);
@@ -231,8 +241,8 @@ export function StudentDetailSidebar({
       onDeleted();
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
-        clearAdminToken();
-        router.replace("/admin/login");
+        clearToken();
+        router.replace(loginPath);
         return;
       }
       setActionError(err instanceof ApiError ? err.message : "삭제하지 못했습니다.");
@@ -385,7 +395,11 @@ export function StudentDetailSidebar({
                 ) : detail && detail.sessions.length > 0 ? (
                   <div className="space-y-3">
                     {detail.sessions.map((s) => (
-                      <SessionBlock key={s.id} session={s} />
+                      <SessionBlock
+                        key={s.id}
+                        session={s}
+                        showAnswers={role === "admin"}
+                      />
                     ))}
                   </div>
                 ) : (
@@ -395,55 +409,57 @@ export function StudentDetailSidebar({
                 )}
               </section>
 
-              {/* 삭제 영역 */}
-              <section className="mt-6 border-t border-destructive/20 pt-4">
-                {actionError && (
-                  <p className="mb-2 text-sm text-destructive">{actionError}</p>
-                )}
-                {!confirming ? (
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    className="w-full gap-1.5"
-                    onClick={() => setConfirming(true)}
-                  >
-                    <Trash2 className="size-4" aria-hidden />
-                    회원 삭제
-                  </Button>
-                ) : (
-                  <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
-                    <p className="mb-3 flex items-start gap-2 text-sm text-destructive">
-                      <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
-                      <span>
-                        정말 삭제할까요? 설문 답변·페르소나·카드와 사진까지 모두
-                        영구 삭제되며 되돌릴 수 없습니다.
-                      </span>
-                    </p>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        className="flex-1 gap-1.5"
-                        disabled={deleting}
-                        onClick={handleDelete}
-                      >
-                        <Trash2 className="size-4" aria-hidden />
-                        {deleting ? "삭제 중…" : "영구 삭제"}
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="flex-1 gap-1.5"
-                        disabled={deleting}
-                        onClick={() => setConfirming(false)}
-                      >
-                        <X className="size-4" aria-hidden />
-                        취소
-                      </Button>
+              {/* 삭제 영역 — 관리자 전용. 운영진 토큰으로는 서버도 401을 준다. */}
+              {role === "admin" && (
+                <section className="mt-6 border-t border-destructive/20 pt-4">
+                  {actionError && (
+                    <p className="mb-2 text-sm text-destructive">{actionError}</p>
+                  )}
+                  {!confirming ? (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      className="w-full gap-1.5"
+                      onClick={() => setConfirming(true)}
+                    >
+                      <Trash2 className="size-4" aria-hidden />
+                      회원 삭제
+                    </Button>
+                  ) : (
+                    <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+                      <p className="mb-3 flex items-start gap-2 text-sm text-destructive">
+                        <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                        <span>
+                          정말 삭제할까요? 설문 답변·페르소나·카드와 사진까지 모두
+                          영구 삭제되며 되돌릴 수 없습니다.
+                        </span>
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          className="flex-1 gap-1.5"
+                          disabled={deleting}
+                          onClick={handleDelete}
+                        >
+                          <Trash2 className="size-4" aria-hidden />
+                          {deleting ? "삭제 중…" : "영구 삭제"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="flex-1 gap-1.5"
+                          disabled={deleting}
+                          onClick={() => setConfirming(false)}
+                        >
+                          <X className="size-4" aria-hidden />
+                          취소
+                        </Button>
+                      </div>
                     </div>
-                  </div>
-                )}
-              </section>
+                  )}
+                </section>
+              )}
             </div>
           </div>
         )}

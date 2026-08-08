@@ -15,7 +15,12 @@ from app.core.errors import ConflictError, ForbiddenError, NotFoundError
 from app.repositories.booth_repo import BoothRecord, BoothRepository
 from app.repositories.booth_visit_repo import BoothVisitRepository
 from app.repositories.session_repo import SessionRepository
-from app.schemas.booths import BoothVisitResponse, StudentBoothResponse
+from app.schemas.booths import (
+    BoothStatsResponse,
+    BoothVisitResponse,
+    BoothVisitStat,
+    StudentBoothResponse,
+)
 
 
 def _normalize_code(code: str) -> str:
@@ -88,4 +93,26 @@ class BoothVisitService:
             name=booth.name,
             visited_at=existing.created_at,
             already_visited=True,
+        )
+
+    async def stats(self) -> BoothStatsResponse:
+        """부스별 참여인원 집계 — 관리자·운영진 대시보드용.
+
+        부스 CRUD가 아니라 '방문' 도메인이라 BoothService가 아닌 여기에 둔다.
+        이 클래스가 이미 visits 리포지토리를 들고 있어 의존성도 추가되지 않는다.
+        """
+        rows = await self._visits.count_by_booth()
+        unique = await self._visits.count_unique_students()
+        return BoothStatsResponse(
+            booths=[
+                BoothVisitStat(
+                    booth_id=r.booth_id,
+                    code=r.code,
+                    name=r.name,
+                    visit_count=r.visit_count,
+                )
+                for r in rows
+            ],
+            total_visits=sum(r.visit_count for r in rows),
+            unique_students=unique,
         )

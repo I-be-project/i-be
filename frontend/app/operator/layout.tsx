@@ -3,11 +3,11 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
-  ADMIN_CONSOLE,
   ConsoleProvider,
+  OPERATOR_CONSOLE,
 } from "@/components/console/ConsoleProvider";
 
-export default function AdminLayout({
+export default function OperatorLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -16,7 +16,7 @@ export default function AdminLayout({
   const router = useRouter();
   const [ready, setReady] = useState(false);
 
-  const isLoginPage = pathname === "/admin/login";
+  const isLoginPage = pathname === "/operator/login";
 
   useEffect(() => {
     if (isLoginPage) {
@@ -26,13 +26,13 @@ export default function AdminLayout({
       setReady(true);
       return;
     }
-    if (!ADMIN_CONSOLE.getToken()) {
-      router.replace("/admin/login");
+    if (!OPERATOR_CONSOLE.getToken()) {
+      router.replace("/operator/login");
       return;
     }
     setReady(true);
   }, [isLoginPage, router]);
 
   if (!ready) return null;
-  return <ConsoleProvider value={ADMIN_CONSOLE}>{children}</ConsoleProvider>;
+  return <ConsoleProvider value={OPERATOR_CONSOLE}>{children}</ConsoleProvider>;
 }

@@ -10,11 +10,12 @@ from uuid import UUID
 
 from fastapi import APIRouter
 
-from app.deps import BoothServiceDep, CurrentAdminDep
+from app.deps import BoothServiceDep, BoothVisitServiceDep, CurrentAdminDep, CurrentStaffDep
 from app.schemas.booths import (
     BoothCreateRequest,
     BoothDeleteResponse,
     BoothResponse,
+    BoothStatsResponse,
     BoothUpdateRequest,
 )
 
@@ -33,11 +34,20 @@ async def create_booth(
 
 @router.get("", response_model=list[BoothResponse])
 async def list_booths(
-    _admin: CurrentAdminDep,
+    _staff: CurrentStaffDep,
     booths: BoothServiceDep,
 ) -> list[BoothResponse]:
     """전체 부스 목록(등록 순). 부스는 수십 개 규모라 페이지네이션을 두지 않는다."""
     return await booths.list_all()
+
+
+@router.get("/stats", response_model=BoothStatsResponse)
+async def booth_stats(
+    _staff: CurrentStaffDep,
+    visits: BoothVisitServiceDep,
+) -> BoothStatsResponse:
+    """부스별 참여인원. 이 라우터의 /{booth_id}는 PATCH·DELETE뿐이라 경로 충돌이 없다."""
+    return await visits.stats()
 
 
 @router.patch("/{booth_id}", response_model=BoothResponse)
