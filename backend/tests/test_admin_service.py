@@ -395,6 +395,40 @@ async def test_list_students_include_photo_default_keeps_urls():
     assert by_name["홍길동"].has_photo is False
 
 
+# --- 학교 목록 ------------------------------------------------------------------
+
+
+async def test_list_schools_excludes_guest_and_test_accounts() -> None:
+    """학교 없는 계정(guest)의 빈 문자열은 학교 필터 드롭다운에 나오지 않는다."""
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="가",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="",
+        grade=0,
+        class_no=0,
+        student_no=0,
+        name="개인참여자",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+        kind="guest",
+    )
+    svc = _svc(repo, storage)
+
+    schools = await svc.list_schools()
+
+    assert schools == ["한마당고"]
+
+
 # --- 반별 진행 현황 집계 ---------------------------------------------------------
 
 
@@ -488,3 +522,41 @@ async def test_get_class_progress_counts_abandoned_as_in_progress():
     # _to_progress와 같은 규칙 — 알 수 없는 상태는 진행중으로 수렴한다.
     assert rows[0].in_progress == 1
     assert rows[0].completed == 0
+
+
+async def test_get_class_progress_excludes_non_student_kind() -> None:
+    """좌석표 집계는 kind='student'만 센다 — guest/test는 학교 문자열이 같아도 제외."""
+    repo = FakeStudentRepo()
+    storage = FakeStorage()
+    await repo.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="가",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="",
+        grade=0,
+        class_no=0,
+        student_no=0,
+        name="개인참여자",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+        kind="guest",
+    )
+    svc = _svc(repo, storage)
+
+    # 실제 학교("한마당고") 집계에는 학생 1명만 잡힌다 — guest는 섞이지 않는다.
+    rows = await svc.get_class_progress("한마당고")
+    assert len(rows) == 1
+    assert rows[0].total == 1
+
+    # guest의 학교 값과 같은 ""로 조회해도 kind 필터 때문에 아무 버킷도 잡히지 않는다.
+    # (kind 필터가 없다면 이 조회에 guest 1명이 total=1인 버킷으로 나타난다.)
+    empty_rows = await svc.get_class_progress("")
+    assert empty_rows == []
