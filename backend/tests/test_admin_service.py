@@ -5,6 +5,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
+import pytest
+
 from app.config import get_settings
 from app.core.errors import NotFoundError
 from app.repositories.session_repo import (
@@ -522,6 +524,63 @@ async def test_get_class_progress_counts_abandoned_as_in_progress():
     # _to_progress와 같은 규칙 — 알 수 없는 상태는 진행중으로 수렴한다.
     assert rows[0].in_progress == 1
     assert rows[0].completed == 0
+
+
+async def test_create_test_student_generates_random_password() -> None:
+    """테스트 계정은 kind='test'로 만들어지고 비밀번호는 서버가 채운다."""
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    service = _svc(repo, storage)
+
+    created = await service.create_test_student(name="테스트1", gender="male")
+
+    record = await repo.get_by_id(created.id)
+    assert record is not None
+    assert record.kind == "test"
+    assert record.school == ""
+    assert len(record.password) >= 16  # 추측 불가능한 랜덤 문자열
+
+
+async def test_issue_token_only_for_test_accounts() -> None:
+    """테스트 계정이 아닌 학생에게는 토큰을 발급하지 않는다."""
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    student = await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+    )
+    service = _svc(repo, storage)
+
+    with pytest.raises(NotFoundError):
+        await service.issue_test_student_token(student.id)
+
+
+async def test_purge_test_students_removes_only_test_accounts() -> None:
+    """일괄 삭제는 테스트 계정만 지운다."""
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+    )
+    service = _svc(repo, storage)
+    await service.create_test_student(name="테스트1", gender="male")
+    await service.create_test_student(name="테스트2", gender="female")
+
+    result = await service.purge_test_students()
+
+    assert result.deleted == 2
+    assert await repo.list_by_kind("test") == []
+    assert await repo.list_by_kind("student") != []
 
 
 async def test_get_class_progress_excludes_non_student_kind() -> None:

@@ -521,3 +521,135 @@ async def test_class_progress_requires_admin_token() -> None:
         assert res.status_code == 401
     finally:
         await gen.aclose()
+
+
+# --- 테스트 계정 발급·토큰·일괄 삭제 --------------------------------------------
+
+
+async def test_test_account_endpoints_require_admin() -> None:
+    """관리자 토큰 없이는 테스트 계정 API를 쓸 수 없다."""
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/admin/students/test", json={"name": "테스트1", "gender": "male"}
+        )
+        assert res.status_code == 401
+
+        res = await client.delete("/api/admin/students/test")
+        assert res.status_code == 401
+    finally:
+        await gen.aclose()
+
+
+async def test_create_test_student_issues_token_for_student_screen() -> None:
+    """발급 → 토큰 발급까지 이어지는 정상 흐름. 비밀번호는 응답에 담기지 않는다."""
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/admin/students/test",
+            json={"name": "테스트1", "gender": "male"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 201, res.text
+        body = res.json()
+        assert body["name"] == "테스트1"
+        assert "password" not in body
+
+        res = await client.post(
+            f"/api/admin/students/test/{body['id']}/token",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        token_body = res.json()
+        assert token_body["student_id"] == body["id"]
+        assert token_body["student_token"]
+    finally:
+        await gen.aclose()
+
+
+async def test_issue_token_for_non_test_student_returns_404() -> None:
+    """일반 학생 id로는 테스트 계정 토큰을 발급받을 수 없다."""
+    app, repo, _, _ = _build()
+    student = await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+    )
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            f"/api/admin/students/test/{student.id}/token",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 404
+    finally:
+        await gen.aclose()
+
+
+async def test_delete_students_test_route_precedes_uuid_route() -> None:
+    """DELETE /students/test가 /{student_id}로 잡히지 않는다(422가 아니어야 한다)."""
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.delete(
+            "/api/admin/students/test",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        assert "deleted" in res.json()
+    finally:
+        await gen.aclose()
+
+
+async def test_purge_test_students_removes_only_test_accounts() -> None:
+    app, repo, _, _ = _build()
+    await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+    )
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        await client.post(
+            "/api/admin/students/test",
+            json={"name": "테스트1", "gender": "male"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        await client.post(
+            "/api/admin/students/test",
+            json={"name": "테스트2", "gender": "female"},
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+
+        res = await client.delete(
+            "/api/admin/students/test",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.status_code == 200, res.text
+        assert res.json()["deleted"] == 2
+
+        # 일반 학생은 그대로 남아 있다.
+        res = await client.get(
+            "/api/admin/students",
+            headers={"Authorization": f"Bearer {_admin_token()}"},
+        )
+        assert res.json()["total"] == 1
+    finally:
+        await gen.aclose()
