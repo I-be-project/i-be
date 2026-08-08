@@ -4,7 +4,7 @@ import { Inbox, School } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConsoleHeader } from "@/components/console/ConsoleHeader";
-import { StudentDetailSidebar } from "@/components/admin/StudentDetailSidebar";
+import { StudentDetailSidebar } from "@/components/console/StudentDetailSidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ApiError,

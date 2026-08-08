@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ConsoleHeader } from "@/components/console/ConsoleHeader";
 import { BoothFormDialog } from "@/components/admin/BoothFormDialog";
-import { BoothQrDialog } from "@/components/admin/BoothQrDialog";
+import { BoothQrDialog } from "@/components/console/BoothQrDialog";
 import { Toast, type ToastVariant } from "@/components/Toast";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";

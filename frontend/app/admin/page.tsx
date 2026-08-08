@@ -15,7 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { ConsoleHeader } from "@/components/console/ConsoleHeader";
-import { StudentDetailSidebar } from "@/components/admin/StudentDetailSidebar";
+import { StudentDetailSidebar } from "@/components/console/StudentDetailSidebar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -51,7 +51,7 @@ import {
   type AdminStudentItem,
 } from "@/lib/api";
 import { clearAdminToken, getAdminToken } from "@/lib/adminAuth";
-import { ProgressBadge } from "@/components/admin/ProgressBadge";
+import { ProgressBadge } from "@/components/console/ProgressBadge";
 import { cn, genderLabel } from "@/lib/utils";
 
 function StudentAvatar({
