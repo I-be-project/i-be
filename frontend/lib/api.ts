@@ -385,6 +385,20 @@ export function adminLogin(
   });
 }
 
+export interface OperatorLoginResponse {
+  operator_token: string;
+}
+
+export function operatorLogin(
+  password: string
+): Promise<OperatorLoginResponse> {
+  return request<OperatorLoginResponse>("/api/operator/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+  });
+}
+
 export function fetchAdminStudents(
   token: string,
   params: AdminStudentQuery = {}
