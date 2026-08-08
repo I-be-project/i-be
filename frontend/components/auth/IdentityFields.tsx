@@ -40,7 +40,24 @@ export function isGuestLevel(level: IdentityLevel): level is "개인" {
   return level === "개인";
 }
 
+// 학교명 접미사로 학교급을 복원 (예: "…고등학교" → 고등학교).
+function deriveLevel(name: string): "중학교" | "고등학교" {
+  return name.endsWith("고등학교") ? "고등학교" : "중학교";
+}
+
 export function IdentityFields({ values, onChange, disabled }: IdentityFieldsProps) {
+  const handleLevelChange = (next: IdentityLevel) => {
+    if (next === values.level) return;
+    onChange("level", next);
+
+    if (!values.school) return;
+    // "개인"은 학교를 쓰지 않으니 항상 비운다. 중학교↔고등학교 전환은 선택된 학교가
+    // 새 학교급에 속하지 않을 때만 비운다(예: 나로중학교 선택 후 고등학교로 전환).
+    if (next === "개인" || deriveLevel(values.school) !== next) {
+      onChange("school", "");
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* 참여 유형 탭 */}
@@ -52,7 +69,7 @@ export function IdentityFields({ values, onChange, disabled }: IdentityFieldsPro
               key={lv}
               type="button"
               disabled={disabled}
-              onClick={() => onChange("level", lv)}
+              onClick={() => handleLevelChange(lv)}
               className={cn(
                 "rounded-full px-3 py-1 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50",
                 values.level === lv
