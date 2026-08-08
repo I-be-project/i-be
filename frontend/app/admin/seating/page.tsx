@@ -3,7 +3,7 @@
 import { Inbox, School } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AdminHeader } from "@/components/admin/AdminHeader";
+import { ConsoleHeader } from "@/components/console/ConsoleHeader";
 import { StudentDetailSidebar } from "@/components/admin/StudentDetailSidebar";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -310,7 +310,7 @@ export default function AdminSeatingPage() {
         selected && "xl:pr-[36rem]"
       )}
     >
-      <AdminHeader />
+      <ConsoleHeader />
 
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-6">
         <div className="mb-6">

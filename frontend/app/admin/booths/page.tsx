@@ -3,7 +3,7 @@
 import { Inbox, Pencil, Plus, QrCode, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { AdminHeader } from "@/components/admin/AdminHeader";
+import { ConsoleHeader } from "@/components/console/ConsoleHeader";
 import { BoothFormDialog } from "@/components/admin/BoothFormDialog";
 import { BoothQrDialog } from "@/components/admin/BoothQrDialog";
 import { Toast, type ToastVariant } from "@/components/Toast";
@@ -150,7 +150,7 @@ export default function AdminBoothsPage() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <AdminHeader />
+      <ConsoleHeader />
 
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-6">
         <div className="mb-6 flex items-center justify-between gap-4">

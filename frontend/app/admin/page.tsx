@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { AdminHeader } from "@/components/admin/AdminHeader";
+import { ConsoleHeader } from "@/components/console/ConsoleHeader";
 import { StudentDetailSidebar } from "@/components/admin/StudentDetailSidebar";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -356,7 +356,7 @@ export default function AdminStudentsPage() {
         selected && "xl:pr-[36rem]"
       )}
     >
-      <AdminHeader />
+      <ConsoleHeader />
 
       <main className="mx-auto max-w-6xl px-5 py-8 sm:px-6">
         {/* 페이지 헤더 */}
