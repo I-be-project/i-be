@@ -38,6 +38,7 @@ def test_production_with_real_secrets_is_accepted(monkeypatch: pytest.MonkeyPatc
         ("JWT_SECRET", "jwt_secret"),
         ("JWT_CARD_SHARE_SECRET", "jwt_card_share_secret"),
         ("ADMIN_PASSWORD", "admin_password"),
+        ("OPERATOR_PASSWORD", "operator_password"),
         ("FRONTEND_ORIGIN", "frontend_origin"),
     ],
 )
