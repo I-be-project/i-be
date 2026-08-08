@@ -23,6 +23,7 @@ export default function SignupPage() {
   const setStudentInfo = useSessionStore((state) => state.setStudentInfo);
 
   const [identity, setIdentity] = useState<IdentityValues>({
+    level: "중학교",
     school: "",
     grade: "",
     classNo: "",

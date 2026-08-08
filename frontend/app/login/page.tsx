@@ -31,6 +31,7 @@ function LoginForm() {
   const setAuth = useSessionStore((state) => state.setAuth);
 
   const [identity, setIdentity] = useState<IdentityValues>({
+    level: "중학교",
     school: "",
     grade: "",
     classNo: "",
