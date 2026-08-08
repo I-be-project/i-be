@@ -193,7 +193,9 @@ export function BoothListView() {
                   <TableHead>이름</TableHead>
                   <TableHead>설명</TableHead>
                   <TableHead>코드</TableHead>
-                  <TableHead className="text-right">관리</TableHead>
+                  <TableHead className="text-right">
+                    {canEdit ? "관리" : "QR"}
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
