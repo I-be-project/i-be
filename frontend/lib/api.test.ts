@@ -13,6 +13,7 @@ import {
   fetchAdminStudents,
   fetchBoothByCode,
   generateStage,
+  loginStudent,
   saveAnswer,
   updateAdminBooth,
   updateMyProfile,
@@ -438,5 +439,25 @@ describe("부스 방문 API (학생)", () => {
       status: 404,
     });
     expect(fetchMock.mock.calls[0][0]).toBe("http://localhost:8000/api/booths/a%2Fb");
+  });
+});
+
+describe("loginStudent", () => {
+  beforeEach(() => vi.restoreAllMocks());
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("개인 로그인은 학교 필드 없이 이름만 보낸다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ student_id: "s1", student_token: "t1" }), {
+        status: 200,
+      }),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    await loginStudent({ name: "박서준", password: "1029" });
+
+    const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
+    expect(body).toEqual({ name: "박서준", password: "1029" });
+    expect(body.school).toBeUndefined();
   });
 });
