@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter
 
-from app.deps import AdminServiceDep, CurrentAdminDep
+from app.deps import AdminServiceDep, CurrentAdminDep, CurrentStaffDep
 from app.schemas.admin import (
     AdminBulkDeleteRequest,
     AdminBulkDeleteResponse,
@@ -31,7 +31,7 @@ async def login(req: AdminLoginRequest, admin: AdminServiceDep) -> AdminLoginRes
 
 @router.get("/students", response_model=AdminStudentList)
 async def list_students(
-    _admin: CurrentAdminDep,
+    _staff: CurrentStaffDep,
     admin: AdminServiceDep,
     q: str | None = None,
     school: str | None = None,
@@ -63,7 +63,7 @@ async def list_students(
 # (그렇지 않으면 "schools"가 UUID 경로 파라미터로 매칭되어 422가 난다.)
 @router.get("/students/schools", response_model=list[str])
 async def list_schools(
-    _admin: CurrentAdminDep,
+    _staff: CurrentStaffDep,
     admin: AdminServiceDep,
 ) -> list[str]:
     """학교 필터 드롭다운용 — 가입 학생이 있는 학교 이름 목록(가나다순)."""
@@ -83,7 +83,7 @@ async def bulk_delete_students(
 @router.get("/progress/classes", response_model=list[AdminClassProgress])
 async def class_progress(
     school: str,
-    _admin: CurrentAdminDep,
+    _staff: CurrentStaffDep,
     admin: AdminServiceDep,
 ) -> list[AdminClassProgress]:
     """학교의 반별 진행 현황 집계 — 좌석표의 학년·반 선택과 완료 배지용.
@@ -96,7 +96,7 @@ async def class_progress(
 @router.get("/students/{student_id}", response_model=AdminStudentDetail)
 async def student_detail(
     student_id: UUID,
-    _admin: CurrentAdminDep,
+    _staff: CurrentStaffDep,
     admin: AdminServiceDep,
 ) -> AdminStudentDetail:
     """학생 1명 상세 — 설문 진행 단계별 답변·페르소나·카드 결과."""
@@ -106,7 +106,7 @@ async def student_detail(
 @router.get("/students/{student_id}/photo-url", response_model=AdminStudentPhoto)
 async def student_photo_url(
     student_id: UUID,
-    _admin: CurrentAdminDep,
+    _staff: CurrentStaffDep,
     admin: AdminServiceDep,
 ) -> AdminStudentPhoto:
     """학생 사진 presigned URL 1건 — 목록에서 사진을 뺀 화면이 필요할 때만 호출한다."""

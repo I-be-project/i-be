@@ -199,6 +199,32 @@ def current_admin(
 CurrentAdminDep = Annotated[str, Depends(current_admin)]
 
 
+def current_staff(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    settings: SettingsDep,
+) -> str:
+    """admin 또는 operator 토큰을 허용하고 역할("admin"|"operator")을 반환.
+
+    조회 전용 엔드포인트에만 쓴다. 삭제·생성·수정은 CurrentAdminDep을 그대로 둬야
+    운영진이 API를 직접 호출해도 서버가 막는다.
+
+    decode_token은 종류를 하나만 받으므로 두 종류를 차례로 시도한다. admin·operator는
+    같은 jwt_secret을 쓰기 때문에 서명 검증은 한 번으로 끝나고, 차이는 kind 클레임뿐이다.
+    """
+    if credentials is None:
+        raise UnauthorizedError("인증 토큰이 필요합니다.")
+    for kind in (TokenKind.ADMIN, TokenKind.OPERATOR):
+        try:
+            decode_token(credentials.credentials, expected_kind=kind, settings=settings)
+        except jwt.PyJWTError:
+            continue
+        return kind.value
+    raise UnauthorizedError("유효하지 않은 토큰입니다.")
+
+
+CurrentStaffDep = Annotated[str, Depends(current_staff)]
+
+
 def get_booth_repo(pool: DBPoolDep) -> BoothRepository:
     return BoothRepository(pool)
 

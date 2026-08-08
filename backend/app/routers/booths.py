@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter
 
-from app.deps import BoothServiceDep, CurrentAdminDep
+from app.deps import BoothServiceDep, CurrentAdminDep, CurrentStaffDep
 from app.schemas.booths import (
     BoothCreateRequest,
     BoothDeleteResponse,
@@ -33,7 +33,7 @@ async def create_booth(
 
 @router.get("", response_model=list[BoothResponse])
 async def list_booths(
-    _admin: CurrentAdminDep,
+    _staff: CurrentStaffDep,
     booths: BoothServiceDep,
 ) -> list[BoothResponse]:
     """전체 부스 목록(등록 순). 부스는 수십 개 규모라 페이지네이션을 두지 않는다."""
