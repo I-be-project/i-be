@@ -1,6 +1,8 @@
 """auth 라우터용 Request/Response 모델.
 
-식별 키: (school, grade, class_no, student_no).
+식별 키: 학교 소속(kind='student')은 (school, grade, class_no, student_no),
+학교 없는 개인 참여자(kind='guest')는 name — 학교 4개 필드를 전부 보내거나 전부
+생략해야 한다(validator가 강제). 테스트 계정(kind='test')은 이 경로로 로그인할 수 없다.
 비밀번호는 단순 문자열(프론트가 생년월일 형식으로 안내할 뿐, 백엔드는 의미를 모름)이라
 형식 검증을 두지 않는다.
 """
