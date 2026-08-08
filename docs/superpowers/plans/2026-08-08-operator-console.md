@@ -244,7 +244,11 @@ class OperatorService:
     def authenticate(self, password: str) -> str:
         """공유 비밀번호 검증 후 operator 토큰 발급. 실패 시 UnauthorizedError."""
         # 타이밍 공격 완화 — AdminService.authenticate와 같은 방식.
-        if not secrets.compare_digest(password, self._settings.operator_password):
+        # 단, str끼리 넘기면 비-ASCII 입력에서 compare_digest가 TypeError를 던져
+        # 401이어야 할 응답이 500이 된다. bytes로 인코딩해 넘긴다(상수 시간 비교는 유지).
+        if not secrets.compare_digest(
+            password.encode(), self._settings.operator_password.encode()
+        ):
             raise UnauthorizedError("비밀번호가 올바르지 않습니다.")
         return create_token(
             kind=TokenKind.OPERATOR,
@@ -307,14 +311,22 @@ cd backend && uv run pytest tests/test_operator_router.py -v
 cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run pytest -q
 ```
 
-기대: 232 passed (기존 229 + 신규 3).
+기대: 233 passed (기존 229 + 신규 3 + 프로덕션 가드 파라미터 1).
+
+`_PRODUCTION_REQUIRED_SETTINGS`에 항목을 더하면 `tests/test_config_production_guard.py`와
+`tests/test_dev_router_guard.py`의 "프로덕션 시뮬레이션" 픽스처가 `OPERATOR_PASSWORD` 없이는
+기동에 실패해 깨진다. 두 파일의 시크릿 딕셔너리에 `"OPERATOR_PASSWORD": "a-real-operator-password"`를
+더하고, `test_production_rejects_default_secret`의 parametrize 목록에도
+`("OPERATOR_PASSWORD", "operator_password")` 케이스를 더한다 — 다른 필수 설정은 모두 기본값 거부
+테스트를 갖고 있고, 이 값은 없으면 프로덕션 기동이 실패하는 바로 그 설정이다.
 
 - [ ] **Step 10: 커밋**
 
 ```bash
 git add backend/app/config.py backend/app/deps.py backend/app/routers/operator.py \
         backend/app/schemas/operator.py backend/app/services/operator_service.py \
-        backend/tests/test_operator_router.py
+        backend/tests/test_operator_router.py \
+        backend/tests/test_config_production_guard.py backend/tests/test_dev_router_guard.py
 git commit -m "feat: 운영진 공유 비밀번호 로그인 API 추가"
 ```
 
@@ -567,7 +579,7 @@ cd backend && uv run pytest tests/test_staff_guard.py -v
 cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run pytest -q
 ```
 
-기대: 239 passed. `test_admin_router.py`·`test_booths_router.py`의 관리자 경로 테스트가 그대로 통과해야 한다.
+기대: 240 passed. `test_admin_router.py`·`test_booths_router.py`의 관리자 경로 테스트가 그대로 통과해야 한다.
 
 - [ ] **Step 8: 커밋**
 
@@ -713,7 +725,7 @@ cd backend && uv run pytest tests/test_admin_service.py -v
 cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run pytest -q
 ```
 
-기대: 240 passed.
+기대: 241 passed.
 
 - [ ] **Step 7: 커밋**
 
@@ -1007,7 +1019,7 @@ cd backend && uv run pytest tests/test_booth_stats.py -v
 cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy app && uv run pytest -q
 ```
 
-기대: 245 passed.
+기대: 246 passed.
 
 - [ ] **Step 9: 커밋**
 
@@ -2228,7 +2240,7 @@ cd backend && uv run ruff check . && uv run ruff format --check . && uv run mypy
 cd ../frontend && npm run lint && npm run build
 ```
 
-기대: 백엔드 245 passed, 프론트 lint 에러 0 / 경고 4, build 성공.
+기대: 백엔드 246 passed, 프론트 lint 에러 0 / 경고 4, build 성공.
 
 - [ ] **Step 5: 커밋**
 
