@@ -183,6 +183,7 @@ def _student() -> StudentRecord:
         gender="male",
         photo_key=None,
         consent_privacy=True,
+        kind="student",
         created_at=datetime.now(UTC),
         deleted_at=None,
     )

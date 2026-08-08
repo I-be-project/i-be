@@ -43,10 +43,15 @@ class FakeStudentRepo:
         password: str,
         gender: str,
         consent_privacy: bool,
+        kind: str = "student",
     ) -> StudentRecord:
-        key = self._key(school, grade, class_no, student_no)
-        if key in self._by_key:
-            raise ConflictError("이미 등록된 학생입니다.")
+        if kind == "student":
+            key = self._key(school, grade, class_no, student_no)
+            if key in self._by_key:
+                raise ConflictError("이미 등록된 학생입니다.")
+        elif any(r.name == name and r.kind in ("guest", "test") for r in self._by_id.values()):
+            raise ConflictError("이미 사용 중인 이름입니다.")
+
         record = StudentRecord(
             id=uuid4(),
             school=school,
@@ -58,10 +63,12 @@ class FakeStudentRepo:
             gender=gender,
             photo_key=None,
             consent_privacy=consent_privacy,
+            kind=kind,
             created_at=datetime.now(UTC),
             deleted_at=None,
         )
-        self._by_key[key] = record
+        if kind == "student":
+            self._by_key[self._key(school, grade, class_no, student_no)] = record
         self._by_id[record.id] = record
         return record
 
@@ -314,3 +321,12 @@ async def test_update_profile_unknown_student_not_found() -> None:
     service, _, _ = _service()
     with pytest.raises(NotFoundError):
         await service.update_profile(uuid4(), name="새이름", gender=None)
+
+
+async def test_register_stores_student_kind() -> None:
+    """학교 소속 가입은 kind='student'로 저장된다."""
+    service, _repo, _ = _service()
+
+    student, _token = await service.register_student(**_register_kwargs())
+
+    assert student.kind == "student"

@@ -18,7 +18,7 @@ from app.repositories.base import BaseRepository
 
 _COLUMNS = (
     "id, school, grade, class_no, student_no, name, "
-    "password, gender, photo_key, consent_privacy, created_at, deleted_at"
+    "password, gender, photo_key, consent_privacy, kind, created_at, deleted_at"
 )
 
 
@@ -36,6 +36,7 @@ class StudentRecord:
     gender: str | None  # 'male' | 'female' (과거 가입자는 None일 수 있음)
     photo_key: str | None
     consent_privacy: bool
+    kind: str  # 'student' | 'guest' | 'test'
     created_at: datetime
     deleted_at: datetime | None
 
@@ -64,6 +65,7 @@ def _to_record(row: asyncpg.Record) -> StudentRecord:
         gender=row["gender"],
         photo_key=row["photo_key"],
         consent_privacy=row["consent_privacy"],
+        kind=row["kind"],
         created_at=row["created_at"],
         deleted_at=row["deleted_at"],
     )
@@ -81,6 +83,7 @@ class StudentRepository(BaseRepository):
         password: str,
         gender: str,
         consent_privacy: bool,
+        kind: str = "student",
     ) -> StudentRecord:
         """학생 1명 생성 후 저장된 레코드 반환.
 
@@ -89,9 +92,10 @@ class StudentRepository(BaseRepository):
         """
         query = f"""
             insert into pii.students (
-                school, grade, class_no, student_no, name, password, gender, consent_privacy
+                school, grade, class_no, student_no, name, password, gender,
+                consent_privacy, kind
             )
-            values ($1, $2, $3, $4, $5, $6, $7, $8)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             returning {_COLUMNS}
         """
         try:
@@ -106,16 +110,23 @@ class StudentRepository(BaseRepository):
                     password,
                     gender,
                     consent_privacy,
+                    kind,
                 )
         except asyncpg.UniqueViolationError as exc:
+            if kind == "student":
+                raise ConflictError(
+                    "이미 등록된 학생입니다.",
+                    details={
+                        "school": school,
+                        "grade": grade,
+                        "class_no": class_no,
+                        "student_no": student_no,
+                    },
+                ) from exc
+            # 학교 없는 계정은 이름으로 유니크하다(students_name_key).
             raise ConflictError(
-                "이미 등록된 학생입니다.",
-                details={
-                    "school": school,
-                    "grade": grade,
-                    "class_no": class_no,
-                    "student_no": student_no,
-                },
+                "이미 사용 중인 이름입니다.",
+                details={"name": name},
             ) from exc
 
         assert row is not None  # RETURNING 이므로 항상 한 행
