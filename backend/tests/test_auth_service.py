@@ -80,6 +80,15 @@ class FakeStudentRepo:
     async def get_by_id(self, student_id: UUID) -> StudentRecord | None:
         return self._by_id.get(student_id)
 
+    async def get_by_name(self, name: str, *, kinds: tuple[str, ...]) -> StudentRecord | None:
+        for record in self._by_id.values():
+            if record.name == name and record.kind in kinds and record.deleted_at is None:
+                return record
+        return None
+
+    async def list_by_kind(self, kind: str) -> list[StudentRecord]:
+        return [r for r in self._by_id.values() if r.kind == kind and r.deleted_at is None]
+
     async def update_photo_key(self, student_id: UUID, photo_key: str) -> None:
         record = self._by_id[student_id]
         updated = replace(record, photo_key=photo_key)

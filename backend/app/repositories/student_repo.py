@@ -166,6 +166,37 @@ class StudentRepository(BaseRepository):
             row = await conn.fetchrow(query, student_id)
         return _to_record(row) if row is not None else None
 
+    async def get_by_name(self, name: str, *, kinds: tuple[str, ...]) -> StudentRecord | None:
+        """이름으로 학교 없는 계정을 조회한다. 없으면 None.
+
+        kinds로 조회 대상을 좁힌다 — 로그인은 ('guest',)만 넘겨 테스트 계정이
+        학생 로그인 화면으로 진입하지 못하게 한다. students_name_key가
+        (guest, test) 전체에서 이름 유니크를 보장하므로 결과는 최대 1행이다.
+        """
+        query = f"""
+            select {_COLUMNS}
+            from pii.students
+            where name = $1
+              and kind = any($2::text[])
+              and deleted_at is null
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, name, list(kinds))
+        return _to_record(row) if row is not None else None
+
+    async def list_by_kind(self, kind: str) -> list[StudentRecord]:
+        """특정 종류의 계정 전체 조회 — 테스트 계정 일괄 정리에 쓴다."""
+        query = f"""
+            select {_COLUMNS}
+            from pii.students
+            where kind = $1
+              and deleted_at is null
+            order by created_at
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, kind)
+        return [_to_record(row) for row in rows]
+
     async def update_photo_key(self, student_id: UUID, photo_key: str) -> None:
         """학생의 photo_key 갱신. 대상이 없으면 NotFoundError 대신 조용히 통과하지 않도록
         서비스 레이어에서 학생 존재를 보장한다(여기서는 단순 UPDATE)."""
