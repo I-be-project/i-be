@@ -123,9 +123,16 @@ export default function SignupPage() {
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {
-          // 이미 가입된 학생 → 로그인으로 유도
-          setIsConflict(true);
-          setError("이미 등록되어 있어요. 로그인해주세요.");
+          if (guest) {
+            // 개인 참여자는 같은 이름 공간을 공유하므로, 409는 "이미 가입했다"가
+            // 아니라 "남이 그 이름을 쓰고 있다"는 뜻이다. 로그인으로 유도하면 안 된다.
+            setIsConflict(false);
+            setError("이미 쓰고 있는 이름이야. 다른 이름으로 정해줘.");
+          } else {
+            // 이미 가입된 학생 → 로그인으로 유도
+            setIsConflict(true);
+            setError("이미 등록되어 있어요. 로그인해주세요.");
+          }
         } else if (err.status === 403) {
           // 동의 누락 (혹시 클라이언트 검증을 우회한 경우)
           setError(err.message);
