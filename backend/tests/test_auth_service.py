@@ -119,8 +119,12 @@ class FakeStudentRepo:
         limit: int,
         offset: int,
         sort: str | None = None,
+        include_test: bool = False,
     ) -> tuple[int, list[StudentRecord]]:
         records = [r for r in self._by_id.values() if r.deleted_at is None]
+        if not include_test:
+            # 실제 SQL의 "kind <> 'test'" 조건과 같은 의미 — 테스트 계정은 기본 제외.
+            records = [r for r in records if r.kind != "test"]
         if q:
             records = [r for r in records if q in r.name]
         if school:
@@ -140,13 +144,16 @@ class FakeStudentRepo:
         return len(records), records[offset : offset + limit]
 
     async def list_schools(self) -> list[str]:
-        schools = {r.school for r in self._by_id.values() if r.deleted_at is None}
+        # 실제 SQL과 같이 학교 소속(kind == 'student')만 본다.
+        schools = {
+            r.school for r in self._by_id.values() if r.deleted_at is None and r.kind == "student"
+        }
         return sorted(schools)
 
     async def get_class_progress(self, school: str) -> list[ClassProgressRow]:
         buckets: dict[tuple[int, int], dict[str, int]] = {}
         for r in self._by_id.values():
-            if r.deleted_at is not None or r.school != school:
+            if r.deleted_at is not None or r.school != school or r.kind != "student":
                 continue
             b = buckets.setdefault(
                 (r.grade, r.class_no),

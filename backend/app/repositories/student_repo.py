@@ -241,12 +241,16 @@ class StudentRepository(BaseRepository):
         limit: int,
         offset: int,
         sort: str | None = None,
+        include_test: bool = False,
     ) -> tuple[int, list[StudentRecord]]:
         """관리자용 목록 — soft-delete 제외, 필터 AND 결합, sort 기준 정렬.
 
         sort가 없으면 (학교,학년,반,번호) 기본 정렬. 반환: (전체 개수, 현재 페이지 레코드).
         """
         conditions = ["deleted_at is null"]
+        if not include_test:
+            # 테스트 계정은 실제 데이터가 아니므로 기본 목록·집계에서 제외한다.
+            conditions.append("kind <> 'test'")
         params: list[object] = []
 
         def _add(expr: str, value: object) -> None:
@@ -279,7 +283,10 @@ class StudentRepository(BaseRepository):
 
     async def list_schools(self) -> list[str]:
         """가입 학생이 있는 학교 이름 목록(중복 제거, 가나다순) — 관리자 필터용."""
-        query = "select distinct school from pii.students where deleted_at is null order by school"
+        query = (
+            "select distinct school from pii.students "
+            "where deleted_at is null and kind = 'student' order by school"
+        )
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(query)
         return [row["school"] for row in rows]
@@ -309,7 +316,7 @@ class StudentRepository(BaseRepository):
                 order by se.created_at desc
                 limit 1
             ) ls on true
-            where s.school = $1 and s.deleted_at is null
+            where s.school = $1 and s.deleted_at is null and s.kind = 'student'
             group by s.grade, s.class_no
             order by s.grade, s.class_no
         """

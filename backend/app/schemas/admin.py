@@ -48,6 +48,7 @@ class AdminStudentItem(BaseModel):
         False,
         description="사진 보유 여부. include_photo=false여서 photo_url이 null이어도 유무를 알 수 있다.",
     )
+    kind: str = Field("student", description="계정 종류 ('student' | 'guest' | 'test')")
     consent_privacy: bool
     created_at: datetime
     progress: AdminStudentProgress = Field(default_factory=AdminStudentProgress)

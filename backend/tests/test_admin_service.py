@@ -76,6 +76,57 @@ def _svc(
     )
 
 
+async def test_list_students_hides_test_accounts_by_default() -> None:
+    """테스트 계정은 기본 목록에 나오지 않고, include_test=True로만 보인다."""
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+    )
+    await repo.create(
+        school="",
+        grade=0,
+        class_no=0,
+        student_no=0,
+        name="테스트1",
+        password="x",
+        gender="male",
+        consent_privacy=True,
+        kind="test",
+    )
+    service = _svc(repo, storage)
+
+    default = await service.list_students(
+        q=None,
+        school=None,
+        grade=None,
+        class_no=None,
+        limit=50,
+        offset=0,
+        include_photo=False,
+    )
+    assert [i.name for i in default.items] == ["홍길동"]
+
+    with_test = await service.list_students(
+        q=None,
+        school=None,
+        grade=None,
+        class_no=None,
+        limit=50,
+        offset=0,
+        include_photo=False,
+        include_test=True,
+    )
+    assert {i.name for i in with_test.items} == {"홍길동", "테스트1"}
+    assert {i.kind for i in with_test.items} == {"student", "test"}
+
+
 async def test_list_returns_all_sorted() -> None:
     repo, storage = FakeStudentRepo(), FakeStorage()
     await _seed(repo)
