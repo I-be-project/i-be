@@ -3,6 +3,7 @@
 .obsidian/
 .claude/
 .superpowers/
+.omc/
 
 # 서브프로젝트별 무시는 각 backend/.gitignore, frontend/.gitignore 가 담당.
 # 아래는 루트에서 작업할 때를 위한 공통 안전망.
