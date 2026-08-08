@@ -232,6 +232,11 @@ def _register_kwargs(**overrides: object) -> dict[str, object]:
     return base
 
 
+def _guest_kwargs(**overrides: object) -> dict[str, object]:
+    """개인 참여자 등록 인자 — 학교 4개 필드를 전부 None으로 둔다."""
+    return _register_kwargs(school=None, grade=None, class_no=None, student_no=None, **overrides)
+
+
 async def test_register_stores_plaintext_password_and_issues_student_token() -> None:
     service, repo, _ = _service()
 
@@ -264,7 +269,7 @@ async def test_login_success_returns_token() -> None:
     await service.register_student(**_register_kwargs())
 
     student, token = await service.login(
-        school="한마당고", grade=2, class_no=3, student_no=11, password="20100101"
+        school="한마당고", grade=2, class_no=3, student_no=11, name=None, password="20100101"
     )
     payload = decode_token(token, expected_kind=TokenKind.STUDENT, settings=get_settings())
     assert payload["sub"] == str(student.id)
@@ -274,13 +279,17 @@ async def test_login_wrong_password_unauthorized() -> None:
     service, _, _ = _service()
     await service.register_student(**_register_kwargs())
     with pytest.raises(UnauthorizedError):
-        await service.login(school="한마당고", grade=2, class_no=3, student_no=11, password="wrong")
+        await service.login(
+            school="한마당고", grade=2, class_no=3, student_no=11, name=None, password="wrong"
+        )
 
 
 async def test_login_unknown_student_unauthorized() -> None:
     service, _, _ = _service()
     with pytest.raises(UnauthorizedError):
-        await service.login(school="없는학교", grade=1, class_no=1, student_no=1, password="x")
+        await service.login(
+            school="없는학교", grade=1, class_no=1, student_no=1, name=None, password="x"
+        )
 
 
 async def test_attach_photo_uploads_and_links_key() -> None:
@@ -339,3 +348,68 @@ async def test_register_stores_student_kind() -> None:
     student, _token = await service.register_student(**_register_kwargs())
 
     assert student.kind == "student"
+
+
+async def test_register_guest_without_school_fields() -> None:
+    """학교 정보 없이 가입하면 kind='guest'로 저장되고 학교 필드는 비워진다."""
+    service, _, _ = _service()
+
+    student, token = await service.register_student(**_guest_kwargs())
+
+    assert student.kind == "guest"
+    assert student.school == ""
+    assert (student.grade, student.class_no, student.student_no) == (0, 0, 0)
+    payload = decode_token(token, expected_kind=TokenKind.STUDENT, settings=get_settings())
+    assert payload["sub"] == str(student.id)
+
+
+async def test_guest_login_by_name() -> None:
+    """개인 참여자는 이름 + 비밀번호로 로그인한다."""
+    service, _, _ = _service()
+    created, _ = await service.register_student(**_guest_kwargs())
+
+    student, _token = await service.login(
+        school=None,
+        grade=None,
+        class_no=None,
+        student_no=None,
+        name="홍길동",
+        password="20100101",
+    )
+
+    assert student.id == created.id
+
+
+async def test_guest_duplicate_name_rejected() -> None:
+    """같은 이름의 개인 참여자는 가입할 수 없다."""
+    service, _, _ = _service()
+    await service.register_student(**_guest_kwargs())
+
+    with pytest.raises(ConflictError):
+        await service.register_student(**_guest_kwargs(password="99999999"))
+
+
+async def test_test_account_cannot_login_by_name() -> None:
+    """테스트 계정은 이름·비밀번호가 맞아도 학생 로그인 화면으로 들어갈 수 없다."""
+    service, repo, _ = _service()
+    await repo.create(
+        school="",
+        grade=0,
+        class_no=0,
+        student_no=0,
+        name="테스트1",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+        kind="test",
+    )
+
+    with pytest.raises(UnauthorizedError):
+        await service.login(
+            school=None,
+            grade=None,
+            class_no=None,
+            student_no=None,
+            name="테스트1",
+            password="20100101",
+        )

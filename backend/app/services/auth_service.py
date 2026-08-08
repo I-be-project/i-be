@@ -36,6 +36,7 @@ class StudentRepo(Protocol):
         password: str,
         gender: str,
         consent_privacy: bool,
+        kind: str = ...,
     ) -> StudentRecord: ...
 
     async def get_by_login_key(
@@ -46,6 +47,8 @@ class StudentRepo(Protocol):
         class_no: int,
         student_no: int,
     ) -> StudentRecord | None: ...
+
+    async def get_by_name(self, name: str, *, kinds: tuple[str, ...]) -> StudentRecord | None: ...
 
     async def get_by_id(self, student_id: UUID) -> StudentRecord | None: ...
 
@@ -64,6 +67,12 @@ class PhotoStorage(Protocol):
     """
 
     async def upload_photo(self, path: str, data: bytes, *, content_type: str) -> str: ...
+
+
+# 학교 없는 계정(guest·test)의 학교 식별 필드 고정값.
+# 컬럼이 not null이라 값은 채우되 의미를 비운다. 유니크는 이름으로 잡는다.
+GUEST_SCHOOL = ""
+GUEST_NUMBER = 0
 
 
 class AuthService:
@@ -91,24 +100,46 @@ class AuthService:
     async def register_student(
         self,
         *,
-        school: str,
-        grade: int,
-        class_no: int,
-        student_no: int,
+        school: str | None,
+        grade: int | None,
+        class_no: int | None,
+        student_no: int | None,
         name: str,
         password: str,
         gender: str,
         consent_privacy: bool,
     ) -> tuple[StudentRecord, str]:
-        """학생 등록 → (레코드, 세션 토큰). 동의 누락은 ForbiddenError, 중복은 ConflictError."""
+        """학생·개인 참여자 등록 → (레코드, 세션 토큰).
+
+        학교 정보가 없으면 개인 참여자(kind='guest')로 만든다. 학교 필드 조합 검증은
+        요청 스키마(RegisterRequest)가 이미 마쳤으므로 여기서는 school의 유무만 본다.
+        동의 누락은 ForbiddenError, 중복은 ConflictError.
+        """
         if not consent_privacy:
             raise ForbiddenError("개인정보 수집·이용에 동의해야 가입할 수 있습니다.")
 
+        if school is None:
+            # 이름 중복은 students_name_key가 잡지만, 저장소에 닿기 전에 같은 메시지로 거른다.
+            if await self._students.get_by_name(name, kinds=("guest", "test")) is not None:
+                raise ConflictError("이미 사용 중인 이름입니다.")
+            student = await self._students.create(
+                school=GUEST_SCHOOL,
+                grade=GUEST_NUMBER,
+                class_no=GUEST_NUMBER,
+                student_no=GUEST_NUMBER,
+                name=name,
+                password=password,
+                gender=gender,
+                consent_privacy=consent_privacy,
+                kind="guest",
+            )
+            return student, self._issue_token(student.id)
+
+        # 스키마 validator가 학교 4개 필드를 모두-있거나-모두-없거나로 강제하므로,
+        # school이 있으면 나머지 셋도 반드시 있다 — mypy strict용 타입 좁히기.
+        assert grade is not None and class_no is not None and student_no is not None
         existing = await self._students.get_by_login_key(
-            school=school,
-            grade=grade,
-            class_no=class_no,
-            student_no=student_no,
+            school=school, grade=grade, class_no=class_no, student_no=student_no
         )
         if existing is not None:
             raise ConflictError("이미 등록된 학생입니다.")
@@ -122,25 +153,36 @@ class AuthService:
             password=password,  # 평문 저장 (해시하지 않음)
             gender=gender,
             consent_privacy=consent_privacy,
+            kind="student",
         )
         return student, self._issue_token(student.id)
 
     async def login(
         self,
         *,
-        school: str,
-        grade: int,
-        class_no: int,
-        student_no: int,
+        school: str | None,
+        grade: int | None,
+        class_no: int | None,
+        student_no: int | None,
+        name: str | None,
         password: str,
     ) -> tuple[StudentRecord, str]:
-        """식별 키 + 비밀번호 검증 → (레코드, 세션 토큰). 실패는 UnauthorizedError."""
-        student = await self._students.get_by_login_key(
-            school=school,
-            grade=grade,
-            class_no=class_no,
-            student_no=student_no,
-        )
+        """식별 키 또는 이름 + 비밀번호 검증 → (레코드, 세션 토큰). 실패는 UnauthorizedError.
+
+        이름 조회는 kind='guest'만 본다. 테스트 계정(kind='test')은 관리자 토큰으로만
+        진입하며, 이름·비밀번호를 알아도 이 경로로는 들어올 수 없다.
+        """
+        if name is not None:
+            student = await self._students.get_by_name(name, kinds=("guest",))
+        else:
+            # 스키마 validator가 "학교 식별 키 또는 이름 중 정확히 하나"를 강제하므로,
+            # name이 없으면 학교 4개 필드가 모두 있다 — mypy strict용 타입 좁히기.
+            assert school is not None and grade is not None
+            assert class_no is not None and student_no is not None
+            student = await self._students.get_by_login_key(
+                school=school, grade=grade, class_no=class_no, student_no=student_no
+            )
+
         # 존재 여부를 노출하지 않도록 두 경우 모두 동일한 401. (평문 비교)
         if student is None or password != student.password:
             raise UnauthorizedError("학생 정보 또는 비밀번호가 올바르지 않습니다.")

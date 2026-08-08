@@ -182,3 +182,52 @@ async def test_refresh_requires_auth(path: str) -> None:
         assert res.status_code == 401
     finally:
         await gen.aclose()
+
+
+async def test_login_rejects_partial_school_fields() -> None:
+    """학교 필드를 일부만 보내면 422."""
+    app, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/auth/login",
+            json={"school": "대전가양중학교", "grade": 1, "password": "1029"},
+        )
+        assert res.status_code == 422
+    finally:
+        await gen.aclose()
+
+
+async def test_login_rejects_both_school_and_name() -> None:
+    """학교 식별 키와 이름을 동시에 보내면 422."""
+    app, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/auth/login",
+            json={
+                "school": "대전가양중학교",
+                "grade": 1,
+                "class_no": 2,
+                "student_no": 3,
+                "name": "박서준",
+                "password": "1029",
+            },
+        )
+        assert res.status_code == 422
+    finally:
+        await gen.aclose()
+
+
+async def test_login_rejects_neither_school_nor_name() -> None:
+    """식별 정보가 아무것도 없으면 422."""
+    app, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post("/api/auth/login", json={"password": "1029"})
+        assert res.status_code == 422
+    finally:
+        await gen.aclose()

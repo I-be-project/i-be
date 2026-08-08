@@ -46,6 +46,7 @@ async def login(req: LoginRequest, auth: AuthServiceDep) -> LoginResponse:
         grade=req.grade,
         class_no=req.class_no,
         student_no=req.student_no,
+        name=req.name,
         password=req.password,
     )
     return LoginResponse(student_id=student.id, student_token=token)
