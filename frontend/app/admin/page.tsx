@@ -186,6 +186,10 @@ export default function AdminStudentsPage() {
   const [pageSize, setPageSize] = useState(50);
   const [page, setPage] = useState(0);
 
+  // 실제 가입 회원 수(테스트 계정 제외) — "총 N명" 표시용. total(=list 페이지네이션
+  // 기준값)은 include_test:true라 테스트 계정이 섞여 있어 회원 수로 쓸 수 없다.
+  const [memberTotal, setMemberTotal] = useState(0);
+
   // 테스트 계정 발급 — 로그인 화면으로 들어올 수 없는 kind='test' 계정을 여기서만 만든다.
   const [testName, setTestName] = useState("");
   const [issuing, setIssuing] = useState(false);
@@ -194,6 +198,9 @@ export default function AdminStudentsPage() {
   const [purgeConfirming, setPurgeConfirming] = useState(false);
   const [purging, setPurging] = useState(false);
   const [purgeError, setPurgeError] = useState<string | null>(null);
+  const [purgeResult, setPurgeResult] = useState<string | null>(null);
+  // "이 계정으로 테스트 시작" 실패 — 목록 로딩 실패(error)와 원인이 달라 배너를 분리한다.
+  const [testStartError, setTestStartError] = useState<string | null>(null);
 
   // 목록 로드 — 검색·필터·정렬·페이지네이션을 모두 서버에 위임한다.
   const load = useCallback(async () => {
@@ -204,18 +211,27 @@ export default function AdminStudentsPage() {
     }
     setLoading(true);
     try {
-      const res = await fetchAdminStudents(token, {
+      const filters = {
         q: submittedQuery || undefined,
         school: schoolFilter === ALL_SCHOOLS ? undefined : schoolFilter,
         sort: sortKey,
-        limit: pageSize,
-        offset: page * pageSize,
-        // 아바타는 클릭해야 보이므로 목록에서는 사진을 받지 않는다(서명 50건 절약).
-        include_photo: false,
-        // 관리자는 테스트 계정도 관리(발급 확인·진입·삭제)해야 하므로 목록에 포함시킨다.
-        include_test: true,
-      });
+      };
+      const [res, memberRes] = await Promise.all([
+        fetchAdminStudents(token, {
+          ...filters,
+          limit: pageSize,
+          offset: page * pageSize,
+          // 아바타는 클릭해야 보이므로 목록에서는 사진을 받지 않는다(서명 50건 절약).
+          include_photo: false,
+          // 관리자는 테스트 계정도 관리(발급 확인·진입·삭제)해야 하므로 목록에 포함시킨다.
+          include_test: true,
+        }),
+        // "총 N명" 배지용 — 테스트 계정을 뺀 실제 회원 수만 필요하므로 include_test를
+        // 생략(백엔드 기본값 false)하고 items는 버릴 것이라 limit을 최소로 준다.
+        fetchAdminStudents(token, { ...filters, limit: 1, offset: 0, include_photo: false }),
+      ]);
       setTotal(res.total);
+      setMemberTotal(memberRes.total);
       // 삭제 등으로 현재 페이지가 범위를 벗어나면 첫 페이지로 되돌린다.
       if (page > 0 && res.items.length === 0 && res.total > 0) {
         setPage(0);
@@ -259,6 +275,8 @@ export default function AdminStudentsPage() {
   }, [loadSchools]);
 
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
+  // 현재 필터 조건에서 테스트 계정이 몇 개인지(= 전체 - 실제 회원). 음수 방지용 max.
+  const testTotal = Math.max(0, total - memberTotal);
 
   function toggleReveal(id: string) {
     setRevealed((prev) => {
@@ -398,8 +416,9 @@ export default function AdminStudentsPage() {
     setPurging(true);
     setPurgeError(null);
     try {
-      await purgeAdminTestStudents(token);
+      const res = await purgeAdminTestStudents(token);
       setPurgeConfirming(false);
+      setPurgeResult(`테스트 계정 ${res.deleted}개를 삭제했습니다.`);
       await load();
       await loadSchools();
     } catch (err) {
@@ -422,6 +441,7 @@ export default function AdminStudentsPage() {
       router.replace("/admin/login");
       return;
     }
+    setTestStartError(null);
     try {
       const { student_token } = await issueAdminTestToken(token, studentId);
       useSessionStore.getState().setAuth(student_token, studentId);
@@ -432,7 +452,9 @@ export default function AdminStudentsPage() {
         router.replace("/admin/login");
         return;
       }
-      setError(err instanceof ApiError ? err.message : "테스트 시작에 실패했습니다.");
+      setTestStartError(
+        err instanceof ApiError ? err.message : "테스트 시작에 실패했습니다."
+      );
     }
   }
 
@@ -459,57 +481,76 @@ export default function AdminStudentsPage() {
               가입 회원
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              회원가입한 모든 학생의 정보와 사진을 확인합니다.
+              회원가입한 학생의 정보와 사진을 확인하고, 관리자가 발급한 테스트
+              계정을 관리합니다.
             </p>
           </div>
-          <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm font-medium shadow-sm">
-            <span className="tabular-nums">{total}</span>
-            <span className="text-muted-foreground">명</span>
-          </span>
+          <div className="flex items-center gap-2">
+            {/* 실제 가입 회원만 센다 — 테스트 계정은 관리자 픽스처라 회원 수에서 뺀다. */}
+            <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-sm font-medium shadow-sm">
+              <span className="tabular-nums">{memberTotal}</span>
+              <span className="text-muted-foreground">명</span>
+            </span>
+            {testTotal > 0 && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed bg-muted/40 px-3 py-1 text-sm font-medium text-muted-foreground">
+                <span className="tabular-nums">{testTotal}</span>
+                테스트 계정
+              </span>
+            )}
+          </div>
         </div>
 
         {/* 테스트 계정 관리 — 학생 로그인 화면으로 들어올 수 없는 kind='test' 계정을
             여기서만 발급·정리한다. */}
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3">
-          <form
-            className="flex flex-wrap items-center gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              handleCreateTestStudent();
-            }}
-          >
-            <Input
-              aria-label="테스트 계정 이름"
-              placeholder="테스트 계정 이름"
-              value={testName}
-              onChange={(e) => setTestName(e.target.value)}
-              disabled={issuing}
-              className="h-9 w-48"
-            />
-            <Button
-              type="submit"
-              size="sm"
-              disabled={issuing || !testName.trim()}
+        <div className="mb-4 rounded-lg border bg-card px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <form
+              className="flex flex-wrap items-center gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleCreateTestStudent();
+              }}
             >
-              {issuing ? "발급 중…" : "테스트 계정 발급"}
+              <Input
+                aria-label="테스트 계정 이름"
+                placeholder="테스트 계정 이름"
+                value={testName}
+                onChange={(e) => setTestName(e.target.value)}
+                disabled={issuing}
+                className="h-9 w-48"
+              />
+              <Button
+                type="submit"
+                size="sm"
+                disabled={issuing || !testName.trim()}
+              >
+                {issuing ? "발급 중…" : "테스트 계정 발급"}
+              </Button>
+              {issueError && (
+                <span className="text-sm text-destructive">{issueError}</span>
+              )}
+            </form>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-destructive hover:text-destructive"
+              onClick={() => {
+                setPurgeError(null);
+                setPurgeResult(null);
+                setPurgeConfirming(true);
+              }}
+            >
+              <Trash2 className="size-4" aria-hidden />
+              테스트 계정 일괄 삭제
             </Button>
-            {issueError && (
-              <span className="text-sm text-destructive">{issueError}</span>
-            )}
-          </form>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-destructive hover:text-destructive"
-            onClick={() => {
-              setPurgeError(null);
-              setPurgeConfirming(true);
-            }}
-          >
-            <Trash2 className="size-4" aria-hidden />
-            테스트 계정 일괄 삭제
-          </Button>
+          </div>
+          {purgeResult && (
+            <p className="mt-2 text-sm text-muted-foreground">{purgeResult}</p>
+          )}
+          {testStartError && (
+            <p className="mt-2 text-sm text-destructive">{testStartError}</p>
+          )}
         </div>
 
         {/* 검색 */}
@@ -542,7 +583,10 @@ export default function AdminStudentsPage() {
                   {page * pageSize + 1}–
                   {Math.min((page + 1) * pageSize, total)}
                 </span>{" "}
-                / 총 <span className="tabular-nums">{total}</span>명
+                {/* 이 표는 테스트 계정도 함께 보여주므로 "명"이 아니라 "건"으로 —
+                    회원 수 표기는 위 배지(memberTotal)가 담당한다. */}
+                / 총 <span className="tabular-nums">{total}</span>건
+                {testTotal > 0 && `(테스트 계정 ${testTotal}개 포함)`}
               </>
             ) : (
               "표시할 회원이 없습니다"
@@ -746,7 +790,11 @@ export default function AdminStudentsPage() {
                           : s.school}
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
-                      {s.grade}학년 {s.class_no}반 {s.student_no}번
+                      {/* 학교 소속이 아니면(개인 참여자·테스트 계정) 전부 0이라
+                          의미가 없다 — StudentDetailSidebar와 같은 조건(school 유무). */}
+                      {s.school
+                        ? `${s.grade}학년 ${s.class_no}반 ${s.student_no}번`
+                        : "-"}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {genderLabel(s.gender)}
