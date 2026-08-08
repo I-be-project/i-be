@@ -64,6 +64,25 @@ async def test_login_wrong_credentials_unauthorized() -> None:
         await gen.aclose()
 
 
+async def test_login_non_ascii_password_unauthorized_not_500() -> None:
+    """한글 등 비-ASCII 비밀번호는 500(TypeError)이 아니라 401이어야 한다.
+
+    secrets.compare_digest는 str끼리 비교할 때 비-ASCII 조합을 지원하지 않는다.
+    한국어 UI에서 IME가 켜진 채 비밀번호를 입력하면 실제로 벌어질 수 있는 상황.
+    """
+    app, _, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/admin/login",
+            json={"username": "admin", "password": "한글비밀번호"},
+        )
+        assert res.status_code == 401, res.text
+    finally:
+        await gen.aclose()
+
+
 def _admin_token() -> str:
     settings = get_settings()
     from datetime import timedelta

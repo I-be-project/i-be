@@ -51,8 +51,11 @@ class AdminService:
     def authenticate(self, username: str, password: str) -> str:
         """단일 관리자 계정 검증 후 admin 토큰 발급. 실패 시 UnauthorizedError."""
         # 타이밍 공격 완화를 위해 compare_digest 사용.
-        ok_user = secrets.compare_digest(username, self._settings.admin_username)
-        ok_pass = secrets.compare_digest(password, self._settings.admin_password)
+        # bytes로 인코딩 후 비교: compare_digest는 비-ASCII str 조합을 지원하지 않아
+        # 한글 등이 섞인 아이디·비밀번호를 그대로 넘기면 TypeError가 난다
+        # (OperatorService.authenticate와 같은 방식).
+        ok_user = secrets.compare_digest(username.encode(), self._settings.admin_username.encode())
+        ok_pass = secrets.compare_digest(password.encode(), self._settings.admin_password.encode())
         if not (ok_user and ok_pass):
             raise UnauthorizedError("아이디 또는 비밀번호가 올바르지 않습니다.")
         return create_token(
