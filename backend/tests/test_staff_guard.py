@@ -19,10 +19,10 @@ from tests.test_auth_service import FakeStorage, FakeStudentRepo
 from tests.test_booth_service import FakeBoothRepo
 
 
-def _build() -> object:
+def _build(students: FakeStudentRepo | None = None) -> object:
     # Fake들은 실제 리포지토리의 구조적 대역이다(DB 없이 같은 메서드만 제공).
     admin_service = AdminService(
-        students=FakeStudentRepo(),
+        students=students or FakeStudentRepo(),
         sessions=FakeSessionRepo(),
         storage=FakeStorage(),
         settings=get_settings(),
@@ -87,6 +87,38 @@ async def test_admin_token_still_can_read() -> None:
         for path in _READ_PATHS:
             res = await client.get(path, headers=_admin())
             assert res.status_code == 200, f"{path} → {res.status_code}"
+    finally:
+        await gen.aclose()
+
+
+async def test_operator_token_can_read_student_detail_and_photo_url() -> None:
+    """/students/{id}, /students/{id}/photo-url — _READ_PATHS에 빠져 있던 경로.
+
+    임의의 UUID는 존재하지 않는 학생이라 서비스가 404를 돌려주고, 그러면 401이
+    아니라는 사실만으로는 가드를 통과했는지 우연히 404가 났는지 구분할 수 없다.
+    학생을 실제로 시드해 200을 확인해야 가드가 진짜로 운영진을 들여보냈다는
+    증거가 된다.
+    """
+    students = FakeStudentRepo()
+    student = await students.create(
+        school="한마당고",
+        grade=1,
+        class_no=1,
+        student_no=1,
+        name="시드학생",
+        password="p",
+        gender="male",
+        consent_privacy=True,
+    )
+    app = _build(students)
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        detail = await client.get(f"/api/admin/students/{student.id}", headers=_operator())
+        assert detail.status_code == 200, detail.text
+
+        photo = await client.get(f"/api/admin/students/{student.id}/photo-url", headers=_operator())
+        assert photo.status_code == 200, photo.text
     finally:
         await gen.aclose()
 
