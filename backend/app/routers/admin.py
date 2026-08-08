@@ -96,11 +96,14 @@ async def class_progress(
 @router.get("/students/{student_id}", response_model=AdminStudentDetail)
 async def student_detail(
     student_id: UUID,
-    _staff: CurrentStaffDep,
+    role: CurrentStaffDep,
     admin: AdminServiceDep,
 ) -> AdminStudentDetail:
-    """학생 1명 상세 — 설문 진행 단계별 답변·페르소나·카드 결과."""
-    return await admin.get_student_detail(student_id)
+    """학생 1명 상세 — 설문 진행 단계별 답변·페르소나·카드 결과.
+
+    운영진에게는 설문 답변 원문을 내려보내지 않는다(UI 숨김이 아니라 응답에서 제외).
+    """
+    return await admin.get_student_detail(student_id, include_answers=(role == "admin"))
 
 
 @router.get("/students/{student_id}/photo-url", response_model=AdminStudentPhoto)

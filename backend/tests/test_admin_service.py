@@ -437,3 +437,56 @@ async def test_get_class_progress_counts_abandoned_as_in_progress():
     # _to_progress와 같은 규칙 — 알 수 없는 상태는 진행중으로 수렴한다.
     assert rows[0].in_progress == 1
     assert rows[0].completed == 0
+
+
+# --- include_answers 옵트아웃(운영진 응답 원문 제외) ------------------------------
+
+
+async def test_get_student_detail_omits_answers_for_operator() -> None:
+    """운영진 조회에서는 설문 답변 원문이 응답에 담기지 않는다."""
+    repo = FakeStudentRepo()
+    sessions = FakeSessionRepo()
+    student = await repo.create(
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="홍길동",
+        password="20100101",
+        gender="male",
+        consent_privacy=True,
+    )
+
+    session_id = uuid4()
+    now = datetime.now(UTC)
+    sessions.contents[student.id] = [
+        SessionContent(
+            id=session_id,
+            status="completed",
+            created_at=now,
+            completed_at=now,
+            answers=[
+                AnswerRecord(
+                    id=uuid4(),
+                    session_id=session_id,
+                    stage="q1to6",
+                    payload={"q1": "친구들과 같이 하는 일"},
+                    created_at=now,
+                )
+            ],
+            persona=None,
+            card_image_key=None,
+        )
+    ]
+    service = AdminService(
+        students=repo, sessions=sessions, storage=FakeStorage(), settings=get_settings()
+    )
+
+    for_admin = await service.get_student_detail(student.id)
+    assert len(for_admin.sessions[0].answers) == 1
+
+    for_operator = await service.get_student_detail(student.id, include_answers=False)
+    assert for_operator.sessions[0].answers == []
+    # 답변만 빠지고 나머지 필드는 그대로여야 한다.
+    assert for_operator.sessions[0].id == session_id
+    assert for_operator.name == for_admin.name

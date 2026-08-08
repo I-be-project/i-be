@@ -160,8 +160,14 @@ class AdminService:
             for r in rows
         ]
 
-    async def get_student_detail(self, student_id: UUID) -> AdminStudentDetail:
-        """학생 상세 — 기본 정보 + 모든 세션(최신순) 답변·페르소나·카드."""
+    async def get_student_detail(
+        self, student_id: UUID, *, include_answers: bool = True
+    ) -> AdminStudentDetail:
+        """학생 상세 — 기본 정보 + 모든 세션(최신순) 답변·페르소나·카드.
+
+        include_answers=False면 설문 답변 원문을 비운다(운영진 조회용). 스키마는 그대로
+        두어 역할에 따라 응답 형태가 달라지지 않게 한다 — 빠지는 것은 값뿐이다.
+        """
         student = await self._students.get_by_id(student_id)
         if student is None:
             raise NotFoundError("학생을 찾을 수 없습니다.")
@@ -184,7 +190,9 @@ class AdminService:
                     answers=[
                         AdminAnswer(stage=a.stage, payload=a.payload, created_at=a.created_at)
                         for a in c.answers
-                    ],
+                    ]
+                    if include_answers
+                    else [],
                     persona=_to_persona_summary(c),
                     card_image_url=(signed.get(c.card_image_key) if c.card_image_key else None),
                 )
