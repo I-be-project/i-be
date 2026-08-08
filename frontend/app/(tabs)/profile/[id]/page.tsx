@@ -278,8 +278,10 @@ export default function ProfilePage() {
                 <div className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-ink-muted">
                   <GraduationCap className="h-4 w-4 text-sky-600" />
                   <span>
-                    {displayStudent.school} · {displayStudent.grade}학년{" "}
-                    {displayStudent.classNo}반 {displayStudent.studentNo}번 ·{" "}
+                    {displayStudent.school
+                      ? `${displayStudent.school} · ${displayStudent.grade}학년 ${displayStudent.classNo}반 ${displayStudent.studentNo}번`
+                      : "개인 참여자"}{" "}
+                    ·{" "}
                     {genderLabel(displayStudent.gender)}
                   </span>
                 </div>
