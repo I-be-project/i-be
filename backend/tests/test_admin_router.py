@@ -537,6 +537,11 @@ async def test_test_account_endpoints_require_admin() -> None:
         )
         assert res.status_code == 401
 
+        # 존재하지 않는 id라도 인증이 먼저 걸려야 한다 — 404가 아니라 401.
+        # 세 엔드포인트 중 가장 민감한 경로(학생 세션 토큰 발급)이므로 빠뜨리면 안 된다.
+        res = await client.post(f"/api/admin/students/test/{uuid4()}/token")
+        assert res.status_code == 401
+
         res = await client.delete("/api/admin/students/test")
         assert res.status_code == 401
     finally:
