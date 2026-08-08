@@ -92,8 +92,13 @@ curl -H "Authorization: Bearer $TOKEN" \
 | `offset`        | int     | `0`    | 건너뛸 개수                                                                               |
 | `sort`          | enum    | –      | `created_desc` \| `created_asc` \| `name_asc`                                            |
 | `include_photo` | boolean | `true` | `false`면 `photo_url`을 서명하지 않고 `null`로 내려준다. 사진이 필요 없으면 응답이 크게 빨라진다(832명 기준 31초 → 0.5초) |
+| `include_test`  | boolean | `false` | `true`면 관리자가 발급한 테스트 계정(`kind="test"`)도 목록에 포함한다. 기본값은 `false`로, 실제 학생·개인 참여자만 내려온다 |
 
 `sort`를 생략하면 **학교 → 학년 → 반 → 번호** 순으로 정렬된다. 반별로 명단을 만들 때 가장 편한 순서다.
+
+> **기본 응답에는 테스트 계정이 없다.** 이 API가 반환하는 계정은 학교 소속 학생(`kind="student"`)과
+> 학교 없는 개인 참여자(`kind="guest"`)뿐이다. 관리자가 QA용으로 발급한 테스트 계정(`kind="test"`)은
+> `include_test=true`를 명시해야만 보인다. 학생 수 집계·명단 추출 목적이라면 기본값 그대로 두면 된다.
 
 ```bash
 curl -G -H "Authorization: Bearer $TOKEN" \
@@ -119,6 +124,7 @@ curl -G -H "Authorization: Bearer $TOKEN" \
       "gender": "female",
       "photo_url": "https://<bucket>.s3.ap-northeast-2.amazonaws.com/uploads/photos/...?X-Amz-Signature=...",
       "has_photo": true,
+      "kind": "student",
       "consent_privacy": true,
       "created_at": "2026-07-31T02:11:04.123456+00:00",
       "progress": {
@@ -134,6 +140,10 @@ curl -G -H "Authorization: Bearer $TOKEN" \
 ```
 
 `total`은 **필터 조건에 맞는 전체 개수**이며 `limit`의 영향을 받지 않는다. 페이지네이션의 종료 조건으로 쓴다.
+
+`kind`가 `"guest"`(학교 없는 개인 참여자, `include_test=true`일 때는 `"test"`도)이면
+`school`은 빈 문자열, `grade`·`class_no`·`student_no`는 모두 `0`으로 온다 — 학교 소속이 아니라는
+뜻이며 실제 반·번호가 아니다.
 
 ### 3.3 `GET /api/admin/students/{id}` — 학생 상세
 
@@ -233,6 +243,49 @@ curl -H "Authorization: Bearer $TOKEN" \
 사진이 없는 학생도 `200`에 `photo_url: null`로 응답한다. 학생 자체가 없으면 `404`다.
 URL의 유효기간·사용법은 5절과 동일하다(1시간 만료, 인증 불필요).
 
+### 3.7 테스트 계정 발급·정리 (관리자 화면 전용)
+
+QA용 테스트 계정을 만들고 학생 화면으로 들어갈 토큰을 발급·정리하는 엔드포인트 3개다.
+**외부 데이터 수집 연동에서는 쓸 일이 없다** — 관리자 웹 화면이 내부적으로 호출한다.
+계약만 참고용으로 남긴다.
+
+#### `POST /api/admin/students/test` — 테스트 계정 발급
+
+```json
+// 요청
+{ "name": "테스트1", "gender": "male" }
+```
+
+```json
+// 응답 201
+{ "id": "3f2a9c14-1b7e-4a55-9a0d-7c2f5e8b1234", "name": "테스트1", "gender": "male" }
+```
+
+비밀번호는 서버가 랜덤으로 채우고 응답에 담지 않는다(로그인에 쓰이지 않으므로). `name`은
+개인 참여자(`kind="guest"`)와 **같은 이름 공간**을 공유한다 — 이미 쓰이는 이름이면 `409`다.
+
+#### `POST /api/admin/students/test/{id}/token` — 테스트 계정 진입 토큰 발급
+
+```json
+// 응답 200
+{
+  "student_id": "3f2a9c14-1b7e-4a55-9a0d-7c2f5e8b1234",
+  "student_token": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+`student_token`을 학생 화면(Bearer)에 그대로 쓰면 그 테스트 계정으로 진입한다. 대상이
+테스트 계정이 아니거나 없으면 `404`.
+
+#### `DELETE /api/admin/students/test` — 테스트 계정 일괄 삭제
+
+```json
+// 응답 200
+{ "deleted": 12, "removed_storage_objects": 9 }
+```
+
+`kind="test"`인 계정을 전부 하드 삭제한다(DB cascade + S3 사진/카드 이미지). 되돌릴 수 없다.
+
 ---
 
 ## 4. 데이터 필드 설명
@@ -251,6 +304,7 @@ URL의 유효기간·사용법은 5절과 동일하다(1시간 만료, 인증 �
 | `gender`          | string \| null | `"male"` \| `"female"`                                                 |
 | `photo_url`       | string \| null | 사진 임시 URL. 없으면 `null`                                           |
 | `has_photo`       | bool           | 사진 보유 여부. `include_photo=false`로 받아 `photo_url`이 `null`이어도 유효 |
+| `kind`            | string         | 계정 종류: `"student"`(학교 소속) \| `"guest"`(개인 참여자) \| `"test"`(테스트 계정, `include_test=true`일 때만). **목록 응답(3.2)에만 있다 — 상세 응답(3.3)에는 없다.** |
 | `consent_privacy` | bool           | 개인정보 수집 동의 여부                                                |
 | `created_at`      | datetime       | 가입 시각 (ISO 8601, UTC)                                              |
 | `progress`        | object         | 설문 진행 상태 (아래)                                                  |
@@ -474,6 +528,9 @@ export/
 | GET    | `/api/admin/students/{id}/photo-url`  | 필요 | 학생 사진 URL 1건                        |
 | DELETE | `/api/admin/students/{id}`            | 필요 | 하드 삭제 — 연동에서 사용 금지           |
 | POST   | `/api/admin/students/bulk-delete`     | 필요 | 일괄 하드 삭제 — 연동에서 사용 금지      |
+| POST   | `/api/admin/students/test`            | 필요 | 테스트 계정 발급 — 관리자 화면 전용      |
+| POST   | `/api/admin/students/test/{id}/token` | 필요 | 테스트 계정 진입 토큰 발급 — 관리자 화면 전용 |
+| DELETE | `/api/admin/students/test`            | 필요 | 테스트 계정 일괄 삭제 — 관리자 화면 전용 |
 | GET    | `/healthz`                            | –    | 헬스체크                                 |
 
 미구현 상태인 엔드포인트: `/api/admin/dashboard`, `/api/admin/stats/keywords`, `/api/admin/operators`.
@@ -484,3 +541,4 @@ export/
 | ---------- | --------------------------------------------------------------------------------------------------------------------------- |
 | 2026-07-31 | 최초 작성 (외부 전달용). 관련 내부 문서: [`2026-07-31-external-admin-api-guide.md`](2026-07-31-external-admin-api-guide.md) |
 | 2026-08-01 | `include_photo` 파라미터와 `has_photo` 필드 추가, 반별 집계·사진 단건 엔드포인트 추가. 기존 동작·기본값은 그대로 |
+| 2026-08-08 | 계정 종류(`kind`) 도입. `GET /api/admin/students` 기본 응답에서 테스트 계정(`kind="test"`) 제외, `include_test` 파라미터와 `kind` 필드(목록 응답) 추가. 테스트 계정 발급·진입 토큰·일괄 삭제 엔드포인트 3개 추가(3.7절, 관리자 화면 전용) |
