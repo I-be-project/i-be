@@ -30,6 +30,7 @@ from app.services.admin_service import AdminService
 from app.services.auth_service import AuthService
 from app.services.booth_service import BoothService
 from app.services.booth_visit_service import BoothVisitService
+from app.services.operator_service import OperatorService
 from app.services.session_service import SessionService
 
 
@@ -164,6 +165,13 @@ def get_admin_service(
 
 
 AdminServiceDep = Annotated[AdminService, Depends(get_admin_service)]
+
+
+def get_operator_service(settings: SettingsDep) -> OperatorService:
+    return OperatorService(settings=settings)
+
+
+OperatorServiceDep = Annotated[OperatorService, Depends(get_operator_service)]
 
 
 def current_admin(

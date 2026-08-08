@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
+from app.deps import OperatorServiceDep
+from app.schemas.operator import OperatorLoginRequest, OperatorLoginResponse
+
 router = APIRouter(prefix="/api/operator", tags=["operator"])
 
 
-@router.post("/login")
-async def login() -> dict[str, str]:
-    """운영자 로그인 → 운영자 세션 토큰 발급."""
-    raise NotImplementedError
+@router.post("/login", response_model=OperatorLoginResponse)
+async def login(req: OperatorLoginRequest, operators: OperatorServiceDep) -> OperatorLoginResponse:
+    """운영진 공유 비밀번호 로그인 → 운영자 세션 토큰 발급."""
+    return OperatorLoginResponse(operator_token=operators.authenticate(req.password))
 
 
 @router.post("/scan")
