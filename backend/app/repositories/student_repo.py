@@ -211,7 +211,11 @@ class StudentRepository(BaseRepository):
 
     async def update_info(self, student_id: UUID, *, name: str | None, gender: str | None) -> None:
         """학생의 이름/성별 부분 갱신(COALESCE). 대상 존재 보장은 서비스 레이어
-        (update_photo_key와 동일 패턴 — 여기서는 단순 UPDATE)."""
+        (update_photo_key와 동일 패턴 — 여기서는 단순 UPDATE).
+
+        name 변경은 students_name_key(학교 없는 계정의 이름 유니크)에 걸릴 수 있다 —
+        create()와 동일하게 ConflictError로 변환한다.
+        """
         query = """
             update pii.students
             set name = coalesce($2, name),
@@ -219,8 +223,14 @@ class StudentRepository(BaseRepository):
             where id = $1
               and deleted_at is null
         """
-        async with self._pool.acquire() as conn:
-            await conn.execute(query, student_id, name, gender)
+        try:
+            async with self._pool.acquire() as conn:
+                await conn.execute(query, student_id, name, gender)
+        except asyncpg.UniqueViolationError as exc:
+            raise ConflictError(
+                "이미 사용 중인 이름입니다.",
+                details={"name": name},
+            ) from exc
 
     # 정렬 키 화이트리스트 — 사용자 입력을 ORDER BY에 직접 넣지 않는다.
     # 안정적 페이지네이션을 위해 항상 id를 마지막 타이브레이커로 붙인다.

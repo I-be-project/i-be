@@ -99,6 +99,17 @@ class FakeStudentRepo:
 
     async def update_info(self, student_id: UUID, *, name: str | None, gender: str | None) -> None:
         record = self._by_id[student_id]
+        # 실제 students_name_key와 같은 의미: 학교 없는 계정(guest/test)만 이름이
+        # 유니크하다. 다른 계정이 이미 그 이름을 쓰고 있으면 ConflictError.
+        if (
+            name is not None
+            and record.kind in ("guest", "test")
+            and any(
+                r.id != student_id and r.name == name and r.kind in ("guest", "test")
+                for r in self._by_id.values()
+            )
+        ):
+            raise ConflictError("이미 사용 중인 이름입니다.", details={"name": name})
         updated = replace(
             record,
             name=name if name is not None else record.name,
@@ -394,6 +405,16 @@ async def test_guest_duplicate_name_rejected() -> None:
 
     with pytest.raises(ConflictError):
         await service.register_student(**_guest_kwargs(password="99999999"))
+
+
+async def test_update_profile_guest_duplicate_name_conflicts() -> None:
+    """개인 참여자가 이미 다른 계정이 쓰고 있는 이름으로 바꾸려 하면 ConflictError."""
+    service, _, _ = _service()
+    await service.register_student(**_guest_kwargs())  # 이름: 홍길동
+    other, _ = await service.register_student(**_guest_kwargs(name="김민수"))
+
+    with pytest.raises(ConflictError):
+        await service.update_profile(other.id, name="홍길동", gender=None)
 
 
 async def test_test_account_cannot_login_by_name() -> None:
