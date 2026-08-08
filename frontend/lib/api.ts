@@ -616,6 +616,28 @@ export function deleteAdminBooth(
   });
 }
 
+// GET /api/admin/booths/stats 응답 1행 — 부스 1개의 방문 집계.
+export interface BoothVisitStat {
+  booth_id: string;
+  code: string;
+  name: string;
+  visit_count: number;
+}
+
+// total_visits는 연인원(부스별 합), unique_students는 실인원(중복 제거)이다.
+export interface BoothStats {
+  booths: BoothVisitStat[];
+  total_visits: number;
+  unique_students: number;
+}
+
+export function fetchBoothStats(token: string): Promise<BoothStats> {
+  return request<BoothStats>("/api/admin/booths/stats", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
 // ─── 부스 방문 (학생) ──────────────────────────────────────
 // 부스는 uuid가 아니라 인쇄물에 박힌 6자 code로 지목한다. 대소문자는 서버가 정규화한다.
 // 상태 코드 분기: 403 = 카드 발급 전, 404 = 없는 코드, 401 = 토큰 만료/무효.
