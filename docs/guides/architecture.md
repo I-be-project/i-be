@@ -244,9 +244,9 @@ Lightsail 인스턴스 (2GB/2vCPU/60GB/3TB, Dual-stack)
 
 ## 13. 관련 문서
 - 상세 백엔드 설계: `backend-design.md`
-- 학생 온보딩 흐름 spec: `2026-06-24-student-onboarding-flow-design.md`
-- 배포 가이드: `2026-06-27-backend-deploy-lightsail-supabase.md`
-- 기획/비전: `../frontend/docs/plan.md`, 회의 정리: `../회의정리_진로교육카드프로젝트.md`
+- 학생 온보딩 흐름 spec: [`../notes/2026-06-24-학생-온보딩-플로우-설계.md`](../notes/2026-06-24-학생-온보딩-플로우-설계.md)
+- 배포 가이드: [`deployment.md`](deployment.md)
+- 기획/비전: [`../notes/2026-03-19-프로젝트-비전.md`](../notes/2026-03-19-프로젝트-비전.md)
 
 ---
 
