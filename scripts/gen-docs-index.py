@@ -105,10 +105,6 @@ def warn(path: Path, message: str) -> None:
 
 
 def collect() -> list[Issue]:
-    if not ISSUES_DIR.is_dir():
-        print(f"{ISSUES_DIR} 가 없다", file=sys.stderr)
-        return []
-
     issues = []
     for path in sorted(ISSUES_DIR.glob("*.md")):
         if path.name == "README.md":
@@ -151,6 +147,11 @@ def main() -> int:
         help="파일을 쓰지 않고 갱신이 필요한지만 확인한다 (필요하면 종료 코드 1)",
     )
     args = parser.parse_args()
+
+    if not ISSUES_DIR.is_dir():
+        # 폴더가 사라졌으면 멋대로 다시 만들지 않는다. 지웠거나 옮긴 것일 수 있다.
+        print(f"{ISSUES_DIR} 가 없다. 폴더를 만들거나 경로를 확인한다.", file=sys.stderr)
+        return 1
 
     issues = collect()
     content = render(issues)
