@@ -1,6 +1,7 @@
-# 개발 가이드 (DEVELOPMENT)
+# 개발 가이드
 
-로컬에서 개발할 때 보는 문서. 배포는 [`deployment.md`](deployment.md) 참고.
+로컬에서 개발할 때 보는 문서. 배포는 [`deployment.md`](deployment.md),
+구조 전반은 [`architecture.md`](architecture.md) 참고.
 
 ## 구성
 
@@ -57,8 +58,18 @@ npm install
 npm run dev                          # http://localhost:4000
 ```
 
-- 백엔드 주소는 `.env.local`의 API base URL 환경변수로 지정(로컬은 `http://localhost:8000`).
-- 품질: `npm run lint`, `npm run test`.
+- 백엔드 주소는 `NEXT_PUBLIC_API_URL`로 지정한다 (로컬 기본값 `http://localhost:8000`).
+
+품질 명령:
+
+| 목적 | 명령 |
+|---|---|
+| 린트 | `npm run lint` |
+| 빌드 | `npm run build` |
+| 테스트 | `npm run test` (vitest) |
+
+> 커밋·PR 전에 **`npm run lint`와 `npm run build`를 모두** 통과시킨다.
+> 타입 오류는 `lint`가 아니라 `build`에서 잡힌다.
 
 ---
 
@@ -79,15 +90,23 @@ cd frontend && npm run dev                            # :4000
 
 ## 4. 브랜치 흐름
 
+| 브랜치 | 역할 |
+|---|---|
+| `production` | 배포 브랜치. **모든 PR의 base.** 직접 커밋 금지 |
+| `develop` | 통합 브랜치. 일상 작업은 여기서 |
+| `feat/*` `fix/*` `chore/*` `docs/*` | 독립 작업은 접두사 브랜치로 분리 |
+
 ```bash
-git switch -c feat/<작업이름>     # production에서 분기
+git switch -c feat/<작업이름> develop
 # ... 작업 + 커밋 ...
 git push -u origin feat/<작업이름>
-# PR 생성 → 리뷰 → production 머지
+# PR 생성 (base: production) → 리뷰 → 머지
 ```
 
-- `production`이 배포 기준 브랜치(프론트/백엔드 자동 배포가 여기에 걸린다).
-- 머지 전 로컬에서 `pytest` / `npm run test` 통과 확인.
+- **`production` 머지 = 배포 트리거.** `backend/**` 변경은 push 즉시 자동 재배포된다.
+- 머지 전 변경한 서브프로젝트의 품질 게이트를 통과시킨다
+  (백엔드 `ruff`·`mypy`·`pytest`, 프론트 `lint`·`build`).
+- 커밋 메시지는 Conventional Commits 접두사 + 한국어. 자세한 규칙은 루트 `CLAUDE.md`.
 
 ---
 
@@ -107,3 +126,4 @@ git push -u origin feat/<작업이름>
 | 날짜 | 변경 |
 |---|---|
 | 2026-07-01 | 개발 가이드 v1 |
+| 2026-08-15 | 브랜치 흐름을 `CLAUDE.md`(production/develop/접두사)와 일치시킴. 프론트 품질 명령에 `npm run build` 추가, `NEXT_PUBLIC_API_URL` 변수명 명시 |
