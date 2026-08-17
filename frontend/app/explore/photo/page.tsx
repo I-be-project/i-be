@@ -4,7 +4,14 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { AnimatePresence, motion } from "framer-motion";
-import { Camera, Check, Image as ImageIcon, RefreshCw, X } from "lucide-react";
+import {
+  AlertTriangle,
+  Camera,
+  Check,
+  Image as ImageIcon,
+  RefreshCw,
+  X,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Toast, type ToastVariant } from "@/components/Toast";
@@ -22,6 +29,12 @@ const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 // 카드 예시 이미지(public/photo-guide/card-layout.png) 안에서 사진이 들어갈 자리.
 // 이미지 크기에 상관없이 겹쳐지도록 비율(%)로 잡는다.
 const PHOTO_SLOT = { left: "18.2%", top: "20.6%", width: "22.3%", height: "59.2%" };
+
+const GOOD_EXAMPLES = [
+  "증명사진 (제일 좋아)",
+  "정면을 보고 눈·코·입이 다 보이는 사진",
+  "혼자 나오고, 얼굴이 크게 찍힌 사진",
+];
 
 const BAD_EXAMPLES = [
   "얼굴이 가려진 사진",
@@ -188,7 +201,7 @@ export default function ExplorePhotoPage() {
             어떤 사진이 좋아?
           </h2>
           <p className="mt-1.5 break-keep text-[14px] font-medium leading-relaxed text-ink-muted">
-            증명사진처럼 정면을 보고, 눈·코·입이 다 보이는 사진이면 돼.
+            얼굴이 잘 보이는 사진일수록 카드가 잘 나와.
           </p>
 
           <div className="mt-4 overflow-hidden rounded-2xl ring-1 ring-zinc-200/80">
@@ -203,13 +216,25 @@ export default function ExplorePhotoPage() {
           </div>
 
           <div className="mt-4 flex flex-col gap-2.5">
-            <div className="flex items-start gap-2.5 rounded-xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-200/70">
-              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500">
-                <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
-              </span>
-              <p className="break-keep text-[14px] font-bold leading-relaxed text-emerald-900">
-                혼자 정면을 보고, 얼굴이 크게 나온 사진
-              </p>
+            <div className="rounded-xl bg-emerald-50 px-4 py-3 ring-1 ring-emerald-200/70">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+                  <Check className="h-3.5 w-3.5 text-white" strokeWidth={3} />
+                </span>
+                <p className="text-[14px] font-bold text-emerald-900">
+                  이런 사진이 좋아
+                </p>
+              </div>
+              <ul className="mt-2 flex flex-col gap-1 pl-[30px]">
+                {GOOD_EXAMPLES.map((label) => (
+                  <li
+                    key={label}
+                    className="break-keep text-[13.5px] font-medium leading-relaxed text-emerald-800/90"
+                  >
+                    · {label}
+                  </li>
+                ))}
+              </ul>
             </div>
 
             <div className="rounded-xl bg-rose-50 px-4 py-3 ring-1 ring-rose-200/70">
@@ -230,6 +255,18 @@ export default function ExplorePhotoPage() {
                 ))}
               </ul>
             </div>
+          </div>
+
+          {/* 기준을 안 지켰을 때 무슨 일이 생기는지 — 가이드를 지킬 이유를 알려준다 */}
+          <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-amber-50 px-4 py-3.5 ring-1 ring-amber-200/70">
+            <AlertTriangle
+              className="mt-0.5 h-[18px] w-[18px] shrink-0 text-amber-600"
+              strokeWidth={2.5}
+            />
+            <p className="break-keep text-[13.5px] font-semibold leading-relaxed text-amber-900">
+              얼굴이 잘 안 보이는 사진을 올리면 카드에 네 얼굴이 제대로 들어가지 않아.
+              다시 찍어서라도 얼굴이 잘 나온 사진으로 올려줘.
+            </p>
           </div>
         </section>
 
