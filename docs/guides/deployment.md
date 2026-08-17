@@ -1,6 +1,8 @@
 # 배포 가이드 (DEPLOYMENT)
 
-배포할 때 보는 문서. 로컬 개발은 [`DEVELOPMENT.md`](DEVELOPMENT.md) 참고.
+배포할 때 보는 문서. 로컬 개발은 [`development.md`](development.md) 참고.
+최초 인프라 구축(인스턴스 생성·Docker 설치·도메인 연결) 기록은
+[`../notes/2026-06-27-백엔드-초기-배포-구축.md`](../notes/2026-06-27-백엔드-초기-배포-구축.md)에 있다.
 
 백엔드는 Docker로 배포한다. 관련 파일은 모두 `backend/` 안에 있다.
 
@@ -47,7 +49,7 @@ curl https://api.cnu-likelion.kr/healthz
 ## CD 자동 배포 (백엔드)
 
 `production` 브랜치에 `backend/**` 변경이 push되면 GitHub Actions가 서버에 SSH로
-접속해 자동 재배포한다. 워크플로: [`.github/workflows/deploy-backend.yml`](.github/workflows/deploy-backend.yml)
+접속해 자동 재배포한다. 워크플로: [`.github/workflows/deploy-backend.yml`](../../.github/workflows/deploy-backend.yml)
 
 **동작 흐름**
 1. `production`에 backend 변경 push (또는 Actions 탭에서 수동 실행)

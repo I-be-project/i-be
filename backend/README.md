@@ -2,7 +2,7 @@
 
 진로 내비게이터 백엔드 — FastAPI + Supabase Postgres + 인-프로세스 카드 생성 워커.
 
-설계 문서: [`../docs/architecture/backend-design.md`](../docs/architecture/backend-design.md)
+설계 문서: [`../docs/guides/backend-design.md`](../docs/guides/backend-design.md)
 
 ## 빠른 시작 (로컬)
 
@@ -39,7 +39,7 @@ backend/
 │   ├── workers/         백그라운드 잡 워커
 │   ├── schemas/         Pydantic Request/Response
 │   └── core/            보안·예외·로깅·프롬프트
-├── supabase/            마이그레이션 (수동 적용 — ../DEPLOYMENT.md의 'DB 마이그레이션' 참고)
+├── supabase/            마이그레이션 (수동 적용 — ../docs/guides/deployment.md의 'DB 마이그레이션' 참고)
 ├── tests/
 └── scripts/             시드·정리 스크립트
 ```
