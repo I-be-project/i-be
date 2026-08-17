@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { IdentityFields, isGuestLevel, type IdentityValues } from "@/components/auth/IdentityFields";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, getMyProfile, loginStudent } from "@/lib/api";
-import { reconcileCompletionFromProfile, resumeScreen, resumePath } from "@/lib/explore/flow";
+import { reconcileFromProfile, resumeScreen, resumePath } from "@/lib/explore/flow";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
 
@@ -98,7 +98,7 @@ function LoginForm() {
       // 결정하기 전에 백엔드 완료 여부로 한 번 동기화한다(조회 실패 시 로컬 기준 진행).
       try {
         const profile = await getMyProfile(res.student_token);
-        reconcileCompletionFromProfile(profile);
+        reconcileFromProfile(profile);
       } catch {
         // 무시 — 로컬 상태 기준으로 계속 진행(fail-open)
       }
