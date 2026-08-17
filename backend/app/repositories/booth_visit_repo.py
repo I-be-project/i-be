@@ -90,11 +90,19 @@ class BoothVisitRepository(BaseRepository):
 
         (student_id, booth_id) unique 제약 덕분에 count(*)가 곧 방문 학생 수다
         (같은 학생이 같은 부스를 여러 번 찍어도 행이 하나뿐이다).
+        테스트 계정(kind='test')의 방문은 운영진이 실시간으로 보는 이 집계를
+        오염시키지 않도록 제외한다 — join 조건에 넣어 부스 자체는 그대로 두고
+        해당 방문 행만 매칭에서 빠지게 한다(방문이 전부 테스트 계정뿐이면 0).
         """
         query = """
             select b.id, b.code, b.name, count(v.id) as visit_count
               from ops.booths b
-              left join ops.booth_visits v on v.booth_id = b.id
+              left join ops.booth_visits v
+                on v.booth_id = b.id
+               and exists (
+                     select 1 from pii.students s
+                      where s.id = v.student_id and s.kind <> 'test'
+                   )
              group by b.id, b.code, b.name
              order by b.created_at
         """
@@ -111,8 +119,15 @@ class BoothVisitRepository(BaseRepository):
         ]
 
     async def count_unique_students(self) -> int:
-        """부스를 하나라도 찍은 학생 수(중복 제거) — 연인원이 아닌 실인원."""
-        query = "select count(distinct student_id) from ops.booth_visits"
+        """부스를 하나라도 찍은 학생 수(중복 제거) — 연인원이 아닌 실인원.
+
+        테스트 계정(kind='test')은 count_by_booth와 같은 이유로 제외한다.
+        """
+        query = """
+            select count(distinct v.student_id)
+              from ops.booth_visits v
+              join pii.students s on s.id = v.student_id and s.kind <> 'test'
+        """
         async with self._pool.acquire() as conn:
             value = await conn.fetchval(query)
         return int(value or 0)
