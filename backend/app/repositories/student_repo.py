@@ -18,7 +18,7 @@ from app.repositories.base import BaseRepository
 
 _COLUMNS = (
     "id, school, grade, class_no, student_no, name, "
-    "password, gender, photo_key, consent_privacy, kind, created_at, deleted_at"
+    "password, gender, birth_date, photo_key, consent_privacy, kind, created_at, deleted_at"
 )
 
 
@@ -34,6 +34,7 @@ class StudentRecord:
     name: str
     password: str  # 평문 저장 (정책상 해시하지 않음)
     gender: str | None  # 'male' | 'female' (과거 가입자는 None일 수 있음)
+    birth_date: str | None  # 8자리 YYYYMMDD 문자열 (개인 참여자만 필수, 학교 소속은 None 가능)
     photo_key: str | None
     consent_privacy: bool
     kind: str  # 'student' | 'guest' | 'test'
@@ -63,6 +64,7 @@ def _to_record(row: asyncpg.Record) -> StudentRecord:
         name=row["name"],
         password=row["password"],
         gender=row["gender"],
+        birth_date=row["birth_date"],
         photo_key=row["photo_key"],
         consent_privacy=row["consent_privacy"],
         kind=row["kind"],
@@ -84,6 +86,7 @@ class StudentRepository(BaseRepository):
         gender: str,
         consent_privacy: bool,
         kind: str = "student",
+        birth_date: str | None = None,
     ) -> StudentRecord:
         """학생 1명 생성 후 저장된 레코드 반환.
 
@@ -93,9 +96,9 @@ class StudentRepository(BaseRepository):
         query = f"""
             insert into pii.students (
                 school, grade, class_no, student_no, name, password, gender,
-                consent_privacy, kind
+                birth_date, consent_privacy, kind
             )
-            values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             returning {_COLUMNS}
         """
         try:
@@ -109,6 +112,7 @@ class StudentRepository(BaseRepository):
                     name,
                     password,
                     gender,
+                    birth_date,
                     consent_privacy,
                     kind,
                 )

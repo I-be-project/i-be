@@ -181,6 +181,7 @@ def _student() -> StudentRecord:
         name="홍길동",
         password="20100101",
         gender="male",
+        birth_date=None,
         photo_key=None,
         consent_privacy=True,
         kind="student",

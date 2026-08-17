@@ -85,7 +85,7 @@ export function IdentityFields({ values, onChange, disabled }: IdentityFieldsPro
 
       {isGuestLevel(values.level) ? (
         <p className="rounded-2xl bg-zinc-50 px-4 py-3 text-sm font-medium leading-relaxed text-zinc-500">
-          학교에 속하지 않은 참가자야. 이름과 비밀번호로 참여할 수 있어.
+          학교에 속하지 않은 참가자야. 이름, 생년월일, 비밀번호로 참여할 수 있어.
         </p>
       ) : (
         <>

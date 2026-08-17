@@ -37,6 +37,7 @@ class StudentRepo(Protocol):
         gender: str,
         consent_privacy: bool,
         kind: str = ...,
+        birth_date: str | None = ...,
     ) -> StudentRecord: ...
 
     async def get_by_login_key(
@@ -108,12 +109,14 @@ class AuthService:
         password: str,
         gender: str,
         consent_privacy: bool,
+        birth_date: str | None = None,
     ) -> tuple[StudentRecord, str]:
         """학생·개인 참여자 등록 → (레코드, 세션 토큰).
 
-        학교 정보가 없으면 개인 참여자(kind='guest')로 만든다. 학교 필드 조합 검증은
-        요청 스키마(RegisterRequest)가 이미 마쳤으므로 여기서는 school의 유무만 본다.
-        동의 누락은 ForbiddenError, 중복은 ConflictError.
+        학교 정보가 없으면 개인 참여자(kind='guest')로 만든다. 학교 필드 조합 검증과
+        개인 참여자의 생년월일 필수 여부는 요청 스키마(RegisterRequest)가 이미
+        마쳤으므로 여기서는 school의 유무만 본다. 동의 누락은 ForbiddenError,
+        중복은 ConflictError.
         """
         if not consent_privacy:
             raise ForbiddenError("개인정보 수집·이용에 동의해야 가입할 수 있습니다.")
@@ -132,6 +135,7 @@ class AuthService:
                 gender=gender,
                 consent_privacy=consent_privacy,
                 kind="guest",
+                birth_date=birth_date,
             )
             return student, self._issue_token(student.id)
 
