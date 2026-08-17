@@ -86,4 +86,5 @@ npm start         # 프로덕션 서버
 - UI 텍스트는 한국어
 - 반응형: 모바일 퍼스트 (768px 브레이크포인트, `hooks/use-mobile.ts`)
 - Pretendard Variable 폰트 사용 (CDN으로 로드)
-- 기획 의도 참고: `docs/plan.md`, 기술 명세: `docs/dev-plan.md`
+- 기획 의도 참고: 모노레포 루트의 `docs/notes/2026-03-19-프로젝트-비전.md`,
+  기술 명세: `docs/notes/2026-03-19-프론트엔드-개발-계획.md`
