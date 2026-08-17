@@ -31,6 +31,7 @@ export default function SignupPage() {
   });
   const [name, setName] = useState("");
   const [gender, setGender] = useState<"male" | "female" | "">("");
+  const [birthDate, setBirthDate] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [consent, setConsent] = useState(false);
@@ -40,6 +41,8 @@ export default function SignupPage() {
   const [loading, setLoading] = useState(false);
 
   const consentRef = useRef<HTMLDivElement>(null);
+
+  const guest = isGuestLevel(identity.level);
 
   const handleIdentityChange = (field: keyof IdentityValues, value: string) => {
     setIdentity((prev) => ({ ...prev, [field]: value }));
@@ -56,7 +59,6 @@ export default function SignupPage() {
     setIsConflict(false);
 
     // 기본 입력 검증 (백엔드도 검증하지만 사용자 경험상 먼저 막아준다)
-    const guest = isGuestLevel(identity.level);
     const grade = Number(identity.grade);
     const classNo = Number(identity.classNo);
     const studentNo = Number(identity.studentNo);
@@ -67,8 +69,19 @@ export default function SignupPage() {
       !identity.classNo ||
       !identity.studentNo;
 
-    if ((!guest && schoolFieldsMissing) || !name.trim() || !gender || !password || !confirmPassword) {
+    if (
+      (!guest && schoolFieldsMissing) ||
+      !name.trim() ||
+      !gender ||
+      (guest && !birthDate) ||
+      !password ||
+      !confirmPassword
+    ) {
       setError("모든 항목을 입력해줘.");
+      return;
+    }
+    if (guest && !/^\d{8}$/.test(birthDate)) {
+      setError("생년월일은 숫자 8자리(예: 20100115)로 입력해줘.");
       return;
     }
     if (!/^\d{4}$/.test(password)) {
@@ -97,7 +110,13 @@ export default function SignupPage() {
     try {
       const res = await registerStudent(
         guest
-          ? { name: name.trim(), password, gender, consent_privacy: consent }
+          ? {
+              name: name.trim(),
+              password,
+              gender,
+              birth_date: birthDate,
+              consent_privacy: consent,
+            }
           : {
               school: identity.school.trim(),
               grade,
@@ -239,6 +258,27 @@ export default function SignupPage() {
                 })}
               </div>
             </div>
+
+            {guest && (
+              <div>
+                <label htmlFor="birthDate" className={labelClass}>
+                  생년월일
+                </label>
+                <Input
+                  id="birthDate"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={birthDate}
+                  onChange={(e) =>
+                    setBirthDate(e.target.value.replace(/\D/g, "").slice(0, 8))
+                  }
+                  placeholder="생년월일 8자리 (예: 20100115)"
+                  disabled={loading}
+                  autoComplete="off"
+                  className={inputClass}
+                />
+              </div>
+            )}
 
             <div>
               <label htmlFor="password" className={labelClass}>

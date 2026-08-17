@@ -5,6 +5,9 @@
 생략해야 한다(validator가 강제). 테스트 계정(kind='test')은 이 경로로 로그인할 수 없다.
 비밀번호는 단순 문자열(프론트가 생년월일 형식으로 안내할 뿐, 백엔드는 의미를 모름)이라
 형식 검증을 두지 않는다.
+
+개인 참여자는 학교 식별 키가 없는 대신 생년월일(8자리 YYYYMMDD)을 필수로 받는다 —
+학교 필드가 전부 없을 때만 required로 강제한다(validator).
 """
 
 from __future__ import annotations
@@ -21,6 +24,11 @@ _CLASS_NO = Field(None, ge=1, le=99, description="반 (학교 소속만)")
 _STUDENT_NO = Field(None, ge=1, le=99, description="번호 (학교 소속만)")
 _SCHOOL = Field(None, min_length=1, max_length=100, description="학교명 (학교 소속만)")
 _PASSWORD = Field(..., min_length=1, max_length=128, description="비밀번호(단순 문자열)")
+_BIRTH_DATE = Field(
+    None,
+    pattern=r"^\d{8}$",
+    description="생년월일 8자리 YYYYMMDD (개인 참여자만 필수)",
+)
 
 
 def _school_field_state(
@@ -44,14 +52,21 @@ class RegisterRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=50, description="이름")
     password: str = _PASSWORD
     gender: Literal["male", "female"] = Field(..., description="성별 (male=남, female=여)")
+    birth_date: str | None = _BIRTH_DATE
     consent_privacy: bool = Field(
         ..., description="개인정보 수집·이용 동의 (가입 필수, false면 거부됨)"
     )
 
     @model_validator(mode="after")
     def _school_fields_all_or_none(self) -> RegisterRequest:
-        """학교 필드를 전부 보내면 학교 소속, 전부 생략하면 개인 참여자로 가입한다."""
-        _school_field_state(self.school, self.grade, self.class_no, self.student_no)
+        """학교 필드를 전부 보내면 학교 소속, 전부 생략하면 개인 참여자로 가입한다.
+
+        개인 참여자(학교 필드 전부 없음)는 생년월일이 필수다 — 학교 소속은 식별 키가
+        따로 있어 생년월일을 요구하지 않는다.
+        """
+        has_school = _school_field_state(self.school, self.grade, self.class_no, self.student_no)
+        if not has_school and self.birth_date is None:
+            raise ValueError("개인 참여자는 생년월일(8자리)을 입력해야 합니다.")
         return self
 
 

@@ -231,3 +231,45 @@ async def test_login_rejects_neither_school_nor_name() -> None:
         assert res.status_code == 422
     finally:
         await gen.aclose()
+
+
+async def test_register_guest_with_birth_date() -> None:
+    """학교 필드 없이 생년월일을 보내면 개인 참여자로 가입된다."""
+    app, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/auth/register",
+            json={
+                "name": "개인참여자",
+                "password": "1234",
+                "gender": "female",
+                "birth_date": "20100101",
+                "consent_privacy": True,
+            },
+        )
+        assert res.status_code == 200, res.text
+        UUID(res.json()["student_id"])
+    finally:
+        await gen.aclose()
+
+
+async def test_register_guest_without_birth_date_is_rejected() -> None:
+    """개인 참여자는 생년월일이 없으면 422."""
+    app, _, _ = _build()
+    gen = _client(app)
+    client = await anext(gen)
+    try:
+        res = await client.post(
+            "/api/auth/register",
+            json={
+                "name": "개인참여자",
+                "password": "1234",
+                "gender": "female",
+                "consent_privacy": True,
+            },
+        )
+        assert res.status_code == 422
+    finally:
+        await gen.aclose()
