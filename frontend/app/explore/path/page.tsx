@@ -19,7 +19,7 @@ import { ChipSelect } from "@/components/explore/ChipSelect";
 import { GeneratingScreen } from "@/components/explore/GeneratingScreen";
 import type { GeneratingStage } from "@/lib/assets/sceneManifest";
 import type { Q7BOption, Q8Chip, Q9Chip } from "@/store/useSessionStore";
-import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
+import { useFlowGuard, useBlockBack, resumePath } from "@/lib/explore/flow";
 import { useKeepTokenFresh } from "@/hooks/useKeepTokenFresh";
 
 // 별빛 프로그램은 Q9가 마지막 — 응답을 마치면 세션을 완료하고 공개 대기로 간다.
@@ -277,7 +277,8 @@ export default function PathPage() {
       const sid = await reconcileAllAnswers(studentToken);
       await completeSurvey(studentToken, null, sid);
       setSurveyCompleted(true);
-      router.push("/explore/pending-card");
+      // 다음 화면은 흐름 규칙에 맡긴다 — 아직 사진이 없으면 사진 화면, 있으면 공개 대기.
+      router.push(resumePath(useSessionStore.getState()));
     } catch (e) {
       // 완료 흐름의 409는 "서버가 이미 이 학생을 완료로 본다"는 뜻이다:
       //  - completeSurvey → "이미 설문을 완료했습니다"
@@ -287,7 +288,7 @@ export default function PathPage() {
       // 성공으로 간주해 종료 화면으로 보낸다. (향후 abandoned 도입 시 이 분기 재검토 필요)
       if (e instanceof ApiError && e.status === 409) {
         setSurveyCompleted(true);
-        router.push("/explore/pending-card");
+        router.push(resumePath(useSessionStore.getState()));
         return;
       }
       // 토큰 만료/무효(401): 진행상황(답변·sessionId)을 스토어에 보존한 채 재로그인으로 보낸다.

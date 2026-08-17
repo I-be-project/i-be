@@ -7,7 +7,7 @@ import { motion } from "framer-motion";
 import { ChevronRight, Compass, LogOut, Sparkles } from "lucide-react";
 import { useSessionStore } from "@/store/useSessionStore";
 import { getMyProfile } from "@/lib/api";
-import { reconcileCompletionFromProfile, resumeScreen, resumePath } from "@/lib/explore/flow";
+import { reconcileFromProfile, resumeScreen, resumePath } from "@/lib/explore/flow";
 import { AboutSheet } from "@/components/welcome/AboutSheet";
 
 export default function WelcomePage() {
@@ -28,8 +28,8 @@ export default function WelcomePage() {
         if (!alive) return;
         if (p.student?.name) setFetchedName(p.student.name);
         // 로컬 저장소가 초기화된 기기에서도 이미 완료한 학생은 완료 화면으로
-        // 이어지도록, 여기서도 백엔드 완료 여부를 로컬에 동기화한다.
-        reconcileCompletionFromProfile(p);
+        // 이어지도록, 여기서도 백엔드의 완료·사진 여부를 로컬에 동기화한다.
+        reconcileFromProfile(p);
       })
       .catch(() => {
         /* 네트워크 실패 시 studentInfo 폴백 유지 */

@@ -73,6 +73,17 @@
     `useReducedMotion`이면 반복 모션을 끈다.
 - **`TrailBar`** — 화면 최상단에 붙는 h-1.5 진행선. 진행 헤더 블록(진행바+라벨 행)을
   대체해 세로 공간을 회수했다. 심화 화면은 "밤의 심화 탐험 · 7/10" 컴팩트 칩 한 줄.
+- **`FullBleedScene`** — 웰컴 스타일 풀블리드 장면. 기본 높이 `h-[58vh] min-h-[320px]`,
+  하단에 모래색(#fdf3e0) 스크림을 깔아 CTA가 배경 위에서 읽히게 한다.
+- **`SceneAssetImage`** — 장면 이미지 공용 래퍼. 로드 실패 시 대체 소스로 폴백하고,
+  그마저 실패하면 스스로 숨는다(`hidden`). 깨진 이미지 아이콘이 장면에 남지 않는다.
+- **`CutsceneOverlay`** — 장면 전환 컷신. 기본 1200ms 후 `onDone`. `useReducedMotion`이면
+  **즉시** `onDone`을 호출해 건너뛴다.
+- **`DragSheet`** — 아래에서 끌어올리는 시트. `visualViewport` 높이를 기준으로 삼아
+  모바일 주소창 높이 변화에 흔들리지 않는다.
+- **`FlowLoading`** — 탐험 흐름 로딩 화면. 복원(hydrate) 대기·라우팅 판단 중에 쓴다.
+  가드가 걸린 화면이 `null` 대신 이걸 그려야 `AppFrame`의 빈 하늘색 프레임이 맨몸으로
+  노출되는 걸 막는다. **흐름 화면에서 `null`을 반환하지 말고 이걸 쓴다.**
 
 ## 타이포그래피 (읽기 편함)
 
@@ -92,3 +103,14 @@
 - `main`에 `overflow-hidden`을 걸면 내부 `position: sticky` CTA가 죽는다. 배경 클리핑은 `VoyageBackground`가 자체 처리하므로 main에는 걸지 않는다.
 - `ui/progress.tsx`(base-ui)에 `[&>div]:bg-*`를 쓰면 Indicator가 아니라 Track에 칠해진다 (기존 버그였음).
 - 하단 고정 CTA의 스크림은 `from-sand via-sand/80` — 배경 그라데이션의 끝색과 반드시 일치해야 자연스럽다.
+- 흐름(탐험) 화면에서 로딩 중에 `null`을 반환하면 `AppFrame`의 빈 하늘색 프레임이
+  그대로 노출된다. `FlowLoading`을 쓴다.
+- 모션이 있는 컴포넌트는 `useReducedMotion`을 존중한다. `CutsceneOverlay`는 이 경우
+  대기 없이 즉시 넘어간다.
+
+## 변경 이력
+
+| 날짜 | 변경 |
+|---|---|
+| 2026-07-02 | 디자인 시스템 v1 |
+| 2026-08-15 | 누락 컴포넌트 5종 추가 — `FullBleedScene`·`SceneAssetImage`·`CutsceneOverlay`·`DragSheet`·`FlowLoading` |

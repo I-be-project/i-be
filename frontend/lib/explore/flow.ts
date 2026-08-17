@@ -13,29 +13,31 @@ import { useSessionStore } from "@/store/useSessionStore";
 import type { ProfileSummary } from "@/lib/api";
 
 export type FlowScreen =
-  | "photo"
   | "explore"
   | "questions"
   | "evening"
   | "path"
+  | "photo"
   | "done";
 
 const SCREEN_PATH: Record<FlowScreen, string> = {
-  photo: "/signup/photo",
   explore: "/explore",
   questions: "/explore/questions",
   evening: "/explore/evening",
   path: "/explore/path",
+  photo: "/explore/photo",
   done: "/explore/pending-card",
 };
 
 // 흐름 순서. 뒤로 못 가게 막을 때 "현재 화면보다 앞선 진행"이면 앞으로 민다.
+// 사진은 설문(path)을 마친 뒤 마지막 관문이다 — 설문을 다 끝낸 학생에게만 요청해
+// 사진 때문에 탐험 자체를 시작하지 못하는 이탈을 없앤다.
 const SCREEN_ORDER: FlowScreen[] = [
-  "photo",
   "explore",
   "questions",
   "evening",
   "path",
+  "photo",
   "done",
 ];
 const screenIndex = (s: FlowScreen) => SCREEN_ORDER.indexOf(s);
@@ -55,7 +57,9 @@ export interface FlowState {
 
 // 저장된 진행상황으로 "지금 있어야 할 화면"을 계산한다(마지막으로 완료한 지점의 다음).
 export function resumeScreen(s: FlowState): FlowScreen {
-  if (s.surveyCompleted) return "done";
+  // 설문을 마쳤으면 남은 건 사진뿐이다. 아직 안 올렸으면 다음에 다시 들어와도
+  // 종료 화면이 아니라 사진 화면으로 보낸다(사진 없이는 대원증을 만들 수 없으므로).
+  if (s.surveyCompleted) return s.hasPhoto ? "done" : "photo";
   // evening/path(밤)는 RIASEC/PairCode가 있어야 성립한다(canAccess와 동일 전제).
   // 이 값이 없는데 밤 선택(q7~9)만 남은 불일치 상태면 밤으로 보내면 안 된다
   // (가드가 canAccess=false로 되돌려 자기 자신으로 무한 리다이렉트 → 영구 로딩).
@@ -70,9 +74,7 @@ export function resumeScreen(s: FlowState): FlowScreen {
   }
   // Q1~6 진행 중.
   if (s.answers.length > 0) return "questions";
-  // 진행 전(신규) — 사진을 아직 안 올렸으면 가입 2단계(사진)부터 마치게 한다.
-  // (가입 직후 사진 화면을 건너뛰고 앱을 닫았다가 재진입하는 경로 차단.)
-  if (!s.hasPhoto) return "photo";
+  // 진행 전(신규) — 사진은 설문을 마친 뒤에 받으므로 바로 탐험 브리핑으로 간다.
   return "explore";
 }
 
@@ -88,26 +90,34 @@ export function resumePath(s: FlowState): string {
 // 로그인·재진입 시 백엔드 프로필을 한 번 확인해 완료 상태를 로컬에 동기화한다.
 // 단방향(완료→완료)만 맞춘다 — 백엔드가 미완료인데 로컬이 완료인 경우는 되돌리지 않는다
 // (그 경우는 방금 이 기기에서 완료를 마친 직후일 뿐, 백엔드 쓰기가 아직 안 보일 수 있어서다).
-export function reconcileCompletionFromProfile(profile: ProfileSummary): void {
+//
+// 사진(hasPhoto)도 같은 이유로 함께 맞춘다. 사진은 설문 완료 후의 마지막 관문이라
+// 로컬에서 false면 재진입 시 사진 화면으로 보내는데, 저장소가 초기화된 기기에서는
+// 이미 사진을 올린 학생까지 다시 올리라고 요구하게 된다. 서버에 사진이 있으면 통과시킨다.
+export function reconcileFromProfile(profile: ProfileSummary): void {
+  const store = useSessionStore.getState();
   if (profile.has_completed) {
-    useSessionStore.getState().setSurveyCompleted(true);
+    store.setSurveyCompleted(true);
+  }
+  if (profile.student?.photo_url) {
+    store.setHasPhoto(true);
   }
 }
 
 // 각 화면의 하드 진입 조건(뒤로 밀기와 별개로, 정상적으로 그 화면에 있을 수 있는가).
 function canAccess(screen: FlowScreen, s: FlowState): boolean {
   switch (screen) {
-    case "photo":
-      return true; // 토큰 유무만 별도 확인
     case "explore":
-      return s.hasPhoto; // 사진 업로드 전엔 탐험 시작 불가
+      return true; // 토큰 유무만 별도 확인
     case "questions":
       return true; // 토큰 유무만 별도 확인
     case "evening":
     case "path":
       return Boolean(s.pairCode && s.riasecScores);
+    case "photo":
+      return s.surveyCompleted; // 설문을 마쳐야 사진 단계에 들어온다
     case "done":
-      return s.surveyCompleted || Boolean(s.q9Selection);
+      return s.surveyCompleted && s.hasPhoto; // 사진까지 마쳐야 종료 화면
     default:
       return true;
   }

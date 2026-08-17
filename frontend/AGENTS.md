@@ -58,4 +58,5 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - UI 텍스트는 한국어로 작성
 - mock 데이터는 `lib/mock/`에 위치
 - 반응형 기준: 모바일 퍼스트 (768px 브레이크포인트)
-- 기획 의도는 `docs/plan.md`, 기술 명세는 `docs/dev-plan.md` 참조
+- 기획 의도는 모노레포 루트의 `docs/notes/2026-03-19-프로젝트-비전.md`,
+  기술 명세는 `docs/notes/2026-03-19-프론트엔드-개발-계획.md` 참조

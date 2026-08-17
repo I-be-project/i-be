@@ -9,9 +9,20 @@ AI 기반 진로 탐색 경험. 기존 3개 저장소(`backend`, `frontend`, `do
 |---|---|---|
 | [`backend/`](backend/) | API 서버 (인증·세션·페르소나 생성·카드 파이프라인) | FastAPI · asyncpg(Postgres/Supabase) · S3 · OpenRouter |
 | [`frontend/`](frontend/) | 학생 온보딩~페르소나 카드 발급 UI | Next.js 16 · TypeScript · Tailwind · Zustand |
-| [`docs/`](docs/) | 설계서·계획·아키텍처 문서 | Markdown |
+| [`docs/`](docs/) | 가이드·이슈 기록·분석 문서 | Markdown |
 
 각 서브프로젝트의 상세 실행 방법은 해당 디렉터리의 `README.md`를 참고한다.
+
+## 문서
+
+[`docs/README.md`](docs/README.md)가 전체 지도다. 폴더는 **수명**으로 나뉜다.
+
+| 자주 보는 문서 | |
+|---|---|
+| [로컬 개발](docs/guides/development.md) | 개발 환경 구성 |
+| [배포](docs/guides/deployment.md) | 배포·CD·운영 환경변수 |
+| [운영 런북](docs/guides/operations.md) | 행사 중 장애 대응 |
+| [이슈 기록](docs/issues/README.md) | 삽질·인프라 판단 기록 |
 
 ## 히스토리
 

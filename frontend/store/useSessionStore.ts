@@ -62,8 +62,8 @@ interface SessionStore {
 
   inputMode: InputMode;
   answers: Answer[];
-  // 사진 업로드 성공 여부 — 가입 직후 /signup/photo를 건너뛰고 앱을 닫았다가 다시
-  // 들어와도 탐험을 시작할 수 없도록 흐름 가드(resumeScreen)가 이 값을 확인한다.
+  // 사진 업로드 성공 여부 — 설문을 마친 뒤 /explore/photo에서 올린다. 사진 없이 앱을
+  // 닫았다가 다시 들어와도 흐름 가드(resumeScreen)가 이 값을 보고 사진 화면으로 되돌린다.
   hasPhoto: boolean;
   // 진행 중 세션 id — Q7 첫 답변 저장 때 백엔드가 발급, 이후 저장·완료에 재사용.
   sessionId: string | null;
