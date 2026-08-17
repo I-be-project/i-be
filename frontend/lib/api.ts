@@ -25,7 +25,10 @@ export interface AccountFields {
   consent_privacy: boolean;
 }
 
-export type RegisterPayload = AccountFields | (AccountFields & SchoolIdentity);
+// 개인 참여자(학교 정보 없음)는 생년월일 8자리(YYYYMMDD)가 필수, 학교 소속은 불필요.
+export type RegisterPayload =
+  | (AccountFields & { birth_date: string })
+  | (AccountFields & SchoolIdentity);
 
 export type LoginPayload =
   | (SchoolIdentity & { password: string })

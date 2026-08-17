@@ -44,6 +44,7 @@ class FakeStudentRepo:
         gender: str,
         consent_privacy: bool,
         kind: str = "student",
+        birth_date: str | None = None,
     ) -> StudentRecord:
         if kind == "student":
             key = self._key(school, grade, class_no, student_no)
@@ -61,6 +62,7 @@ class FakeStudentRepo:
             name=name,
             password=password,
             gender=gender,
+            birth_date=birth_date,
             photo_key=None,
             consent_privacy=consent_privacy,
             kind=kind,
@@ -254,8 +256,15 @@ def _register_kwargs(**overrides: object) -> dict[str, object]:
 
 
 def _guest_kwargs(**overrides: object) -> dict[str, object]:
-    """개인 참여자 등록 인자 — 학교 4개 필드를 전부 None으로 둔다."""
-    return _register_kwargs(school=None, grade=None, class_no=None, student_no=None, **overrides)
+    """개인 참여자 등록 인자 — 학교 4개 필드를 전부 None으로 두고 생년월일을 채운다."""
+    return _register_kwargs(
+        school=None,
+        grade=None,
+        class_no=None,
+        student_no=None,
+        birth_date="20100101",
+        **overrides,
+    )
 
 
 async def test_register_stores_plaintext_password_and_issues_student_token() -> None:
@@ -380,6 +389,7 @@ async def test_register_guest_without_school_fields() -> None:
     assert student.kind == "guest"
     assert student.school == ""
     assert (student.grade, student.class_no, student.student_no) == (0, 0, 0)
+    assert student.birth_date == "20100101"
     payload = decode_token(token, expected_kind=TokenKind.STUDENT, settings=get_settings())
     assert payload["sub"] == str(student.id)
 

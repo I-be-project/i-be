@@ -38,6 +38,7 @@ async def register(req: RegisterRequest, auth: AuthServiceDep) -> RegisterRespon
         password=req.password,
         gender=req.gender,
         consent_privacy=req.consent_privacy,
+        birth_date=req.birth_date,
     )
     return RegisterResponse(student_id=student.id, student_token=token)
 
