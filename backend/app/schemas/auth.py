@@ -1,6 +1,6 @@
 """auth 라우터용 Request/Response 모델.
 
-식별 키: 학교 소속(kind='student')은 (school, grade, class_no, student_no),
+식별 키: 학교 소속(kind='student')은 (school, grade, class_no, student_no, name),
 학교 없는 개인 참여자(kind='guest')는 name — 학교 4개 필드를 전부 보내거나 전부
 생략해야 한다(validator가 강제). 테스트 계정(kind='test')은 이 경로로 로그인할 수 없다.
 비밀번호는 단순 문자열(프론트가 생년월일 형식으로 안내할 뿐, 백엔드는 의미를 모름)이라
@@ -80,15 +80,17 @@ class LoginRequest(BaseModel):
     grade: int | None = _GRADE
     class_no: int | None = _CLASS_NO
     student_no: int | None = _STUDENT_NO
-    name: str | None = Field(None, min_length=1, max_length=50, description="이름 (개인 참여자만)")
+    name: str = Field(..., min_length=1, max_length=50, description="이름 (모든 계정 필수)")
     password: str = _PASSWORD
 
     @model_validator(mode="after")
-    def _exactly_one_identity(self) -> LoginRequest:
-        """학교 식별 키 또는 이름 중 정확히 하나로만 로그인한다."""
-        has_school = _school_field_state(self.school, self.grade, self.class_no, self.student_no)
-        if has_school == (self.name is not None):
-            raise ValueError("학교 식별 정보 또는 이름 중 하나만 보내야 합니다.")
+    def _school_fields_all_or_none(self) -> LoginRequest:
+        """이름은 항상 필수, 학교 4개 필드는 전부 보내거나 전부 생략한다.
+
+        학교 소속은 이름이 식별 키의 일부다(students_login_key) — 반·번호 중복 가입을
+        허용하므로 이름 없이는 계정을 특정할 수 없다. 개인 참여자는 이름만으로 조회한다.
+        """
+        _school_field_state(self.school, self.grade, self.class_no, self.student_no)
         return self
 
 

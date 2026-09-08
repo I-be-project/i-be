@@ -61,7 +61,7 @@ async def test_dev_endpoint_returns_404_in_production(
         monkeypatch.setenv(name, value)
     get_settings.cache_clear()
 
-    res = await _get(create_app(), "/api/dev/image-models")
+    res = await _get(create_app(), "/api/dev/prompts")
 
     assert res.status_code == 404
 

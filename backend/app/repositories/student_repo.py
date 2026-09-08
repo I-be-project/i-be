@@ -1,6 +1,8 @@
 """pii.students 접근.
 
-식별 키 (school, grade, class_no, student_no)로 학생을 조회·생성한다.
+식별 키 (school, grade, class_no, student_no, name)로 학생을 조회·생성한다.
+반·번호가 겹쳐도 이름이 다르면 별개 학생이다.
+이름 비교는 공백·대소문자를 무시한다(_NORM_NAME — 유니크 인덱스와 같은 표현식).
 소프트 삭제된(deleted_at IS NOT NULL) 레코드는 조회·유니크 대상에서 제외한다.
 """
 
@@ -15,6 +17,12 @@ import asyncpg
 
 from app.core.errors import ConflictError
 from app.repositories.base import BaseRepository
+
+# 이름 비교 정규화 — 공백 전부 제거 + 소문자화. 마이그레이션 0012의 유니크 인덱스
+# 표현식과 반드시 같아야 한다. 어긋나면 조회가 잡는 행과 인덱스가 막는 행이 달라져,
+# 같은 이름으로 보이는 계정이 둘 존재하고 로그인이 임의의 한 명을 고르게 된다.
+# {col}에 비교할 컬럼/파라미터를 넣어 쓴다.
+_NORM_NAME = "lower(regexp_replace({col}, '\\s+', '', 'g'))"
 
 _COLUMNS = (
     "id, school, grade, class_no, student_no, name, "
@@ -118,13 +126,15 @@ class StudentRepository(BaseRepository):
                 )
         except asyncpg.UniqueViolationError as exc:
             if kind == "student":
+                # 반·번호 중복은 이제 허용된다 — 여기 걸린다면 이름까지 같은 경우다.
                 raise ConflictError(
-                    "이미 등록된 학생입니다.",
+                    "같은 반·번호에 같은 이름으로 이미 등록되어 있습니다.",
                     details={
                         "school": school,
                         "grade": grade,
                         "class_no": class_no,
                         "student_no": student_no,
+                        "name": name,
                     },
                 ) from exc
             # 학교 없는 계정은 이름으로 유니크하다(students_name_key).
@@ -143,8 +153,15 @@ class StudentRepository(BaseRepository):
         grade: int,
         class_no: int,
         student_no: int,
+        name: str,
     ) -> StudentRecord | None:
-        """식별 키로 살아있는 학생 조회. 없으면 None."""
+        """식별 키로 살아있는 학생 조회. 없으면 None.
+
+        이름이 식별 키의 일부다(students_login_key). 반·번호 중복 가입을 허용하므로
+        이름 없이 조회하면 여러 행이 걸려 fetchrow가 임의의 한 명을 돌려준다 —
+        그대로 두면 남의 계정으로 로그인될 수 있다.
+        이름은 공백·대소문자를 무시하고 비교한다("Chia Jen Min" = "chiajenmin").
+        """
         query = f"""
             select {_COLUMNS}
             from pii.students
@@ -152,10 +169,11 @@ class StudentRepository(BaseRepository):
               and grade = $2
               and class_no = $3
               and student_no = $4
+              and {_NORM_NAME.format(col="name")} = {_NORM_NAME.format(col="$5")}
               and deleted_at is null
         """
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(query, school, grade, class_no, student_no)
+            row = await conn.fetchrow(query, school, grade, class_no, student_no, name)
         return _to_record(row) if row is not None else None
 
     async def get_by_id(self, student_id: UUID) -> StudentRecord | None:
@@ -180,7 +198,7 @@ class StudentRepository(BaseRepository):
         query = f"""
             select {_COLUMNS}
             from pii.students
-            where name = $1
+            where {_NORM_NAME.format(col="name")} = {_NORM_NAME.format(col="$1")}
               and kind = any($2::text[])
               and deleted_at is null
         """

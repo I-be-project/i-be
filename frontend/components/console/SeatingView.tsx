@@ -279,9 +279,16 @@ export function SeatingView() {
     }
   }, [school, grade, classNo, classProgress, loadClassStudents]);
 
+  // 번호 하나에 학생이 여럿일 수 있다 — 가입 시 반·번호 중복을 허용하기 때문
+  // (식별은 이름까지 합쳐서 한다). Map<번호, 학생>이면 뒤에 온 학생이 앞 학생을
+  // 덮어써 좌석표에서 조용히 사라지므로 배열로 담는다.
   const byNo = useMemo(() => {
-    const map = new Map<number, AdminStudentItem>();
-    classStudents.forEach((s) => map.set(s.student_no, s));
+    const map = new Map<number, AdminStudentItem[]>();
+    classStudents.forEach((s) => {
+      const bucket = map.get(s.student_no);
+      if (bucket) bucket.push(s);
+      else map.set(s.student_no, [s]);
+    });
     return map;
   }, [classStudents]);
 
@@ -437,7 +444,8 @@ export function SeatingView() {
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(84px,1fr))] gap-2.5">
               {numbers.map((n) => {
-                const student = byNo.get(n);
+                const seated = byNo.get(n) ?? [];
+                const student = seated[0];
                 if (!student) {
                   return (
                     <div
@@ -451,24 +459,37 @@ export function SeatingView() {
                     </div>
                   );
                 }
+                // 같은 번호가 여럿이면 한 칸을 나눠 전원을 보여준다. 칸 색은 첫
+                // 학생 기준이지만, 각자 자기 상태 색의 이름 버튼을 갖는다.
                 return (
-                  <button
+                  <div
                     key={n}
-                    type="button"
-                    onClick={() => setSelected(student)}
-                    title={`${student.name} · ${STATUS_LABEL[student.progress.status]}`}
                     className={cn(
-                      "flex h-16 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-center transition-transform hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                      "flex h-16 flex-col items-center justify-center gap-0.5 rounded-lg border px-1 text-center",
                       CELL_STYLE[student.progress.status]
                     )}
                   >
                     <span className="text-sm font-bold tabular-nums leading-none">
                       {n}
                     </span>
-                    <span className="max-w-full truncate text-xs font-medium leading-tight">
-                      {student.name}
-                    </span>
-                  </button>
+                    <div className="flex w-full flex-col items-center gap-px overflow-hidden">
+                      {seated.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => setSelected(s)}
+                          title={`${s.name} · ${STATUS_LABEL[s.progress.status]}`}
+                          className={cn(
+                            "max-w-full truncate rounded text-xs font-medium leading-tight transition-transform hover:scale-[1.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                            seated.length > 1 && "px-1",
+                            seated.length > 1 && CELL_STYLE[s.progress.status]
+                          )}
+                        >
+                          {s.name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 );
               })}
             </div>

@@ -14,6 +14,7 @@ from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from app.adapters.ai_client import AIClient
+from app.adapters.codex_client import CodexClient
 from app.adapters.db_pool import DBPool
 from app.adapters.storage_client import StorageClient
 from app.config import Settings, get_settings
@@ -49,6 +50,14 @@ def get_ai_client(request: Request) -> AIClient:
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DBPoolDep = Annotated[DBPool, Depends(get_db_pool)]
 AIClientDep = Annotated[AIClient, Depends(get_ai_client)]
+
+
+def get_codex_client(settings: SettingsDep) -> CodexClient:
+    """dev 전용 Codex CLI 어댑터. 상태가 없어 요청마다 만들어도 무해하다."""
+    return CodexClient(binary=settings.codex_bin, timeout_seconds=settings.codex_timeout_seconds)
+
+
+CodexClientDep = Annotated[CodexClient, Depends(get_codex_client)]
 
 
 def get_storage_client(settings: SettingsDep) -> StorageClient:

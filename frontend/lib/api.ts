@@ -30,8 +30,10 @@ export type RegisterPayload =
   | (AccountFields & { birth_date: string })
   | (AccountFields & SchoolIdentity);
 
+// 이름은 두 경로 모두 필수다. 학교 소속은 반·번호 중복 가입을 허용하므로
+// (학교,학년,반,번호,이름)이 있어야 계정이 하나로 특정된다.
 export type LoginPayload =
-  | (SchoolIdentity & { password: string })
+  | (SchoolIdentity & { name: string; password: string })
   | { name: string; password: string };
 
 export interface AuthResponse {
@@ -146,7 +148,7 @@ function parseErrorMessage(
 // fetch 자체엔 타임아웃이 없어, 연결이 "매달리면"(hang) 무한 대기한다(스피너가 영영 안 끝남).
 // AbortController로 상한을 두고, 초과 시 status 0 ApiError로 전환한다(→ 화면에 재시도 UI 노출).
 // 기본 20초. LLM 생성처럼 정상적으로 오래 걸리는 요청은 호출부에서 timeoutMs로 늘린다.
-async function request<T>(
+export async function request<T>(
   path: string,
   init: RequestInit,
   timeoutMs = 20_000
