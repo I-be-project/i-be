@@ -30,8 +30,10 @@ export type RegisterPayload =
   | (AccountFields & { birth_date: string })
   | (AccountFields & SchoolIdentity);
 
+// 이름은 두 경로 모두 필수다. 학교 소속은 반·번호 중복 가입을 허용하므로
+// (학교,학년,반,번호,이름)이 있어야 계정이 하나로 특정된다.
 export type LoginPayload =
-  | (SchoolIdentity & { password: string })
+  | (SchoolIdentity & { name: string; password: string })
   | { name: string; password: string };
 
 export interface AuthResponse {

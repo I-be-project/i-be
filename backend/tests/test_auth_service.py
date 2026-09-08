@@ -22,15 +22,19 @@ class FakeStudentRepo:
     """인메모리 학생 저장소 — StudentRepo Protocol 충족."""
 
     def __init__(self) -> None:
-        self._by_key: dict[tuple[str, int, int, int], StudentRecord] = {}
+        # 실제 유니크 인덱스(students_login_key)와 같은 5-튜플로 잡는다 — 이름이 빠지면
+        # 반·번호 중복 가입을 fake가 막아버려 테스트가 실제 동작과 어긋난다.
+        self._by_key: dict[tuple[str, int, int, int, str], StudentRecord] = {}
         self._by_id: dict[UUID, StudentRecord] = {}
         # 집계 fake용 — 테스트가 학생별 최근 세션 상태를 직접 심는다.
         # None(키 없음)=세션 없음, "completed"=완료, 그 외=진행중.
         self.progress_status: dict[UUID, str] = {}
 
     @staticmethod
-    def _key(school: str, grade: int, class_no: int, student_no: int) -> tuple[str, int, int, int]:
-        return (school, grade, class_no, student_no)
+    def _key(
+        school: str, grade: int, class_no: int, student_no: int, name: str
+    ) -> tuple[str, int, int, int, str]:
+        return (school, grade, class_no, student_no, name)
 
     async def create(
         self,
@@ -47,9 +51,9 @@ class FakeStudentRepo:
         birth_date: str | None = None,
     ) -> StudentRecord:
         if kind == "student":
-            key = self._key(school, grade, class_no, student_no)
+            key = self._key(school, grade, class_no, student_no, name)
             if key in self._by_key:
-                raise ConflictError("이미 등록된 학생입니다.")
+                raise ConflictError("같은 반·번호에 같은 이름으로 이미 등록되어 있습니다.")
         elif any(r.name == name and r.kind in ("guest", "test") for r in self._by_id.values()):
             raise ConflictError("이미 사용 중인 이름입니다.")
 
@@ -70,14 +74,14 @@ class FakeStudentRepo:
             deleted_at=None,
         )
         if kind == "student":
-            self._by_key[self._key(school, grade, class_no, student_no)] = record
+            self._by_key[self._key(school, grade, class_no, student_no, name)] = record
         self._by_id[record.id] = record
         return record
 
     async def get_by_login_key(
-        self, *, school: str, grade: int, class_no: int, student_no: int
+        self, *, school: str, grade: int, class_no: int, student_no: int, name: str
     ) -> StudentRecord | None:
-        return self._by_key.get(self._key(school, grade, class_no, student_no))
+        return self._by_key.get(self._key(school, grade, class_no, student_no, name))
 
     async def get_by_id(self, student_id: UUID) -> StudentRecord | None:
         return self._by_id.get(student_id)
@@ -95,9 +99,9 @@ class FakeStudentRepo:
         record = self._by_id[student_id]
         updated = replace(record, photo_key=photo_key)
         self._by_id[student_id] = updated
-        self._by_key[self._key(record.school, record.grade, record.class_no, record.student_no)] = (
-            updated
-        )
+        self._by_key[
+            self._key(record.school, record.grade, record.class_no, record.student_no, record.name)
+        ] = updated
 
     async def update_info(self, student_id: UUID, *, name: str | None, gender: str | None) -> None:
         record = self._by_id[student_id]
@@ -118,9 +122,9 @@ class FakeStudentRepo:
             gender=gender if gender is not None else record.gender,
         )
         self._by_id[student_id] = updated
-        self._by_key[self._key(record.school, record.grade, record.class_no, record.student_no)] = (
-            updated
-        )
+        self._by_key[
+            self._key(record.school, record.grade, record.class_no, record.student_no, record.name)
+        ] = updated
 
     async def list_students(
         self,
@@ -200,7 +204,7 @@ class FakeStudentRepo:
         if record is None:
             return False, None
         self._by_key.pop(
-            self._key(record.school, record.grade, record.class_no, record.student_no),
+            self._key(record.school, record.grade, record.class_no, record.student_no, record.name),
             None,
         )
         return True, record.photo_key
@@ -287,11 +291,53 @@ async def test_register_rejected_without_privacy_consent() -> None:
         await service.register_student(**_register_kwargs(consent_privacy=False))
 
 
-async def test_register_duplicate_login_key_conflicts() -> None:
+async def test_register_allows_same_class_and_number_with_different_name() -> None:
+    """반·번호 중복 가입 허용 — 현장에서 번호가 겹치거나 잘못 입력돼도 막지 않는다."""
+    service, _, _ = _service()
+    first, _ = await service.register_student(**_register_kwargs())
+    second, _ = await service.register_student(
+        **_register_kwargs(name="다른이름", password="99999999")
+    )
+
+    assert first.id != second.id
+    assert (first.class_no, first.student_no) == (second.class_no, second.student_no)
+
+
+async def test_register_same_class_number_and_name_conflicts() -> None:
+    """다섯 값이 모두 같으면 같은 사람으로 본다 — 로그인이 특정할 수 없기 때문."""
     service, _, _ = _service()
     await service.register_student(**_register_kwargs())
     with pytest.raises(ConflictError):
-        await service.register_student(**_register_kwargs(name="다른이름", password="99999999"))
+        await service.register_student(**_register_kwargs(password="99999999"))
+
+
+async def test_login_distinguishes_namesakes_in_same_class() -> None:
+    """같은 반 동명이인은 번호로, 같은 번호는 이름으로 갈린다(운영 데이터에 실재)."""
+    service, _, _ = _service()
+    a, _ = await service.register_student(**_register_kwargs(name="김도현", student_no=2))
+    b, _ = await service.register_student(
+        **_register_kwargs(name="김도현", student_no=5, password="20100202")
+    )
+
+    found, _ = await service.login(
+        school="한마당고", grade=2, class_no=3, student_no=5, name="김도현", password="20100202"
+    )
+    assert found.id == b.id and found.id != a.id
+
+
+async def test_login_with_wrong_name_is_rejected() -> None:
+    """반·번호가 맞아도 이름이 다르면 남의 계정에 들어갈 수 없다."""
+    service, _, _ = _service()
+    await service.register_student(**_register_kwargs())
+    with pytest.raises(UnauthorizedError):
+        await service.login(
+            school="한마당고",
+            grade=2,
+            class_no=3,
+            student_no=11,
+            name="딴사람",
+            password="20100101",
+        )
 
 
 async def test_login_success_returns_token() -> None:
@@ -299,7 +345,7 @@ async def test_login_success_returns_token() -> None:
     await service.register_student(**_register_kwargs())
 
     student, token = await service.login(
-        school="한마당고", grade=2, class_no=3, student_no=11, name=None, password="20100101"
+        school="한마당고", grade=2, class_no=3, student_no=11, name="홍길동", password="20100101"
     )
     payload = decode_token(token, expected_kind=TokenKind.STUDENT, settings=get_settings())
     assert payload["sub"] == str(student.id)
@@ -310,7 +356,7 @@ async def test_login_wrong_password_unauthorized() -> None:
     await service.register_student(**_register_kwargs())
     with pytest.raises(UnauthorizedError):
         await service.login(
-            school="한마당고", grade=2, class_no=3, student_no=11, name=None, password="wrong"
+            school="한마당고", grade=2, class_no=3, student_no=11, name="홍길동", password="wrong"
         )
 
 
@@ -318,7 +364,7 @@ async def test_login_unknown_student_unauthorized() -> None:
     service, _, _ = _service()
     with pytest.raises(UnauthorizedError):
         await service.login(
-            school="없는학교", grade=1, class_no=1, student_no=1, name=None, password="x"
+            school="없는학교", grade=1, class_no=1, student_no=1, name="아무개", password="x"
         )
 
 

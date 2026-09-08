@@ -47,6 +47,7 @@ class StudentRepo(Protocol):
         grade: int,
         class_no: int,
         student_no: int,
+        name: str,
     ) -> StudentRecord | None: ...
 
     async def get_by_name(self, name: str, *, kinds: tuple[str, ...]) -> StudentRecord | None: ...
@@ -142,11 +143,12 @@ class AuthService:
         # 스키마 validator가 학교 4개 필드를 모두-있거나-모두-없거나로 강제하므로,
         # school이 있으면 나머지 셋도 반드시 있다 — mypy strict용 타입 좁히기.
         assert grade is not None and class_no is not None and student_no is not None
+        # 반·번호 중복은 허용한다 — 이름까지 같을 때만 같은 사람으로 본다.
         existing = await self._students.get_by_login_key(
-            school=school, grade=grade, class_no=class_no, student_no=student_no
+            school=school, grade=grade, class_no=class_no, student_no=student_no, name=name
         )
         if existing is not None:
-            raise ConflictError("이미 등록된 학생입니다.")
+            raise ConflictError("같은 반·번호에 같은 이름으로 이미 등록되어 있습니다.")
 
         student = await self._students.create(
             school=school,
@@ -168,23 +170,25 @@ class AuthService:
         grade: int | None,
         class_no: int | None,
         student_no: int | None,
-        name: str | None,
+        name: str,
         password: str,
     ) -> tuple[StudentRecord, str]:
-        """식별 키 또는 이름 + 비밀번호 검증 → (레코드, 세션 토큰). 실패는 UnauthorizedError.
+        """식별 키 + 이름 + 비밀번호 검증 → (레코드, 세션 토큰). 실패는 UnauthorizedError.
 
-        이름 조회는 kind='guest'만 본다. 테스트 계정(kind='test')은 관리자 토큰으로만
-        진입하며, 이름·비밀번호를 알아도 이 경로로는 들어올 수 없다.
+        이름은 두 경로 모두 필수다. 학교 소속은 (학교,학년,반,번호,이름)이 식별 키고,
+        개인 참여자는 이름만으로 조회한다.
+
+        개인 참여자 조회는 kind='guest'만 본다. 테스트 계정(kind='test')은 관리자
+        토큰으로만 진입하며, 이름·비밀번호를 알아도 이 경로로는 들어올 수 없다.
         """
-        if name is not None:
+        if school is None:
             student = await self._students.get_by_name(name, kinds=("guest",))
         else:
-            # 스키마 validator가 "학교 식별 키 또는 이름 중 정확히 하나"를 강제하므로,
-            # name이 없으면 학교 4개 필드가 모두 있다 — mypy strict용 타입 좁히기.
-            assert school is not None and grade is not None
-            assert class_no is not None and student_no is not None
+            # 스키마 validator가 학교 4개 필드를 모두-있거나-모두-없거나로 강제하므로,
+            # school이 있으면 나머지 셋도 반드시 있다 — mypy strict용 타입 좁히기.
+            assert grade is not None and class_no is not None and student_no is not None
             student = await self._students.get_by_login_key(
-                school=school, grade=grade, class_no=class_no, student_no=student_no
+                school=school, grade=grade, class_no=class_no, student_no=student_no, name=name
             )
 
         # 존재 여부를 노출하지 않도록 두 경우 모두 동일한 401. (평문 비교)

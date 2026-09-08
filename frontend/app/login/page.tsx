@@ -53,17 +53,16 @@ function LoginForm() {
 
     const guest = isGuestLevel(identity.level);
 
-    if (guest) {
-      if (!name.trim() || !password) {
-        setError("이름과 비밀번호를 입력해줘.");
-        return;
-      }
-    } else if (
-      !identity.school.trim() ||
-      !identity.grade ||
-      !identity.classNo ||
-      !identity.studentNo ||
-      !password
+    if (!name.trim() || !password) {
+      setError("이름과 비밀번호를 입력해줘.");
+      return;
+    }
+    if (
+      !guest &&
+      (!identity.school.trim() ||
+        !identity.grade ||
+        !identity.classNo ||
+        !identity.studentNo)
     ) {
       setError("모든 항목을 입력해줘.");
       return;
@@ -79,6 +78,7 @@ function LoginForm() {
               grade: Number(identity.grade),
               class_no: Number(identity.classNo),
               student_no: Number(identity.studentNo),
+              name: name.trim(),
               password,
             }
       );
@@ -118,7 +118,7 @@ function LoginForm() {
         setError(
           guest
             ? "이름 또는 비밀번호가 올바르지 않아요."
-            : "학번 또는 비밀번호가 올바르지 않아요."
+            : "학교 정보·이름 또는 비밀번호가 올바르지 않아요."
         );
       } else if (err instanceof ApiError) {
         setError(err.message);
@@ -153,7 +153,7 @@ function LoginForm() {
           다시 만나서<br />반가워
         </h1>
         <p className="mt-3 text-sm font-medium leading-relaxed text-ink-muted">
-          나로섬 선착장으로 다시 올라타. 가입할 때 적었던 학교 정보와 비밀번호를 입력해줘.
+          나로섬 선착장으로 다시 올라타. 가입할 때 적었던 학교 정보와 이름, 비밀번호를 입력해줘.
         </p>
       </div>
 
@@ -172,7 +172,9 @@ function LoginForm() {
               disabled={loading}
             />
 
-            {isGuestLevel(identity.level) && (
+            {/* 이름은 두 경우 모두 필수 — 학교 소속은 반·번호 중복을 허용하므로
+                (학교,학년,반,번호,이름)이 있어야 계정이 하나로 특정된다. */}
+            <div>
               <div>
                 <label htmlFor="name" className={labelClass}>
                   이름
@@ -187,7 +189,7 @@ function LoginForm() {
                   className={inputClass}
                 />
               </div>
-            )}
+            </div>
 
             <div>
               <label htmlFor="password" className={labelClass}>
