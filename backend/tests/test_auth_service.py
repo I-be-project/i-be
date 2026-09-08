@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
@@ -16,6 +17,15 @@ from app.core.errors import ConflictError, ForbiddenError, NotFoundError, Unauth
 from app.core.security import TokenKind, decode_token
 from app.repositories.student_repo import ClassProgressRow, StudentRecord
 from app.services.auth_service import AuthService
+
+
+def _norm(name: str) -> str:
+    """student_repo._NORM_NAME(=유니크 인덱스 표현식)과 같은 의미의 이름 정규화.
+
+    공백 전부 제거 + 소문자화. fake가 이걸 안 하면 실제 DB는 허용/거부하는데
+    테스트는 반대로 도는 상태가 되어 회귀를 못 잡는다.
+    """
+    return re.sub(r"\s+", "", name).lower()
 
 
 class FakeStudentRepo:
@@ -34,7 +44,7 @@ class FakeStudentRepo:
     def _key(
         school: str, grade: int, class_no: int, student_no: int, name: str
     ) -> tuple[str, int, int, int, str]:
-        return (school, grade, class_no, student_no, name)
+        return (school, grade, class_no, student_no, _norm(name))
 
     async def create(
         self,
@@ -54,7 +64,10 @@ class FakeStudentRepo:
             key = self._key(school, grade, class_no, student_no, name)
             if key in self._by_key:
                 raise ConflictError("같은 반·번호에 같은 이름으로 이미 등록되어 있습니다.")
-        elif any(r.name == name and r.kind in ("guest", "test") for r in self._by_id.values()):
+        elif any(
+            _norm(r.name) == _norm(name) and r.kind in ("guest", "test")
+            for r in self._by_id.values()
+        ):
             raise ConflictError("이미 사용 중인 이름입니다.")
 
         record = StudentRecord(
@@ -88,7 +101,11 @@ class FakeStudentRepo:
 
     async def get_by_name(self, name: str, *, kinds: tuple[str, ...]) -> StudentRecord | None:
         for record in self._by_id.values():
-            if record.name == name and record.kind in kinds and record.deleted_at is None:
+            if (
+                _norm(record.name) == _norm(name)
+                and record.kind in kinds
+                and record.deleted_at is None
+            ):
                 return record
         return None
 
@@ -323,6 +340,58 @@ async def test_login_distinguishes_namesakes_in_same_class() -> None:
         school="한마당고", grade=2, class_no=3, student_no=5, name="김도현", password="20100202"
     )
     assert found.id == b.id and found.id != a.id
+
+
+@pytest.mark.parametrize(
+    "typed",
+    ["  홍길동  ", "홍 길 동", "홍\u3000길동"],
+    ids=["앞뒤 공백", "중간 공백", "전각 공백"],
+)
+async def test_login_ignores_whitespace_in_name(typed: str) -> None:
+    """휴대폰 입력에서 붙는 공백으로 로그인이 막히면 안 된다."""
+    service, _, _ = _service()
+    registered, _ = await service.register_student(**_register_kwargs())
+
+    found, _ = await service.login(
+        school="한마당고", grade=2, class_no=3, student_no=11, name=typed, password="20100101"
+    )
+    assert found.id == registered.id
+
+
+async def test_login_ignores_letter_case_in_name() -> None:
+    """영문 이름 계정이 실재한다(예: 'Chia Jen Min') — 대소문자로 막지 않는다."""
+    service, _, _ = _service()
+    registered, _ = await service.register_student(**_register_kwargs(name="Chia Jen Min"))
+
+    found, _ = await service.login(
+        school="한마당고",
+        grade=2,
+        class_no=3,
+        student_no=11,
+        name="chiajenmin",
+        password="20100101",
+    )
+    assert found.id == registered.id
+
+
+async def test_register_rejects_name_differing_only_by_spacing() -> None:
+    """조회가 같게 보는 이름은 가입도 막아야 한다.
+
+    한쪽만 느슨하면 '같아 보이는' 계정이 둘 생기고, 로그인이 둘 중 임의의 한 명을
+    고르게 된다 — 이름을 식별 키에 넣은 의미가 사라진다.
+    """
+    service, _, _ = _service()
+    await service.register_student(**_register_kwargs(name="홍길동"))
+    with pytest.raises(ConflictError):
+        await service.register_student(**_register_kwargs(name="홍 길 동", password="99999999"))
+
+
+async def test_guest_name_uniqueness_is_also_normalized() -> None:
+    """개인 참여자의 이름 유니크도 같은 기준을 쓴다."""
+    service, _, _ = _service()
+    await service.register_student(**_guest_kwargs(name="Kim Minseo"))
+    with pytest.raises(ConflictError):
+        await service.register_student(**_guest_kwargs(name="kimminseo"))
 
 
 async def test_login_with_wrong_name_is_rejected() -> None:
