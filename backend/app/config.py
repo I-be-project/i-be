@@ -114,6 +114,12 @@ class Settings(BaseSettings):
     ai_image_max_retries: int = 2
     ai_image_retry_base_delay: float = 0.5  # 지수 백오프 기준(초): 0.5, 1.0, 2.0 …
 
+    # Codex CLI — dev 전용(로컬). OpenRouter를 거치지 않고 로컬 codex 바이너리로
+    # 페르소나 텍스트·미래 사진을 만든다. 배포 서버엔 codex가 없으므로 dev 라우터에서만 쓴다.
+    codex_bin: str = "codex"
+    # 이미지 생성이 실측 ~60s 걸린다. 여유를 둔 상한.
+    codex_timeout_seconds: float = 300.0
+
     # Worker
     card_worker_enabled: bool = True
     card_worker_concurrency: int = 10

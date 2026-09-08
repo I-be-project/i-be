@@ -90,6 +90,16 @@ class StorageClient:
         """최종 카드 이미지 업로드(cards/). 전체 S3 키 반환."""
         return await self._put(f"{self._prefix_cards}/{path}", data, content_type=content_type)
 
+    async def download(self, key: str) -> bytes:
+        """key의 객체 바이트를 직접 읽는다.
+
+        외부 노출은 Presigned URL이 원칙이지만, 서버가 원본을 그대로 다뤄야 하는
+        경우(예: 사진을 생성 모델에 입력으로 넘길 때)에는 이 경로를 쓴다.
+        """
+        async with self._client_factory() as s3:
+            obj = await s3.get_object(Bucket=self._bucket, Key=key)
+            return cast(bytes, await obj["Body"].read())
+
     async def create_signed_url(self, key: str, *, ttl_seconds: int) -> str:
         """key에 대한 Presigned GET URL 발급."""
         async with self._client_factory() as s3:

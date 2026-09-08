@@ -109,8 +109,8 @@ def create_app() -> FastAPI:
     app.include_router(student_booths.router)
     app.include_router(questions.router)
 
-    # /api/dev는 인증이 없고 호출 시 AI 크레딧을 소모한다. CORS가 전 오리진 개방이라
-    # 외부에 노출되면 누구나 크레딧을 태울 수 있으므로 로컬에서만 등록한다.
+    # /api/dev는 인증 없이 학생 목록·답변을 내리고, 실행에 로컬 codex 바이너리를 요구한다.
+    # CORS가 전 오리진 개방이라 노출되면 누구나 학생 정보를 읽을 수 있으므로 로컬에서만 등록한다.
     if settings.app_env == "local":
         app.include_router(dev.router)
 

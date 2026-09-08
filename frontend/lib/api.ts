@@ -146,7 +146,7 @@ function parseErrorMessage(
 // fetch 자체엔 타임아웃이 없어, 연결이 "매달리면"(hang) 무한 대기한다(스피너가 영영 안 끝남).
 // AbortController로 상한을 두고, 초과 시 status 0 ApiError로 전환한다(→ 화면에 재시도 UI 노출).
 // 기본 20초. LLM 생성처럼 정상적으로 오래 걸리는 요청은 호출부에서 timeoutMs로 늘린다.
-async function request<T>(
+export async function request<T>(
   path: string,
   init: RequestInit,
   timeoutMs = 20_000
