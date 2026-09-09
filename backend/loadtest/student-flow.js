@@ -2,11 +2,24 @@
  * 학생 정상 플로우 부하테스트 — 회원가입 없이 관리자 API로 발급한
  * 테스트 계정(kind='test')만 사용한다. 실제 참가자 데이터는 건드리지 않는다.
  *
- * AI(OpenAI/OpenRouter) 호출 엔드포인트는 의도적으로 제외했다:
- *   - POST /api/generate/{stage}  (적응형 질문 생성)
- *   - /api/dev/*                  (AI 이미지·카드 생성 개발용 엔드포인트)
- * 두 경로 다 호출당 실제 AI 비용이 발생해서 부하테스트로 반복 호출하면 안 된다.
- * POST /api/sessions/complete는 persona 없이 호출하므로 AI를 태우지 않는다.
+ * ── AI 비용 안전장치 ────────────────────────────────────────
+ * AI(OpenRouter)를 실제로 호출하는 코드는 두 군데뿐이고, 둘 다 여기서 부르지 않는다:
+ *   - POST /api/generate/{stage}  (app/routers/questions.py — 적응형 질문 생성)
+ *   - /api/dev/*                  (app/routers/dev.py — 이미지·카드·페르소나 생성)
+ * 호출당 실제 비용이 발생해서 부하테스트로 반복 호출하면 안 된다.
+ *
+ * 여기서 부르는 경로가 AI를 간접적으로 타지 않는 것도 확인했다:
+ *   - POST /api/sessions/complete → persona 없이 호출하므로 personas.create를 건너뛴다(순수 DB)
+ *   - GET  /api/students/me       → get_profile_summary는 DB 조회만 한다
+ *   - POST /api/sessions/answers  → DB insert만 한다
+ *   - 카드 워커                    → card_worker._claim_next_job()이 아직 스텁(return None)이고
+ *                                   POST /api/cards/generate도 NotImplementedError라 잡이 큐에 안 쌓인다
+ *
+ * ⚠ 카드 발급(POST /api/cards/generate)이 구현되면 이 안전장치가 깨질 수 있다.
+ *   complete가 카드 생성 잡을 큐에 넣기 시작하면 워커가 VU 반복 횟수만큼 AI 이미지를
+ *   생성한다(load 프로필 기준 수백 건). 그때는 이 테스트를 돌리기 전에
+ *   서버의 CARD_WORKER_ENABLED=false로 워커를 꺼두거나, 잡 큐잉을 타지 않는
+ *   경로로 바꿔야 한다. 카드 발급 구현 시 이 주석을 반드시 다시 볼 것.
  *
  * 부스 체크인(GET/POST /api/booths/{code})도 뺐다 — 카드 발급(POST /api/cards/generate)이
  * 아직 미구현이라 어떤 테스트 계정도 has_card=true가 될 수 없고, 그 상태로 부스를 찍으면
@@ -117,44 +130,87 @@ const ERROR_RATE = Number(__ENV.ERROR_RATE || 0.01);
 // 200이 나오니 에러는 아니지만, 실제 데이터로 재는 게 더 의미 있어 env로 바꿀 수 있게 뒀다.
 const SCHOOL_FOR_PROGRESS = __ENV.SCHOOL || '테스트';
 
-// 부하 프로필. duration은 stages 합과 맞춰둔다(admin_read를 같이 끝내기 위해).
+/*
+ * 부하 프로필. duration은 stages 합과 맞춰둔다(admin_read를 같이 끝내기 위해).
+ *
+ * VU 수는 "하루 1만 명" 목표에서 Little's Law(동시 사용자 = 도착률 × 체류시간)로 뽑았다:
+ *   - 8시간 운영 → 도착률 10,000 / 28,800초 ≈ 0.35명/초
+ *   - 학생 1명 체류시간은 LLM 질문 생성이 3번(각 수십 초) 끼므로 5~10분
+ *   - 평균 동시 사용자 = 0.35 × 300~600초 ≈ 100~210명
+ *   - 학교·반 단위로 몰리는 피크는 평균의 2~3배 → 250~500명
+ *
+ * 운영 시간이나 체류시간 가정이 바뀌면 위 식으로 다시 계산해서 여기를 고친다.
+ * 임시로 규모만 바꿔 볼 거면 -e VUS=<수> 로 프로필 전체를 비례 조정할 수 있다.
+ */
 const PROFILES = {
+  // 스크립트가 도는지 30초 만에 확인. 부하 측정용이 아니다.
   smoke: {
     stages: [{ duration: '10s', target: 1 }, { duration: '20s', target: 1 }],
     duration: '30s',
     maxVUs: 1,
   },
+  // 평상시 동시 사용자.
   load: {
     stages: [
-      { duration: '30s', target: 10 },
-      { duration: '1m', target: 10 },
-      { duration: '30s', target: 30 },
-      { duration: '1m', target: 30 },
-      { duration: '30s', target: 0 },
+      { duration: '1m', target: 50 },
+      { duration: '2m', target: 100 },
+      { duration: '3m', target: 100 },
+      { duration: '1m', target: 0 },
     ],
-    duration: '3m30s',
-    maxVUs: 30,
+    duration: '7m',
+    maxVUs: 100,
   },
+  // 반 단위로 몰리는 피크. 실제 행사에서 버텨야 하는 선.
+  peak: {
+    stages: [
+      { duration: '1m', target: 100 },
+      { duration: '2m', target: 250 },
+      { duration: '3m', target: 250 },
+      { duration: '1m', target: 0 },
+    ],
+    duration: '7m',
+    maxVUs: 250,
+  },
+  // 어디서 깨지는지 보는 용도. 여기서 통과하면 여유가 있는 것.
   stress: {
     stages: [
-      { duration: '30s', target: 30 },
-      { duration: '1m', target: 60 },
       { duration: '1m', target: 100 },
-      { duration: '1m', target: 100 },
-      { duration: '30s', target: 0 },
+      { duration: '2m', target: 300 },
+      { duration: '2m', target: 500 },
+      { duration: '2m', target: 500 },
+      { duration: '1m', target: 0 },
     ],
-    duration: '4m',
-    maxVUs: 100,
+    duration: '8m',
+    maxVUs: 500,
   },
 };
 
 const PROFILE_NAME = __ENV.PROFILE || 'load';
-const PROFILE = PROFILES[PROFILE_NAME];
-if (!PROFILE) {
+const BASE_PROFILE = PROFILES[PROFILE_NAME];
+if (!BASE_PROFILE) {
   throw new Error(
     `알 수 없는 PROFILE: ${PROFILE_NAME}. 가능한 값: ${Object.keys(PROFILES).join(', ')}`
   );
 }
+
+// -e VUS=<수> 로 프로필의 최대 VU를 바꿔치기한다. 각 stage target을 같은 비율로 줄이고 늘려
+// 램프 모양은 유지한다. 규모 가정을 임시로 바꿔 볼 때 프로필을 새로 만들지 않아도 되게 하려는 것.
+const VUS_OVERRIDE = Number(__ENV.VUS || 0);
+const PROFILE =
+  VUS_OVERRIDE > 0
+    ? {
+        ...BASE_PROFILE,
+        maxVUs: VUS_OVERRIDE,
+        stages: BASE_PROFILE.stages.map((s) => ({
+          duration: s.duration,
+          // target 0(램프다운)은 0으로 유지. 그 외는 최소 1을 보장한다.
+          target:
+            s.target === 0
+              ? 0
+              : Math.max(1, Math.round((s.target / BASE_PROFILE.maxVUs) * VUS_OVERRIDE)),
+        })),
+      }
+    : BASE_PROFILE;
 
 // 계정 수 기본값은 프로필 최대 VU와 맞춘다 — VU마다 다른 계정을 쓰게 하려는 것.
 const ACCOUNT_COUNT = Number(__ENV.ACCOUNTS || PROFILE.maxVUs);
@@ -202,6 +258,10 @@ if (ADMIN_READ_VUS > 0) {
 
 export const options = {
   scenarios,
+  // 계정 수백 개를 발급/정리해야 해서 k6 기본값(60s)으로는 모자란다.
+  // 배치로 병렬화했지만 서버가 느리면 여전히 걸릴 수 있어 넉넉히 준다.
+  setupTimeout: '10m',
+  teardownTimeout: '5m',
   // 임계값은 본 시나리오({phase:main})만 본다. setup/teardown의 계정 발급·정리 요청이
   // 응답시간·실패율 통계를 오염시키지 않게 하려는 것.
   thresholds: {
@@ -232,6 +292,40 @@ function checkOk(res, name) {
     console.error(`${name} 실패 (${res.status}): ${String(res.body).slice(0, 200)}`);
   }
   return ok;
+}
+
+/** [0, n) 정수 배열. */
+function range(n) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push(i);
+  return out;
+}
+
+// setup 배치 크기 — 한 번에 던지는 요청 수. 서버가 setup에서 먼저 넘어가지 않을 정도로만.
+const SETUP_BATCH_SIZE = 25;
+
+/**
+ * setup 단계 POST를 SETUP_BATCH_SIZE씩 묶어 병렬로 보낸다.
+ * 하나라도 기대 상태코드가 아니면 즉시 fail — 계정이 덜 만들어진 채로 부하를 걸면
+ * VU가 토큰을 공유하게 돼서 측정값이 조용히 망가진다.
+ */
+function batchPost(adminToken, requests, expectedStatus, label) {
+  const params = authHeaders(adminToken, { phase: 'setup' });
+  const results = [];
+
+  for (let i = 0; i < requests.length; i += SETUP_BATCH_SIZE) {
+    const chunk = requests.slice(i, i + SETUP_BATCH_SIZE);
+    const responses = http.batch(
+      chunk.map((r) => ({ method: 'POST', url: r.url, body: r.body, params }))
+    );
+    for (const res of responses) {
+      if (res.status !== expectedStatus) {
+        fail(`${label} 실패 (${res.status}): ${String(res.body).slice(0, 200)}`);
+      }
+      results.push(res);
+    }
+  }
+  return results;
 }
 
 // ---- setup: 관리자 로그인 + 테스트 계정 발급 (한 번만, VU 시작 전) ----
@@ -271,29 +365,29 @@ export function setup() {
     console.log(`이전 실행에서 남은 테스트 계정 ${purgeRes.json('deleted')}개를 정리했습니다.`);
   }
 
+  // 계정 발급은 배치로 병렬화한다. 순차로 돌리면 계정 하나당 2요청 × 수백 개라
+  // setup만 몇 분씩 걸리고 k6 기본 setupTimeout(60s)에 걸려 시작조차 못 한다.
+  // CHUNK를 너무 키우면 서버가 setup 단계에서 먼저 죽으므로 적당히 끊는다.
   const runId = `${Date.now()}`;
-  const tokens = [];
-  for (let i = 0; i < ACCOUNT_COUNT; i++) {
-    const createRes = http.post(
-      `${BASE_URL}/api/admin/students/test`,
-      JSON.stringify({ name: `k6-${runId}-${i}`, gender: i % 2 === 0 ? 'male' : 'female' }),
-      authHeaders(adminToken, { phase: 'setup' })
-    );
-    if (createRes.status !== 201) {
-      fail(`테스트 계정 생성 실패 (${createRes.status}): ${createRes.body}`);
-    }
-    const studentId = createRes.json('id');
+  const studentIds = batchPost(
+    adminToken,
+    range(ACCOUNT_COUNT).map((i) => ({
+      url: `${BASE_URL}/api/admin/students/test`,
+      body: JSON.stringify({ name: `k6-${runId}-${i}`, gender: i % 2 === 0 ? 'male' : 'female' }),
+    })),
+    201,
+    '테스트 계정 생성'
+  ).map((res) => res.json('id'));
 
-    const tokenRes = http.post(
-      `${BASE_URL}/api/admin/students/test/${studentId}/token`,
-      null,
-      authHeaders(adminToken, { phase: 'setup' })
-    );
-    if (tokenRes.status !== 200) {
-      fail(`테스트 계정 토큰 발급 실패 (${tokenRes.status}): ${tokenRes.body}`);
-    }
-    tokens.push(tokenRes.json('student_token'));
-  }
+  const tokens = batchPost(
+    adminToken,
+    studentIds.map((id) => ({
+      url: `${BASE_URL}/api/admin/students/test/${id}/token`,
+      body: null,
+    })),
+    200,
+    '테스트 계정 토큰 발급'
+  ).map((res) => res.json('student_token'));
 
   console.log(`setup 완료: 테스트 계정 ${tokens.length}개 발급`);
   return { adminToken, tokens };
