@@ -81,13 +81,17 @@ def read_rows(path: Path) -> list[BoothRow]:
 
 
 def check_competencies(rows: list[BoothRow]) -> list[str]:
-    """역량 칸을 검사해 문제를 문자열 목록으로 돌려준다. 비어 있으면 통과다.
+    """zone과 역량 칸을 검사해 문제를 문자열 목록으로 돌려준다. 문제가 없으면 빈 목록이다.
 
-    비어 있는 것을 통과시키는 이유: 주최측 매핑 자료가 오기 전 상태가 그렇다.
+    zone은 모든 행에서 검사한다 — 오타를 여기서 안 막으면 등록 요청 중간에 서버가
+    422로 죽고, 그때까지 이미 만든 부스는 남는다(삭제하면 인쇄한 QR이 무효가 되니 되돌리기
+    비싸다). 역량 칸은 비어 있으면 통과다(주최측 매핑 자료가 오기 전 상태가 그렇다).
     한 줄이라도 채워져 있으면 그 줄은 개수와 키를 모두 만족해야 한다.
     """
     problems = []
     for index, row in enumerate(rows, start=2):  # 2 = 헤더 다음 줄
+        if row.zone not in _REQUIRED_COUNT:
+            problems.append(f"{index}행 '{row.name}': 알 수 없는 zone '{row.zone}'")
         if not row.competencies:
             continue
         unknown = [c for c in row.competencies if c not in COMPETENCY_KEYS]
@@ -187,7 +191,11 @@ def run(args: argparse.Namespace, *, transport: httpx.BaseTransport | None = Non
                 created += 1
                 continue
 
-            if row.competencies and list(found.get("competencies") or []) != row.competencies:
+            # 서버는 역량을 사전순으로 돌려준다(booth_repo.py의 array_agg ... order by).
+            # CSV는 자연 순서라 list 비교는 갱신 후에도 영원히 "다르다"로 오판한다.
+            if row.competencies and sorted(found.get("competencies") or []) != sorted(
+                row.competencies
+            ):
                 if args.dry_run:
                     print(f"[역량 갱신 예정] {row.name} → {', '.join(row.competencies)}")
                 else:
@@ -212,7 +220,9 @@ def run(args: argparse.Namespace, *, transport: httpx.BaseTransport | None = Non
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="부스 명단 CSV를 관리자 API로 일괄 등록")
-    parser.add_argument("--base-url", default="https://api.cnu-likelion.kr")
+    # 기본값을 운영 서버로 두면 플래그를 빠뜨렸을 때 조용히 운영에 부스가 생긴다.
+    # 부스 삭제는 인쇄된 QR을 무효화하므로 되돌리기 비싸다 — 매번 명시하게 한다.
+    parser.add_argument("--base-url", required=True)
     parser.add_argument("--username", required=True)
     parser.add_argument("--password", required=True)
     parser.add_argument("--csv", default="scripts/booths.csv")
