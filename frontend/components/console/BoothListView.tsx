@@ -173,18 +173,20 @@ export function BoothListView() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => router.push("/admin/booths/print")}
-            >
-              QR 일괄 인쇄
-            </Button>
             {canEdit && (
-              <Button onClick={openCreate} className="gap-1.5">
-                <Plus className="size-4" aria-hidden />
-                부스 추가
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/admin/booths/print")}
+                >
+                  QR 일괄 인쇄
+                </Button>
+                <Button onClick={openCreate} className="gap-1.5">
+                  <Plus className="size-4" aria-hidden />
+                  부스 추가
+                </Button>
+              </>
             )}
           </div>
         </div>
