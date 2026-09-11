@@ -36,10 +36,16 @@ class FakeVisitStatsRepo:
 
 def _rows() -> list[BoothVisitCountRow]:
     return [
-        BoothVisitCountRow(booth_id=_BOOTH_A, code="A3K9QZ", name="AI 체험", visit_count=87),
-        BoothVisitCountRow(booth_id=_BOOTH_B, code="M2P4XW", name="로봇 부스", visit_count=61),
-        # 아무도 찍지 않은 부스도 0으로 나와야 한다(left join).
-        BoothVisitCountRow(booth_id=_BOOTH_EMPTY, code="Z9Q1RT", name="빈 부스", visit_count=0),
+        BoothVisitCountRow(
+            booth_id=_BOOTH_A, code="A3K9QZ", name="AI 체험", zone="F", visit_count=87
+        ),
+        BoothVisitCountRow(
+            booth_id=_BOOTH_B, code="M2P4XW", name="로봇 부스", zone="C", visit_count=61
+        ),
+        # 아무도 찍지 않은 부스도 0으로 나와야 한다(left join). 존을 모르는 부스는 ''.
+        BoothVisitCountRow(
+            booth_id=_BOOTH_EMPTY, code="Z9Q1RT", name="빈 부스", zone="", visit_count=0
+        ),
     ]
 
 

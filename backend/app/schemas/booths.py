@@ -163,6 +163,7 @@ class BoothVisitStat(BaseModel):
     booth_id: UUID
     code: str
     name: str
+    zone: BoothZone = ""
     visit_count: int = Field(..., description="이 부스를 찍은 학생 수")
 
 

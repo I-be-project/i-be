@@ -6,6 +6,8 @@
 //     검증 에러     { "detail": [ { "loc", "msg" } ] }  (FastAPI 기본)
 //   두 형식을 parseErrorMessage가 하나의 사용자 메시지로 통일한다.
 
+import type { BoothZone } from "@/lib/competencies";
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -78,6 +80,13 @@ export interface ProfileBoothStatus {
   visited: boolean;
 }
 
+// 역량 10개 점수 — 방문한 부스에 연결된 역량이 1점씩 오른다. 0점도 빠짐없이 내려온다.
+export interface ProfileCompetencyScore {
+  key: string;
+  label: string;
+  score: number;
+}
+
 export interface ProfileSummary {
   has_completed: boolean;
   retry_enabled: boolean;
@@ -86,6 +95,8 @@ export interface ProfileSummary {
   persona: ProfilePersona | null;
   card: ProfileCard | null;
   booths?: ProfileBoothStatus[];
+  // 배포 순서상 구버전 서버가 안 내려줄 수 있어 선택 필드로 둔다(booths와 같은 이유).
+  competencies?: ProfileCompetencyScore[];
 }
 
 // API 호출 실패를 status/code와 함께 던진다. 화면에서 분기(409/403/401 등)에 사용.
@@ -632,6 +643,8 @@ export interface AdminBooth {
   code: string;
   name: string;
   description: string | null;
+  zone: BoothZone;
+  competencies: string[];
   qr_url: string;
   created_at: string;
 }
@@ -639,6 +652,8 @@ export interface AdminBooth {
 export interface AdminBoothCreatePayload {
   name: string;
   description: string | null;
+  zone: BoothZone;
+  competencies: string[];
 }
 
 // 보내지 않은 필드는 서버가 기존 값을 유지한다.
@@ -646,6 +661,8 @@ export interface AdminBoothCreatePayload {
 export interface AdminBoothUpdatePayload {
   name?: string;
   description?: string | null;
+  zone?: BoothZone;
+  competencies?: string[];
 }
 
 export function fetchAdminBooths(token: string): Promise<AdminBooth[]> {
@@ -699,6 +716,7 @@ export interface BoothVisitStat {
   booth_id: string;
   code: string;
   name: string;
+  zone: BoothZone;
   visit_count: number;
 }
 

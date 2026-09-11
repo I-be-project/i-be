@@ -26,6 +26,7 @@ import {
   updateAdminBooth,
   type AdminBooth,
 } from "@/lib/api";
+import { ZONE_LABELS, type BoothZone } from "@/lib/competencies";
 
 export function BoothListView() {
   const router = useRouter();
@@ -33,6 +34,7 @@ export function BoothListView() {
   const canEdit = role === "admin";
   const [booths, setBooths] = useState<AdminBooth[]>([]);
   const [loading, setLoading] = useState(true);
+  const [zoneFilter, setZoneFilter] = useState<BoothZone | "all">("all");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AdminBooth | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -72,6 +74,8 @@ export function BoothListView() {
     void load();
   }, [load]);
 
+  const visible = zoneFilter === "all" ? booths : booths.filter((b) => b.zone === zoneFilter);
+
   function openCreate() {
     setEditing(null);
     setFormError(null);
@@ -87,6 +91,8 @@ export function BoothListView() {
   async function handleSubmit(values: {
     name: string;
     description: string | null;
+    zone: BoothZone;
+    competencies: string[];
   }) {
     const token = getToken();
     if (!token) {
@@ -166,12 +172,35 @@ export function BoothListView() {
                 : "부스 이름과 코드를 확인하고 QR을 다시 볼 수 있어요."}
             </p>
           </div>
-          {canEdit && (
-            <Button onClick={openCreate} className="gap-1.5">
-              <Plus className="size-4" aria-hidden />
-              부스 추가
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => router.push("/admin/booths/print")}
+            >
+              QR 일괄 인쇄
             </Button>
-          )}
+            {canEdit && (
+              <Button onClick={openCreate} className="gap-1.5">
+                <Plus className="size-4" aria-hidden />
+                부스 추가
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="mb-4 flex flex-wrap gap-2">
+          {(["all", "F", "L", "Y", "C", ""] as const).map((z) => (
+            <Button
+              key={z || "none"}
+              variant={zoneFilter === z ? "default" : "outline"}
+              size="sm"
+              onClick={() => setZoneFilter(z)}
+            >
+              {z === "all" ? "전체" : ZONE_LABELS[z]}
+              {z !== "all" && ` ${booths.filter((b) => b.zone === z).length}`}
+            </Button>
+          ))}
         </div>
 
         {loading ? (
@@ -193,19 +222,21 @@ export function BoothListView() {
                   <TableHead>이름</TableHead>
                   <TableHead>설명</TableHead>
                   <TableHead>코드</TableHead>
+                  <TableHead>존</TableHead>
                   <TableHead className="text-right">
                     {canEdit ? "관리" : "QR"}
                   </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {booths.map((booth) => (
+                {visible.map((booth) => (
                   <TableRow key={booth.id}>
                     <TableCell className="font-medium">{booth.name}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {booth.description ?? "—"}
                     </TableCell>
                     <TableCell className="font-mono">{booth.code}</TableCell>
+                    <TableCell>{ZONE_LABELS[booth.zone]}</TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1.5">
                         <Button
