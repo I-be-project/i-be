@@ -153,8 +153,8 @@ QR 링크의 base는 서버가 `FRONTEND_ORIGIN`으로 조립해 내려주므로
 **부스 탭 (학생).** 그대로 둔다. 방문한 부스 이름을 나열하는 화면이라 역량과 무관하다.
 
 **관리자.** 부스 목록에 존 컬럼과 존 필터, 등록·수정 폼에 존 선택을 넣는다. 참여 통계는
-기존 응답을 그대로 받아 **프론트에서 존으로 묶어** 보여준다. 통계 API는 바꾸지 않는다.
-67행을 화면에서 묶는 데 서버 집계가 필요하지 않다.
+**프론트에서 존으로 묶어** 보여준다. 집계는 그대로 서버가 하고 응답에 존 필드 하나만 더한다.
+서버에 존별 집계를 새로 만들지 않는다 — 67행을 화면에서 나누는 데 필요하지 않다.
 
 ## API 변경
 
@@ -164,6 +164,7 @@ QR 링크의 base는 서버가 `FRONTEND_ORIGIN`으로 조립해 내려주므로
 | `BoothUpdateRequest` | `zone`·`competencies` 추가 (부분 수정) |
 | `BoothResponse` | `zone`·`competencies` 추가 |
 | `ProfileSummary` | `competencies` 추가 — 10개 역량의 키·라벨·점수 |
+| `BoothVisitStat` | `zone` 추가 — 참여 통계를 존별로 묶기 위해 |
 | `StudentBoothResponse` | 바꾸지 않는다 |
 
 `ProfileSummary.competencies`는 **점수가 0인 역량도 10개 모두** 내려준다. 프론트가 축을
