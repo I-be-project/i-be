@@ -697,7 +697,8 @@ def _check_competencies(value: list[str]) -> list[str]:
                 )
             except asyncpg.UniqueViolationError:
                 continue
-            return await self._apply_competencies(record, req.competencies)
+            # 빈 목록이면 건너뛴다 — 새 부스에는 지울 역량이 없어 재조회가 낭비다.
+            return await self._apply_competencies(record, req.competencies or None)
         raise ConflictError("부스 코드를 발급하지 못했습니다. 다시 시도해주세요.")
 
     async def _apply_competencies(
@@ -1289,7 +1290,8 @@ class AdminClient:
             "/api/admin/login", json={"username": username, "password": password}
         )
         res.raise_for_status()
-        self._token = str(res.json()["access_token"])
+        # 응답 키는 admin_token이다(app/schemas/admin.py AdminLoginResponse).
+        self._token = str(res.json()["admin_token"])
 
     def _headers(self) -> dict[str, str]:
         return {"Authorization": f"Bearer {self._token}"}
@@ -1394,7 +1396,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-관리자 로그인 경로(`/api/admin/login`)와 응답의 토큰 키(`access_token`)는 `backend/app/routers/admin.py`와 `backend/scripts/export_students.py`에서 실제 이름을 확인해 맞춘다. 다르면 그 이름을 쓴다.
+관리자 로그인 경로는 `/api/admin/login`, 응답의 토큰 키는 `admin_token`이다. `app/schemas/admin.py`의 `AdminLoginResponse`와 `scripts/export_students.py`에서 확인한 값이다.
 
 - [ ] **Step 5: 테스트가 통과하는지 확인한다**
 
@@ -1411,7 +1413,7 @@ def _fake_transport(state: dict[str, Any]) -> httpx.MockTransport:
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/api/admin/login":
-            return httpx.Response(200, json={"access_token": "t"})
+            return httpx.Response(200, json={"admin_token": "t"})
         if request.url.path == "/api/admin/booths" and request.method == "GET":
             return httpx.Response(200, json=state["existing"])
         if request.url.path == "/api/admin/booths" and request.method == "POST":
