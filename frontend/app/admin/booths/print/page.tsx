@@ -20,6 +20,7 @@ export default function BoothPrintPage() {
   const [booths, setBooths] = useState<AdminBooth[]>([]);
   const [zone, setZone] = useState<BoothZone | "all">("all");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -27,6 +28,7 @@ export default function BoothPrintPage() {
       router.replace(loginPath);
       return;
     }
+    setError(null);
     try {
       setBooths(await fetchAdminBooths(token));
     } catch (err) {
@@ -35,6 +37,8 @@ export default function BoothPrintPage() {
         router.replace(loginPath);
         return;
       }
+      // 빈 목록과 구분해야 한다 — 그냥 삼키면 서버 오류를 "인쇄할 부스가 없다"로 오해한다.
+      setError("부스를 불러오지 못했어요. 새로고침해 주세요.");
     } finally {
       setLoading(false);
     }
@@ -60,13 +64,19 @@ export default function BoothPrintPage() {
             {z === "all" ? "전체" : ZONE_LABELS[z]}
           </Button>
         ))}
-        <Button size="sm" onClick={() => window.print()} disabled={visible.length === 0}>
+        <Button
+          size="sm"
+          onClick={() => window.print()}
+          disabled={!!error || visible.length === 0}
+        >
           인쇄
         </Button>
       </div>
 
       {loading ? (
         <p className="text-sm text-slate-500">부스를 불러오는 중…</p>
+      ) : error ? (
+        <p className="text-sm text-destructive">{error}</p>
       ) : visible.length === 0 ? (
         <p className="text-sm text-slate-500">이 존에 등록된 부스가 없어요.</p>
       ) : (
