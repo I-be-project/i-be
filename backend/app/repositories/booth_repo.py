@@ -29,15 +29,33 @@ class BoothRecord:
     zone: str
     created_at: datetime
     updated_at: datetime
+    # 이 부스에 연결된 역량 키. 매핑 자료가 오기 전에는 빈 튜플이다.
+    competencies: tuple[str, ...] = ()
+
+
+# 부스 1행 + 연결된 역량 배열. left join이라 역량이 없는 부스도 빈 배열로 나온다.
+_SELECT_WITH_COMPETENCIES = f"""
+    select {", ".join("b." + c.strip() for c in _COLUMNS.split(","))},
+           coalesce(
+               array_agg(bc.competency order by bc.competency)
+                   filter (where bc.competency is not null),
+               '{{}}'
+           ) as competencies
+      from ops.booths b
+      left join ops.booth_competencies bc on bc.booth_id = b.id
+"""
 
 
 def _to_record(row: asyncpg.Record) -> BoothRecord:
+    # insert/update의 returning에는 competencies가 없다 — 그때는 빈 튜플로 둔다.
+    raw = row["competencies"] if "competencies" in row.keys() else ()
     return BoothRecord(
         id=row["id"],
         code=row["code"],
         name=row["name"],
         description=row["description"],
         zone=row["zone"],
+        competencies=tuple(raw),
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
@@ -59,7 +77,7 @@ class BoothRepository(BaseRepository):
         return _to_record(row)
 
     async def get(self, booth_id: UUID) -> BoothRecord | None:
-        query = f"select {_COLUMNS} from ops.booths where id = $1"
+        query = f"{_SELECT_WITH_COMPETENCIES} where b.id = $1 group by b.id"
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(query, booth_id)
         return _to_record(row) if row is not None else None
@@ -69,14 +87,14 @@ class BoothRepository(BaseRepository):
 
         code 정규화(대문자·공백 제거)는 호출부(BoothVisitService)의 책임이다.
         """
-        query = f"select {_COLUMNS} from ops.booths where code = $1"
+        query = f"{_SELECT_WITH_COMPETENCIES} where b.code = $1 group by b.id"
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(query, code)
         return _to_record(row) if row is not None else None
 
     async def list_all(self) -> list[BoothRecord]:
         """전체 부스 — 등록 순. 부스는 행사당 수십 개라 페이지네이션을 두지 않는다."""
-        query = f"select {_COLUMNS} from ops.booths order by created_at"
+        query = f"{_SELECT_WITH_COMPETENCIES} group by b.id order by b.created_at"
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(query)
         return [_to_record(row) for row in rows]
@@ -108,3 +126,17 @@ class BoothRepository(BaseRepository):
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(query, booth_id)
         return row is not None
+
+    async def replace_competencies(self, booth_id: UUID, competencies: list[str]) -> None:
+        """이 부스의 역량을 준 목록으로 통째로 바꾼다.
+
+        지우고 다시 넣는다. 최대 3행이라 차이를 계산하는 것보다 싸고, 중간 상태가 없다.
+        한 트랜잭션에서 처리해 삭제만 되고 삽입이 실패하는 일이 없게 한다.
+        """
+        async with self._pool.acquire() as conn, conn.transaction():
+            await conn.execute("delete from ops.booth_competencies where booth_id = $1", booth_id)
+            if competencies:
+                await conn.executemany(
+                    "insert into ops.booth_competencies (booth_id, competency) values ($1, $2)",
+                    [(booth_id, c) for c in competencies],
+                )

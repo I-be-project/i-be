@@ -41,6 +41,7 @@ class BoothService:
             name=record.name,
             description=record.description,
             zone=record.zone,
+            competencies=list(record.competencies),
             qr_url=self._qr_url(record.code),
             created_at=record.created_at,
         )
@@ -57,8 +58,23 @@ class BoothService:
                 )
             except asyncpg.UniqueViolationError:
                 continue
-            return self._to_response(record)
+            # 빈 목록이면 건너뛴다 — 새 부스에는 지울 역량이 없어 재조회가 낭비다.
+            return await self._apply_competencies(record, req.competencies or None)
         raise ConflictError("부스 코드를 발급하지 못했습니다. 다시 시도해주세요.")
+
+    async def _apply_competencies(
+        self, record: BoothRecord, competencies: list[str] | None
+    ) -> BoothResponse:
+        """역량을 넣고 최신 상태로 응답을 만든다.
+
+        insert/update의 returning에는 역량이 없어(조인 쿼리가 아니다) 넣은 뒤 다시 읽는다.
+        보내지 않았으면(None) 건드리지 않는다.
+        """
+        if competencies is None:
+            return self._to_response(record)
+        await self._booths.replace_competencies(record.id, competencies)
+        refreshed = await self._booths.get(record.id)
+        return self._to_response(refreshed if refreshed is not None else record)
 
     async def list_all(self) -> list[BoothResponse]:
         """전체 부스 목록 — 등록 순."""
@@ -83,11 +99,12 @@ class BoothService:
         description = req.description if "description" in provided else current.description
         zone = req.zone if "zone" in provided else current.zone
         assert zone is not None  # BoothUpdateRequest 검증기가 명시적 null을 이미 거부한다
+        competencies = req.competencies if "competencies" in provided else None
 
         updated = await self._booths.update(booth_id, name=name, description=description, zone=zone)
         if updated is None:
             raise NotFoundError("부스를 찾을 수 없습니다.")
-        return self._to_response(updated)
+        return await self._apply_competencies(updated, competencies)
 
     async def delete(self, booth_id: UUID) -> BoothDeleteResponse:
         if not await self._booths.delete(booth_id):

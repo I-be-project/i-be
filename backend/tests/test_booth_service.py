@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -39,6 +40,7 @@ class FakeBoothRepo:
             name=name,
             description=description,
             zone=zone,
+            competencies=(),
             created_at=now,
             updated_at=now,
         )
@@ -66,6 +68,7 @@ class FakeBoothRepo:
             name=name,
             description=description,
             zone=zone,
+            competencies=current.competencies,
             created_at=current.created_at,
             updated_at=datetime.now(UTC),
         )
@@ -74,6 +77,12 @@ class FakeBoothRepo:
 
     async def delete(self, booth_id: UUID) -> bool:
         return self.rows.pop(booth_id, None) is not None
+
+    async def replace_competencies(self, booth_id: UUID, competencies: list[str]) -> None:
+        current = self.rows.get(booth_id)
+        if current is None:
+            return
+        self.rows[booth_id] = replace(current, competencies=tuple(competencies))
 
 
 def _service(repo: FakeBoothRepo, *, origin: str = "https://i-be.vercel.app") -> BoothService:
@@ -212,3 +221,57 @@ async def test_update_keeps_zone_when_not_sent() -> None:
 def test_invalid_zone_is_rejected() -> None:
     with pytest.raises(ValidationError):
         BoothCreateRequest(name="부스", zone="Z")
+
+
+@pytest.mark.anyio
+async def test_create_with_competencies() -> None:
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+
+    created = await service.create(
+        BoothCreateRequest(
+            name="드론 시뮬레이션",
+            zone="F",
+            competencies=["challenge", "analysis", "thinking"],
+        )
+    )
+
+    assert sorted(created.competencies) == ["analysis", "challenge", "thinking"]
+
+
+@pytest.mark.anyio
+async def test_update_replaces_competencies() -> None:
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+    created = await service.create(
+        BoothCreateRequest(name="부스", zone="F", competencies=["challenge"])
+    )
+
+    updated = await service.update(
+        created.id, BoothUpdateRequest(competencies=["empathy", "planning"])
+    )
+
+    assert sorted(updated.competencies) == ["empathy", "planning"]
+
+
+@pytest.mark.anyio
+async def test_update_keeps_competencies_when_not_sent() -> None:
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+    created = await service.create(
+        BoothCreateRequest(name="부스", zone="F", competencies=["challenge"])
+    )
+
+    updated = await service.update(created.id, BoothUpdateRequest(name="바뀐 이름"))
+
+    assert updated.competencies == ["challenge"]
+
+
+def test_unknown_competency_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        BoothCreateRequest(name="부스", competencies=["없는역량"])
+
+
+def test_duplicate_competency_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        BoothCreateRequest(name="부스", competencies=["challenge", "challenge"])

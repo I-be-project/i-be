@@ -12,6 +12,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.core.competencies import COMPETENCY_KEYS
+
 # 존 4개 — F/L/Y는 직업체험, C는 역량체험. 존을 모르는 부스는 ''.
 BoothZone = Literal["F", "L", "Y", "C", ""]
 
@@ -31,10 +33,27 @@ def _normalize_description(value: str | None) -> str | None:
     return value.strip() or None
 
 
+def _check_competencies(value: list[str]) -> list[str]:
+    """역량 키가 알려진 값인지, 중복이 없는지 본다.
+
+    개수(직업체험 3개·역량체험 1개)는 여기서 강제하지 않는다. 매핑 자료가 오기 전에는
+    0개로 두어야 하고, 개수 규칙은 시드 스크립트가 검사한다.
+    """
+    unknown = [c for c in value if c not in COMPETENCY_KEYS]
+    if unknown:
+        raise ValueError(f"알 수 없는 역량이에요: {', '.join(unknown)}")
+    if len(set(value)) != len(value):
+        raise ValueError("같은 역량을 두 번 넣을 수 없어요.")
+    return value
+
+
 class BoothCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="부스 이름")
     description: str | None = Field(None, max_length=500, description="부스 설명(선택)")
     zone: BoothZone = Field("", description="F·L·Y·C 중 하나. 생략하면 빈 값")
+    competencies: list[str] = Field(
+        default_factory=list, max_length=10, description="연결할 역량 키 목록"
+    )
 
     @field_validator("name")
     @classmethod
@@ -45,6 +64,11 @@ class BoothCreateRequest(BaseModel):
     @classmethod
     def _check_description(cls, value: str | None) -> str | None:
         return _normalize_description(value)
+
+    @field_validator("competencies")
+    @classmethod
+    def _check_competency_list(cls, value: list[str]) -> list[str]:
+        return _check_competencies(value)
 
 
 class BoothUpdateRequest(BaseModel):
@@ -60,6 +84,9 @@ class BoothUpdateRequest(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=100)
     description: str | None = Field(None, max_length=500)
     zone: BoothZone | None = Field(None, description="보내지 않으면 기존 값 유지")
+    competencies: list[str] | None = Field(
+        None, max_length=10, description="보내지 않으면 기존 값 유지. 빈 목록을 보내면 전부 지운다"
+    )
 
     @field_validator("name")
     @classmethod
@@ -80,6 +107,13 @@ class BoothUpdateRequest(BaseModel):
             raise ValueError("존은 비울 수 없어요. 지우려면 빈 문자열을 보내주세요.")
         return value
 
+    @field_validator("competencies")
+    @classmethod
+    def _check_competency_list(cls, value: list[str] | None) -> list[str] | None:
+        if value is None:
+            return None
+        return _check_competencies(value)
+
 
 class BoothResponse(BaseModel):
     id: UUID
@@ -87,6 +121,7 @@ class BoothResponse(BaseModel):
     name: str
     description: str | None = None
     zone: BoothZone = ""
+    competencies: list[str] = Field(default_factory=list)
     qr_url: str = Field(..., description="QR에 담을 링크 (FRONTEND_ORIGIN 기준)")
     created_at: datetime
 
