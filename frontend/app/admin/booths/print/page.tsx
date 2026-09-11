@@ -21,6 +21,7 @@ export default function BoothPrintPage() {
   const [zone, setZone] = useState<BoothZone | "all">("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [renderFailed, setRenderFailed] = useState(false);
 
   const load = useCallback(async () => {
     const token = getToken();
@@ -48,6 +49,10 @@ export default function BoothPrintPage() {
     void load();
   }, [load]);
 
+  const handleRenderFailedChange = useCallback((failed: boolean) => {
+    setRenderFailed(failed);
+  }, []);
+
   const visible = zone === "all" ? booths : booths.filter((b) => b.zone === zone);
 
   return (
@@ -67,7 +72,7 @@ export default function BoothPrintPage() {
         <Button
           size="sm"
           onClick={() => window.print()}
-          disabled={!!error || visible.length === 0}
+          disabled={!!error || renderFailed || visible.length === 0}
         >
           인쇄
         </Button>
@@ -80,7 +85,14 @@ export default function BoothPrintPage() {
       ) : visible.length === 0 ? (
         <p className="text-sm text-slate-500">이 존에 등록된 부스가 없어요.</p>
       ) : (
-        <BoothPrintSheet booths={visible} />
+        <>
+          {renderFailed && (
+            <p className="mb-4 text-sm text-destructive print:hidden">
+              QR 이미지를 만들지 못했어요. 새로고침해 주세요.
+            </p>
+          )}
+          <BoothPrintSheet booths={visible} onRenderFailedChange={handleRenderFailedChange} />
+        </>
       )}
     </main>
   );
