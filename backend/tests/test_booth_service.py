@@ -222,6 +222,21 @@ async def test_update_keeps_zone_when_not_sent() -> None:
     assert updated.zone == "L"
 
 
+@pytest.mark.anyio
+async def test_update_changes_zone_when_sent() -> None:
+    """zone을 보내면 실제로 바뀌어야 한다 — repo에 zone을 안 넘겨도 통과하는
+
+    "유지" 테스트만으로는 이 경로가 조용히 깨질 수 있다.
+    """
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+    created = await service.create(BoothCreateRequest(name="원래 이름", zone="L"))
+
+    updated = await service.update(created.id, BoothUpdateRequest(zone="Y"))
+
+    assert updated.zone == "Y"
+
+
 def test_invalid_zone_is_rejected() -> None:
     with pytest.raises(ValidationError):
         BoothCreateRequest(name="부스", zone="Z")

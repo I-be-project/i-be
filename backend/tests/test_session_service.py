@@ -212,7 +212,7 @@ def _persona() -> PersonaRecord:
     )
 
 
-def _booth(name: str = "체험부스") -> BoothRecord:
+def _booth(name: str = "체험부스", *, competencies: tuple[str, ...] = ()) -> BoothRecord:
     return BoothRecord(
         id=uuid4(),
         code="ABC123",
@@ -221,6 +221,7 @@ def _booth(name: str = "체험부스") -> BoothRecord:
         zone="",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
+        competencies=competencies,
     )
 
 
@@ -435,6 +436,28 @@ async def test_profile_summary_no_booths_returns_empty_list() -> None:
     service, _, _ = _build(latest=None)
     summary = await service.get_profile_summary(uuid4())
     assert summary.booths == []
+
+
+async def test_profile_summary_scores_competencies_of_visited_booth() -> None:
+    """역량이 채워진 부스를 방문하면 그 역량만 1점, 나머지 9개는 0점이어야 한다.
+
+    _list_booth_statuses가 booth_competencies를 booth.id로, visited_booth_ids를
+    visit.booth_id로 맞추는 배선을 검증한다 — 여기서 키를 code로 잘못 쓰면 매핑이
+    와도 모든 점수가 0으로 나와 빈 상태와 구분할 수 없어진다.
+    """
+    student_id = uuid4()
+    booth = _booth("스피치ON", competencies=("communication",))
+    service, _, _ = _build(
+        latest=None,
+        booths=[booth],
+        visits=[_visit(student_id=student_id, booth_id=booth.id)],
+    )
+
+    summary = await service.get_profile_summary(student_id)
+
+    scores = {s.key: s.score for s in summary.competencies}
+    assert scores["communication"] == 1
+    assert all(score == 0 for key, score in scores.items() if key != "communication")
 
 
 def _persona_input() -> Persona:
