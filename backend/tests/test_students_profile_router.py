@@ -9,6 +9,7 @@ from uuid import uuid4
 import httpx
 
 from app.config import get_settings
+from app.core.competencies import COMPETENCY_KEYS, COMPETENCY_LABELS
 from app.deps import current_student, get_auth_service, get_session_service
 from app.main import create_app
 from app.repositories.card_repo import CardRecord
@@ -84,6 +85,10 @@ async def test_me_with_no_session_returns_not_completed() -> None:
             "persona": None,
             "card": None,
             "booths": [],
+            # 방문 기록이 없어도 역량 10개를 0점으로 채워 내려준다.
+            "competencies": [
+                {"key": key, "label": COMPETENCY_LABELS[key], "score": 0} for key in COMPETENCY_KEYS
+            ],
         }
     finally:
         await gen.aclose()
