@@ -36,7 +36,9 @@ export const REQUIRED_COMPETENCY_COUNT: Record<BoothZone, number | null> = {
 // 점수 배열의 형태만 요구한다. api.ts의 ProfileCompetencyScore를 import하지 않는 이유는
 // api.ts가 이 파일의 BoothZone을 가져다 쓰기 때문이다 — 타입만 오가면 런타임 순환은
 // 없지만, 한쪽 방향으로만 의존하게 두는 편이 읽기 쉽다.
-type Scored = { key: string; score: number };
+// label은 실제 응답(ProfileCompetencyScore)에도 있다 — 옵셔널로 열어 둬야 그 값을 그대로
+// 넘겨도(초과 속성 검사) 타입 에러가 나지 않는다. 이 함수는 label을 쓰지 않고 무시한다.
+type Scored = { key: string; score: number; label?: string };
 
 /**
  * 레이더 차트에 넣을 10개 축. 응답에 빠진 역량은 0으로 채운다.
