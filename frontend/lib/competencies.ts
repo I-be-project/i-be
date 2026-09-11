@@ -32,3 +32,26 @@ export const REQUIRED_COMPETENCY_COUNT: Record<BoothZone, number | null> = {
   C: 1,
   "": null,
 };
+
+// 점수 배열의 형태만 요구한다. api.ts의 ProfileCompetencyScore를 import하지 않는 이유는
+// api.ts가 이 파일의 BoothZone을 가져다 쓰기 때문이다 — 타입만 오가면 런타임 순환은
+// 없지만, 한쪽 방향으로만 의존하게 두는 편이 읽기 쉽다.
+type Scored = { key: string; score: number };
+
+/**
+ * 레이더 차트에 넣을 10개 축. 응답에 빠진 역량은 0으로 채운다.
+ *
+ * 축을 서버 응답 순서가 아니라 COMPETENCIES 순서로 고정한다. 축 순서가 화면마다
+ * 달라지면 같은 학생의 그래프가 다르게 보인다.
+ */
+export function toChartData(
+  scores: readonly Scored[] | undefined
+): { label: string; score: number }[] {
+  const byKey = new Map((scores ?? []).map((s) => [s.key, s.score]));
+  return COMPETENCIES.map((c) => ({ label: c.label, score: byKey.get(c.key) ?? 0 }));
+}
+
+/** 점수가 하나라도 있는지. 전부 0이면 차트 대신 빈 상태를 보여준다. */
+export function hasAnyScore(scores: readonly Scored[] | undefined): boolean {
+  return (scores ?? []).some((s) => s.score > 0);
+}
