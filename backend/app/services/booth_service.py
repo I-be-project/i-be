@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from uuid import UUID
 
 import asyncpg
@@ -104,6 +105,11 @@ class BoothService:
         updated = await self._booths.update(booth_id, name=name, description=description, zone=zone)
         if updated is None:
             raise NotFoundError("부스를 찾을 수 없습니다.")
+        if competencies is None:
+            # update()의 returning에는 역량 컬럼이 없다(조인 쿼리가 아니라서 항상 빈 튜플로
+            # 채워져 온다). 보내지 않았으면 건드리지 않아야 하므로, 이미 조회해 둔 current의
+            # 값으로 채운다 — get()으로 다시 조회할 필요 없이 이미 손에 있는 값이다.
+            updated = replace(updated, competencies=current.competencies)
         return await self._apply_competencies(updated, competencies)
 
     async def delete(self, booth_id: UUID) -> BoothDeleteResponse:

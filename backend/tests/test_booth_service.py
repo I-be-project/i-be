@@ -62,7 +62,8 @@ class FakeBoothRepo:
         current = self.rows.get(booth_id)
         if current is None:
             return None
-        updated = BoothRecord(
+        # 저장된 상태(self.rows)는 역량을 보존한다 — 실제 DB 행이 그렇다.
+        stored = BoothRecord(
             id=current.id,
             code=current.code,
             name=name,
@@ -72,8 +73,11 @@ class FakeBoothRepo:
             created_at=current.created_at,
             updated_at=datetime.now(UTC),
         )
-        self.rows[booth_id] = updated
-        return updated
+        self.rows[booth_id] = stored
+        # 반환값은 진짜 BoothRepository.update()의 returning과 같이 competencies=()다 —
+        # update 쿼리는 조인 쿼리가 아니라 역량 컬럼이 없다. 서비스가 이 빈 값을 곧이곧대로
+        # 쓰면 안 된다는 걸 테스트가 잡아야 하므로 Fake도 진짜와 같은 결손을 재현한다.
+        return replace(stored, competencies=())
 
     async def delete(self, booth_id: UUID) -> bool:
         return self.rows.pop(booth_id, None) is not None
