@@ -74,6 +74,9 @@ async def test_stats_carries_booth_identity() -> None:
     assert first.booth_id == _BOOTH_A
     assert first.code == "A3K9QZ"
     assert first.name == "AI 체험"
+    # zone="" 기본값과 구분되도록 ''가 아닌 존(F)으로 확인한다 — zone이 안 실리거나
+    # 엉뚱한 필드로 오매핑돼도 스키마 기본값에 가려지지 않게 하기 위함.
+    assert first.zone == "F"
 
 
 def _build() -> object:
@@ -108,6 +111,9 @@ async def test_stats_endpoint_allows_operator_and_admin() -> None:
             body = res.json()
             assert body["total_visits"] == 148
             assert len(body["booths"]) == 3
+            # HTTP 응답 JSON까지 zone이 실려 나오는지 확인한다(서비스 계층만으론
+            # 라우터·직렬화 단계에서 필드가 빠지는 회귀를 못 잡는다).
+            assert body["booths"][0]["zone"] == "F"
     finally:
         await gen.aclose()
 
