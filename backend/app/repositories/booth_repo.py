@@ -14,7 +14,7 @@ import asyncpg
 
 from app.repositories.base import BaseRepository
 
-_COLUMNS = "id, code, name, description, created_at, updated_at"
+_COLUMNS = "id, code, name, description, zone, created_at, updated_at"
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +25,8 @@ class BoothRecord:
     code: str
     name: str
     description: str | None
+    # 'F'·'L'·'Y'·'C' 중 하나, 또는 존을 모르는 부스는 ''.
+    zone: str
     created_at: datetime
     updated_at: datetime
 
@@ -35,21 +37,24 @@ def _to_record(row: asyncpg.Record) -> BoothRecord:
         code=row["code"],
         name=row["name"],
         description=row["description"],
+        zone=row["zone"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )
 
 
 class BoothRepository(BaseRepository):
-    async def create(self, *, code: str, name: str, description: str | None) -> BoothRecord:
+    async def create(
+        self, *, code: str, name: str, description: str | None, zone: str
+    ) -> BoothRecord:
         """부스 1건 생성. code가 이미 있으면 asyncpg.UniqueViolationError."""
         query = f"""
-            insert into ops.booths (code, name, description)
-            values ($1, $2, $3)
+            insert into ops.booths (code, name, description, zone)
+            values ($1, $2, $3, $4)
             returning {_COLUMNS}
         """
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(query, code, name, description)
+            row = await conn.fetchrow(query, code, name, description, zone)
         assert row is not None  # insert ... returning은 성공 시 항상 1행
         return _to_record(row)
 
@@ -77,9 +82,9 @@ class BoothRepository(BaseRepository):
         return [_to_record(row) for row in rows]
 
     async def update(
-        self, booth_id: UUID, *, name: str, description: str | None
+        self, booth_id: UUID, *, name: str, description: str | None, zone: str
     ) -> BoothRecord | None:
-        """이름·설명을 준 값으로 교체. 없는 id면 None.
+        """이름·설명·존을 준 값으로 교체. 없는 id면 None.
 
         부분 수정(보낸 필드만 반영)은 서비스가 기존 값과 병합해 완성값을 넘기는 방식으로 처리한다.
         여기서 coalesce를 쓰면 description을 null로 지우는 요청과 구분할 수 없다.
@@ -88,12 +93,13 @@ class BoothRepository(BaseRepository):
             update ops.booths
                set name        = $2,
                    description = $3,
+                   zone        = $4,
                    updated_at  = now()
              where id = $1
             returning {_COLUMNS}
         """
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(query, booth_id, name, description)
+            row = await conn.fetchrow(query, booth_id, name, description, zone)
         return _to_record(row) if row is not None else None
 
     async def delete(self, booth_id: UUID) -> bool:

@@ -77,7 +77,7 @@ def _service(
 async def _seed_booth(
     repo: FakeBoothRepo, *, code: str = "YP7PHR", name: str = "드론 체험"
 ) -> None:
-    await repo.create(code=code, name=name, description="드론을 직접 조종해보는 부스")
+    await repo.create(code=code, name=name, description="드론을 직접 조종해보는 부스", zone="")
 
 
 async def test_get_booth_returns_info_and_not_visited() -> None:

@@ -9,7 +9,7 @@ import asyncpg
 import pytest
 from pydantic import ValidationError
 
-from app.config import Settings
+from app.config import Settings, get_settings
 from app.core.booth_code import BOOTH_CODE_ALPHABET, BOOTH_CODE_LENGTH
 from app.core.errors import ConflictError, NotFoundError
 from app.repositories.booth_repo import BoothRecord
@@ -25,7 +25,9 @@ class FakeBoothRepo:
         self.collide_times = collide_times
         self.attempted_codes: list[str] = []
 
-    async def create(self, *, code: str, name: str, description: str | None) -> BoothRecord:
+    async def create(
+        self, *, code: str, name: str, description: str | None, zone: str
+    ) -> BoothRecord:
         self.attempted_codes.append(code)
         if self.collide_times > 0:
             self.collide_times -= 1
@@ -36,6 +38,7 @@ class FakeBoothRepo:
             code=code,
             name=name,
             description=description,
+            zone=zone,
             created_at=now,
             updated_at=now,
         )
@@ -52,7 +55,7 @@ class FakeBoothRepo:
         return sorted(self.rows.values(), key=lambda r: r.created_at)
 
     async def update(
-        self, booth_id: UUID, *, name: str, description: str | None
+        self, booth_id: UUID, *, name: str, description: str | None, zone: str
     ) -> BoothRecord | None:
         current = self.rows.get(booth_id)
         if current is None:
@@ -62,6 +65,7 @@ class FakeBoothRepo:
             code=current.code,
             name=name,
             description=description,
+            zone=zone,
             created_at=current.created_at,
             updated_at=datetime.now(UTC),
         )
@@ -170,3 +174,41 @@ async def test_list_all_returns_created_booths() -> None:
     items = await service.list_all()
 
     assert [b.name for b in items] == ["부스1", "부스2"]
+
+
+@pytest.mark.anyio
+async def test_create_with_zone() -> None:
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+
+    created = await service.create(BoothCreateRequest(name="드론 시뮬레이션", zone="F"))
+
+    assert created.zone == "F"
+
+
+@pytest.mark.anyio
+async def test_create_without_zone_is_blank() -> None:
+    """기존 관리자 화면은 zone을 보내지 않는다. 그 요청이 그대로 동작해야 한다."""
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+
+    created = await service.create(BoothCreateRequest(name="이름만 있는 부스"))
+
+    assert created.zone == ""
+
+
+@pytest.mark.anyio
+async def test_update_keeps_zone_when_not_sent() -> None:
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+    created = await service.create(BoothCreateRequest(name="원래 이름", zone="L"))
+
+    updated = await service.update(created.id, BoothUpdateRequest(name="바뀐 이름"))
+
+    assert updated.name == "바뀐 이름"
+    assert updated.zone == "L"
+
+
+def test_invalid_zone_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        BoothCreateRequest(name="부스", zone="Z")

@@ -218,6 +218,7 @@ def _booth(name: str = "체험부스") -> BoothRecord:
         code="ABC123",
         name=name,
         description=None,
+        zone="",
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
