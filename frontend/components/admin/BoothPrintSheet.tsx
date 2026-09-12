@@ -24,7 +24,7 @@ export function BoothPrintSheet({
   useEffect(() => {
     let active = true;
     Promise.all(
-      booths.map(async (b) => [b.id, await renderBoothQrPng(b.qr_url, b.code)] as const)
+      booths.map(async (b) => [b.id, await renderBoothQrPng(b.qr_url, b.name)] as const)
     )
       .then((pairs) => {
         if (!active) return;
@@ -55,11 +55,9 @@ export function BoothPrintSheet({
           ) : (
             <div className="h-40 w-40 animate-pulse rounded bg-slate-100" />
           )}
-          <p className="text-center text-base font-bold">{booth.name}</p>
-          <p className="text-center text-xs text-slate-500">{booth.description ?? ""}</p>
-          <p className="text-xs text-slate-400">
-            {ZONE_LABELS[booth.zone]} · {booth.code}
-          </p>
+          {/* 이름은 QR 이미지 안에 그려진다. 여기서는 기관명과 존만 덧붙인다. */}
+          <p className="text-center text-sm text-slate-500">{booth.description ?? ""}</p>
+          <p className="text-xs text-slate-400">{ZONE_LABELS[booth.zone]}</p>
         </div>
       ))}
     </div>
