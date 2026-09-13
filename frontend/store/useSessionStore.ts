@@ -69,6 +69,8 @@ interface SessionStore {
   sessionId: string | null;
   // 설문(Q9)까지 마치고 완료 저장에 성공했는지. 재진입 시 종료 화면으로 라우팅하는 기준.
   surveyCompleted: boolean;
+  retakingSurvey: boolean;
+  restartSurvey: () => void;
   persona: PersonaResult | null;
   cardId: string | null;
   riasecScores: Record<RiasecType, number> | null;
@@ -112,6 +114,13 @@ export const useSessionStore = create<SessionStore>()(
   hasPhoto: false,
   sessionId: null,
   surveyCompleted: false,
+  retakingSurvey: false,
+  restartSurvey: () => set({
+    inputMode: null, answers: [], sessionId: null, surveyCompleted: false,
+    retakingSurvey: true, persona: null, cardId: null, riasecScores: null,
+    pairCode: null, q7aSelection: null, q7bSelection: null,
+    q8Selection: null, q9Selection: null,
+  }),
   persona: null,
   cardId: null,
   riasecScores: null,
@@ -138,6 +147,7 @@ export const useSessionStore = create<SessionStore>()(
         hasPhoto: false,
         sessionId: null,
         surveyCompleted: false,
+        retakingSurvey: false,
         persona: null,
         cardId: null,
         riasecScores: null,
@@ -164,7 +174,7 @@ export const useSessionStore = create<SessionStore>()(
       return { answers: next };
     }),
   setSessionId: (id) => set({ sessionId: id }),
-  setSurveyCompleted: (v) => set({ surveyCompleted: v }),
+  setSurveyCompleted: (v) => set((state) => ({ surveyCompleted: v, retakingSurvey: v ? false : state.retakingSurvey })),
   setPersona: (persona) => set({ persona }),
   setCardId: (id) => set({ cardId: id }),
   setRiasec: (scores, pairCode) => set({ riasecScores: scores, pairCode }),
@@ -182,6 +192,7 @@ export const useSessionStore = create<SessionStore>()(
       hasPhoto: false,
       sessionId: null,
       surveyCompleted: false,
+      retakingSurvey: false,
       persona: null,
       cardId: null,
       riasecScores: null,
@@ -207,6 +218,7 @@ export const useSessionStore = create<SessionStore>()(
         hasPhoto: state.hasPhoto,
         sessionId: state.sessionId,
         surveyCompleted: state.surveyCompleted,
+        retakingSurvey: state.retakingSurvey,
         riasecScores: state.riasecScores,
         pairCode: state.pairCode,
         q7aSelection: state.q7aSelection,

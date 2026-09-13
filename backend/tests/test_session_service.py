@@ -30,6 +30,10 @@ class FakeStudentRepo:
 
 
 class FakeSessionRepo:
+    async def delete_completed_for_student(self, student_id: UUID) -> None:
+        if self.latest and self.latest.student_id == student_id and self.latest.status == "completed":
+            self.latest = None
+
     def __init__(self, latest: SessionRecord | None = None) -> None:
         self.latest = latest
         self.created: list[SessionRecord] = []
@@ -259,6 +263,20 @@ def _build(
         visits=FakeBoothVisitRepo(visits),
     )
     return service, storage, db_pool
+
+
+async def test_restart_clears_completion_preserves_photo_and_allows_completion_with_retry_off() -> None:
+    student = _student()
+    latest = replace(_session("completed"), student_id=student.id)
+    service, _, _ = _build(latest=latest, student=student, retry=False)
+    before = await service.get_profile_summary(student.id)
+    await service.restart_survey(student.id)
+    await service.restart_survey(student.id)  # 응답 유실 후 재호출해도 안전
+    after = await service.get_profile_summary(student.id)
+    assert before.has_completed is True
+    assert after.has_completed is False
+    assert after.student == before.student
+    assert (await service.complete_survey(student.id, None)).has_completed is True
 
 
 async def test_no_session_returns_not_completed() -> None:
@@ -572,6 +590,28 @@ async def test_submit_answer_not_found_when_session_missing() -> None:
     service, _, _ = _build(latest=None)
     with pytest.raises(NotFoundError):
         await service.submit_answer(uuid4(), uuid4(), "q7a", {})
+
+
+async def test_deleted_survey_cannot_be_completed_again_from_stale_tab() -> None:
+    import pytest
+
+    old = _session("completed")
+    service, _, pool = _build(latest=old)
+    await service.restart_survey(old.student_id)
+    with pytest.raises(NotFoundError):
+        await service.complete_survey(old.student_id, None, old.id)
+    assert pool.entered is False
+    assert service._sessions.created == []
+
+
+async def test_complete_rejects_other_students_session() -> None:
+    import pytest
+
+    old = _session("in_progress")
+    service, _, pool = _build(latest=old)
+    with pytest.raises(ForbiddenError):
+        await service.complete_survey(uuid4(), None, old.id)
+    assert pool.entered is False
 
 
 async def test_submit_answer_forbidden_for_other_student() -> None:

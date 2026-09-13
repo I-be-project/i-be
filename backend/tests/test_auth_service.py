@@ -456,6 +456,33 @@ async def test_attach_photo_unknown_student_not_found() -> None:
     assert storage.uploads == []
 
 
+async def test_replace_photo_changes_key_and_removes_old_photo() -> None:
+    service, repo, storage = _service()
+    student, _ = await service.register_student(**_register_kwargs())
+    old_key = await service.attach_photo(student.id, b"old", content_type="image/jpeg")
+    new_key = await service.attach_photo(student.id, b"new", content_type="image/png")
+    assert old_key != new_key
+    assert (await repo.get_by_id(student.id)).photo_key == new_key
+    assert storage.uploads[-1][1:] == (b"new", "image/png")
+    assert old_key in storage.deleted
+
+
+async def test_replace_photo_db_failure_preserves_old_photo() -> None:
+    service, repo, storage = _service()
+    student, _ = await service.register_student(**_register_kwargs())
+    old_key = await service.attach_photo(student.id, b"old", content_type="image/jpeg")
+
+    async def fail(*args: object) -> None:
+        raise RuntimeError("database unavailable")
+
+    repo.update_photo_key = fail
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        await service.attach_photo(student.id, b"new", content_type="image/png")
+    assert (await repo.get_by_id(student.id)).photo_key == old_key
+    assert old_key not in storage.deleted
+    assert storage.deleted == [f"photos/{storage.uploads[-1][0]}"]
+
+
 async def test_update_profile_updates_name_and_gender() -> None:
     service, repo, _ = _service()
     student, _ = await service.register_student(**_register_kwargs())

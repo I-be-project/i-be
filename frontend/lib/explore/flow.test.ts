@@ -49,7 +49,7 @@ describe("resumeScreen", () => {
 
 describe("reconcileFromProfile", () => {
   beforeEach(() => {
-    useSessionStore.setState({ surveyCompleted: false, hasPhoto: false });
+    useSessionStore.setState({ surveyCompleted: false, hasPhoto: false, retakingSurvey: false });
   });
 
   const profile = (
@@ -74,6 +74,29 @@ describe("reconcileFromProfile", () => {
   it("백엔드가 완료로 보면 로컬 surveyCompleted를 true로 맞춘다", () => {
     reconcileFromProfile(profile(true));
     expect(useSessionStore.getState().surveyCompleted).toBe(true);
+  });
+
+  it("재참여는 인증과 사진을 보존하고 새 세션으로 시작하며 이전 완료 이력에 밀리지 않는다", () => {
+    useSessionStore.setState({
+      studentToken: "token", studentId: "student", hasPhoto: true,
+      surveyCompleted: true, sessionId: "old-session",
+      answers: [{ questionId: 1, value: "old-answer" }],
+      q9Selection: { chips: [], freeText: "old" },
+    });
+    useSessionStore.getState().restartSurvey();
+    reconcileFromProfile(profile(true, "https://example.com/photo.jpg"));
+    const state = useSessionStore.getState();
+    expect(state.studentToken).toBe("token");
+    expect(state.studentId).toBe("student");
+    expect(state.hasPhoto).toBe(true);
+    expect(state.sessionId).toBeNull();
+    expect(state.answers).toEqual([]);
+    expect(state.q9Selection).toBeNull();
+    expect(state.retakingSurvey).toBe(true);
+    expect(resumeScreen(state)).toBe("explore");
+    state.setSurveyCompleted(true);
+    expect(useSessionStore.getState().retakingSurvey).toBe(false);
+    expect(resumeScreen(useSessionStore.getState())).toBe("done");
   });
 
   it("백엔드가 미완료면 로컬 상태를 건드리지 않는다", () => {

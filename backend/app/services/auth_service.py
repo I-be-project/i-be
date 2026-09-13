@@ -9,14 +9,17 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import timedelta
 from typing import Protocol
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from app.config import Settings
 from app.core.errors import ConflictError, ForbiddenError, NotFoundError, UnauthorizedError
 from app.core.security import TokenKind, create_token
 from app.repositories.student_repo import StudentRecord
+
+logger = logging.getLogger(__name__)
 
 
 class StudentRepo(Protocol):
@@ -69,6 +72,7 @@ class PhotoStorage(Protocol):
     """
 
     async def upload_photo(self, path: str, data: bytes, *, content_type: str) -> str: ...
+    async def delete(self, key: str) -> None: ...
 
 
 # 학교 없는 계정(guest·test)의 학교 식별 필드 고정값.
@@ -216,9 +220,22 @@ class AuthService:
         if student is None:
             raise NotFoundError("학생을 찾을 수 없습니다.")
 
-        path = f"{student_id}/photo"
+        # 수정은 새 키로 올린 뒤 DB를 바꾼다. 캐시 재사용과 저장 실패 시 원본 덮어쓰기를 방지한다.
+        path = f"{student_id}/photo-{uuid4()}" if student.photo_key else f"{student_id}/photo"
         photo_key = await self._storage.upload_photo(path, data, content_type=content_type)
-        await self._students.update_photo_key(student_id, photo_key)
+        try:
+            await self._students.update_photo_key(student_id, photo_key)
+        except Exception:
+            try:
+                await self._storage.delete(photo_key)
+            except Exception:
+                logger.warning("저장 실패한 새 사진 정리 실패", exc_info=True)
+            raise
+        if student.photo_key and student.photo_key != photo_key:
+            try:
+                await self._storage.delete(student.photo_key)
+            except Exception:
+                logger.warning("교체한 이전 사진 정리 실패", exc_info=True)
         return photo_key
 
     async def update_profile(

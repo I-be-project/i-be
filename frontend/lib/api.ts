@@ -242,6 +242,14 @@ export function getMyProfile(token: string): Promise<ProfileSummary> {
   });
 }
 
+export function restartSurvey(token: string): Promise<{ restarted: boolean }> {
+  return request("/api/sessions/restart", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmed: true }),
+  });
+}
+
 export function uploadPhoto(
   token: string,
   file: File
