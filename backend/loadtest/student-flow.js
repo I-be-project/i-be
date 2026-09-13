@@ -37,10 +37,13 @@
  * (-e로 준 값이 항상 우선. .env를 못 읽으면 그때만 에러)
  *
  * ── 환경변수 (전부 -e KEY=VALUE 로 전달) ────────────────────
- *   PROFILE         smoke | load | stress. 기본 load
- *                     smoke  VU 1, 30초 — 스크립트 검증용. 부하 아님
- *                     load   VU 10→30 램프, 3분 30초 — 기본
- *                     stress VU 30→100 램프, 4분 — 한계 확인용
+ *   PROFILE         smoke | load | peak | stress. 기본 load
+ *                     smoke  VU 1, 30초 — 스크립트 검증용. 부하 아님(LLM 대기 없음)
+ *                     load   VU 100, 7분 — 평상시 동시 사용자
+ *                     peak   VU 250, 7분 — 반 단위 몰림. 행사에서 버텨야 하는 선
+ *                     stress VU 800, 8분 — 한계 확인용
+ *   VUS             프로필의 최대 VU만 교체(램프 모양은 비율 유지)
+ *   LLM_WAIT        q7b·q8·q9 저장 직전 대기(초). 기본 10(smoke는 0). 0이면 대기 없음
  *   BASE_URL        대상 서버. 기본 http://localhost:8000
  *   ADMIN_USERNAME  관리자 계정 (테스트 계정 발급/삭제에 필요). 미지정 시 .env에서 읽음
  *   ADMIN_PASSWORD  관리자 비밀번호. 미지정 시 .env에서 읽음
@@ -139,17 +142,22 @@ const SCHOOL_FOR_PROGRESS = __ENV.SCHOOL || '테스트';
  *   - 평균 동시 사용자 = 0.35 × 300~600초 ≈ 100~210명
  *   - 학교·반 단위로 몰리는 피크는 평균의 2~3배 → 250~500명
  *
+ * llmWait 덕분에 VU 1명 = 실제 학생 1명이므로 위 숫자를 그대로 VU 수로 쓴다.
  * 운영 시간이나 체류시간 가정이 바뀌면 위 식으로 다시 계산해서 여기를 고친다.
  * 임시로 규모만 바꿔 볼 거면 -e VUS=<수> 로 프로필 전체를 비례 조정할 수 있다.
+ *
+ * llmWait: q7b·q8·q9 답변 저장 직전에 넣는 대기(초). 아래 LLM_WAIT_SECONDS 설명 참조.
  */
 const PROFILES = {
-  // 스크립트가 도는지 30초 만에 확인. 부하 측정용이 아니다.
+  // 스크립트가 도는지 빠르게 확인. 부하 측정용이 아니라서 LLM 대기를 넣지 않는다
+  // (넣으면 한 바퀴 도는 데만 35초라 기능 확인이 느려진다).
   smoke: {
     stages: [{ duration: '10s', target: 1 }, { duration: '20s', target: 1 }],
     duration: '30s',
     maxVUs: 1,
+    llmWait: 0,
   },
-  // 평상시 동시 사용자.
+  // 평상시 동시 사용자 100명.
   load: {
     stages: [
       { duration: '1m', target: 50 },
@@ -159,8 +167,9 @@ const PROFILES = {
     ],
     duration: '7m',
     maxVUs: 100,
+    llmWait: 10,
   },
-  // 반 단위로 몰리는 피크. 실제 행사에서 버텨야 하는 선.
+  // 반 단위로 몰리는 피크 250명. 실제 행사에서 버텨야 하는 선.
   peak: {
     stages: [
       { duration: '1m', target: 100 },
@@ -170,18 +179,20 @@ const PROFILES = {
     ],
     duration: '7m',
     maxVUs: 250,
+    llmWait: 10,
   },
-  // 어디서 깨지는지 보는 용도. 여기서 통과하면 여유가 있는 것.
+  // 어디서 깨지는지 보는 용도. LLM 대기가 들어가면 VU당 요청 빈도가 1/7로 떨어지므로
+  // 한계를 보려면 VU를 그만큼 더 올려야 한다(실측 포화점 ~176 req/s 기준 약 770 VU).
   stress: {
     stages: [
-      { duration: '1m', target: 100 },
-      { duration: '2m', target: 300 },
-      { duration: '2m', target: 500 },
-      { duration: '2m', target: 500 },
+      { duration: '2m', target: 400 },
+      { duration: '2m', target: 800 },
+      { duration: '3m', target: 800 },
       { duration: '1m', target: 0 },
     ],
     duration: '8m',
-    maxVUs: 500,
+    maxVUs: 800,
+    llmWait: 10,
   },
 };
 
@@ -215,9 +226,31 @@ const PROFILE =
 // 계정 수 기본값은 프로필 최대 VU와 맞춘다 — VU마다 다른 계정을 쓰게 하려는 것.
 const ACCOUNT_COUNT = Number(__ENV.ACCOUNTS || PROFILE.maxVUs);
 
+// -e LLM_WAIT=<초>가 프로필 기본값을 덮어쓴다. 0을 명시하면 대기 없이(기존 동작) 돈다.
+const LLM_WAIT_SECONDS =
+  __ENV.LLM_WAIT !== undefined && __ENV.LLM_WAIT !== ''
+    ? Number(__ENV.LLM_WAIT)
+    : PROFILE.llmWait;
+
 // 실제 답변 내용은 자유 JSON이라 부하테스트에서는 최소한의 더미 값만 채운다.
 // app/services/session_service.py의 ANSWER_STAGES와 일치해야 한다.
 const ANSWER_STAGES = ['q1to6', 'q7a', 'q7b', 'q8', 'q9'];
+
+/*
+ * LLM 질문 생성 대기 재현.
+ *
+ * 실제 학생 흐름은 프론트(frontend/app/explore/path/page.tsx)가 stage마다
+ *   POST /api/generate/{q7b|q8|q9}  → LLM 응답 대기 → 학생이 답 선택
+ *   → POST /api/sessions/answers {stage}
+ * 순서로 돈다. 앞의 생성 호출은 AI 비용이 발생해서 여기서 부르지 않지만, 그 **대기 시간**은
+ * 재현해야 한다. 대기가 없으면 VU 하나가 5초마다 설문을 완주해버려서 실제 학생보다 수십 배
+ * 센 압력이 걸리고, "VU 250 = 학생 250명"이라는 해석이 성립하지 않는다.
+ *
+ * 기본 10초는 frontend/lib/api.ts의 generateStage가 타임아웃을 60초로 잡아둔 것
+ * ("LLM 생성은 정상적으로 수십 초가 걸릴 수 있어")을 근거로 보수적으로 잡은 값이다.
+ * 실제 생성 시간을 측정했다면 -e LLM_WAIT=<초> 로 바꿔서 다시 돌린다.
+ */
+const LLM_STAGES = new Set(['q7b', 'q8', 'q9']);
 
 // 1x1 흰 픽셀 JPEG — INCLUDE_PHOTO=true일 때만 사용.
 const TINY_JPEG = new Uint8Array([
@@ -243,7 +276,10 @@ const scenarios = {
     exec: 'studentFlow',
     startVUs: 0,
     stages: PROFILE.stages,
-    gracefulRampDown: '10s',
+    // LLM 대기가 들어가면 한 바퀴가 35초쯤 걸린다. 유예가 그보다 짧으면 램프다운·종료 때
+    // 진행 중이던 iteration이 대거 강제 중단돼 통계에 노이즈가 낀다. 한 바퀴보다 넉넉히 준다.
+    gracefulRampDown: LLM_WAIT_SECONDS > 0 ? '45s' : '10s',
+    gracefulStop: LLM_WAIT_SECONDS > 0 ? '45s' : '30s',
   },
 };
 
@@ -339,7 +375,7 @@ export function setup() {
 
   console.log(
     `프로필=${PROFILE_NAME} 대상=${BASE_URL} 계정=${ACCOUNT_COUNT}개 ` +
-      `사진업로드=${INCLUDE_PHOTO} 관리자조회VU=${ADMIN_READ_VUS}`
+      `LLM대기=${LLM_WAIT_SECONDS}s×3 사진업로드=${INCLUDE_PHOTO} 관리자조회VU=${ADMIN_READ_VUS}`
   );
 
   const loginRes = http.post(
@@ -428,6 +464,12 @@ export function studentFlow(data) {
   let sessionId;
   group('설문 답변 저장', () => {
     for (const stage of ANSWER_STAGES) {
+      // q7b·q8·q9는 프론트가 POST /api/generate/{stage}로 질문을 받아온 뒤에야 답을 저장한다.
+      // 그 호출은 비용 때문에 하지 않고, 학생이 기다리는 시간만 재현한다.
+      if (LLM_WAIT_SECONDS > 0 && LLM_STAGES.has(stage)) {
+        sleep(LLM_WAIT_SECONDS);
+      }
+
       const res = http.post(
         `${BASE_URL}/api/sessions/answers`,
         JSON.stringify({ sessionId: sessionId, stage, answer: { value: 'loadtest' } }),
