@@ -74,6 +74,11 @@ export function toRadius(score: number): number {
   return BASE_RADIUS + (1 - BASE_RADIUS) * Math.min(1, t);
 }
 
+/** 역량 키 → 한글 라벨. 모르는 키는 키를 그대로 보여준다(서버가 앞서 나간 경우). */
+export function competencyLabel(key: string): string {
+  return COMPETENCIES.find((c) => c.key === key)?.label ?? key;
+}
+
 /** 점수가 하나라도 있는지. 전부 0이면 차트 대신 빈 상태를 보여준다. */
 export function hasAnyScore(scores: readonly Scored[] | undefined): boolean {
   return (scores ?? []).some((s) => s.score > 0);
