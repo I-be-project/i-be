@@ -12,6 +12,9 @@ from app.main import create_app
 
 
 class FakeService:
+    async def restart_survey(self, student_id):
+        self.calls.append((student_id,))
+
     def __init__(self, *, conflict: bool = False) -> None:
         self.conflict = conflict
         self.calls: list[tuple] = []
@@ -63,6 +66,31 @@ _BODY = {
     "keywords": ["자연", "기술"],
     "fields": ["환경"],
 }
+
+
+async def test_restart_requires_confirmation_and_uses_authenticated_student() -> None:
+    student_id = uuid4()
+    service = FakeService()
+    app = _app_with(service)
+    app.dependency_overrides[current_student] = lambda: student_id
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        for body in ({}, {"confirmed": False}):
+            response = await client.post("/api/sessions/restart", json=body)
+            assert response.status_code == 422
+        assert service.calls == []
+        response = await client.post("/api/sessions/restart", json={"confirmed": True, "student_id": str(uuid4())})
+        assert response.status_code == 200
+        assert service.calls == [(student_id,)]
+
+
+async def test_restart_requires_login() -> None:
+    app = create_app()
+    service = FakeService()
+    app.dependency_overrides[get_session_service] = lambda: service
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/sessions/restart", json={"confirmed": True})
+        assert response.status_code in (401, 403)
+        assert service.calls == []
 
 
 async def test_complete_returns_profile_summary() -> None:

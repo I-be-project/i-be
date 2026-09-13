@@ -73,6 +73,14 @@ class SessionContent:
 
 
 class SessionRepository(BaseRepository):
+    async def delete_completed_for_student(self, student_id: UUID) -> None:
+        """재시작을 확인한 학생의 완료 결과만 삭제한다. 답변·페르소나·카드는 FK CASCADE."""
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "delete from generated.sessions where student_id = $1 and status = 'completed'",
+                student_id,
+            )
+
     async def create(
         self,
         student_id: UUID,

@@ -7,10 +7,26 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.deps import CurrentStudentDep, SessionServiceDep
-from app.schemas.sessions import CompleteRequest, SaveAnswerRequest, SaveAnswerResponse
+from app.schemas.sessions import (
+    CompleteRequest,
+    RestartRequest,
+    SaveAnswerRequest,
+    SaveAnswerResponse,
+)
 from app.schemas.students import ProfileSummary
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+
+
+@router.post("/restart")
+async def restart_survey(
+    student_id: CurrentStudentDep,
+    sessions: SessionServiceDep,
+    body: RestartRequest,
+) -> dict[str, bool]:
+    """확인 팝업에 동의한 로그인 학생 자신의 이전 완료 결과를 삭제한다."""
+    await sessions.restart_survey(student_id)
+    return {"restarted": True}
 
 
 @router.post("/answers", response_model=SaveAnswerResponse)

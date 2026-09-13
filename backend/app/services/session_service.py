@@ -62,6 +62,7 @@ class StudentRepo(Protocol):
 
 
 class SessionRepo(Protocol):
+    async def delete_completed_for_student(self, student_id: UUID) -> None: ...
     async def get_by_id(self, session_id: UUID) -> SessionRecord | None: ...
     async def get_latest_for_student(self, student_id: UUID) -> SessionRecord | None: ...
     async def get_latest_completed_for_student(self, student_id: UUID) -> SessionRecord | None: ...
@@ -243,6 +244,14 @@ class SessionService:
         await self._sessions.insert_answer(session_id, stage, answer)
         return session_id
 
+    async def restart_survey(self, student_id: UUID) -> None:
+        """명시적으로 재시작을 확인한 학생의 이전 완료 결과를 삭제한다. 사진은 유지한다.
+
+        결과를 보존하며 추가 참여하는 retry_enabled 정책과 별개인 초기화 동작이다.
+        삭제 후에는 완료 이력이 없으므로 일반 설문 저장·완료 흐름으로 참여한다.
+        """
+        await self._sessions.delete_completed_for_student(student_id)
+
     async def complete_survey(
         self,
         student_id: UUID,
@@ -268,16 +277,19 @@ class SessionService:
         if latest is not None and not retry_enabled:
             raise ConflictError("이미 설문을 완료했습니다.")
 
-        # 넘어온 세션이 내 것이고 아직 진행 중일 때만 재사용, 아니면 새로 만든다.
+        # 명시한 세션이 삭제됐거나 다른 학생 소유면 새 완료 기록으로 바꾸지 않는다.
         reuse: UUID | None = None
         if session_id is not None:
             existing = await self._sessions.get_by_id(session_id)
-            if (
-                existing is not None
-                and existing.student_id == student_id
-                and existing.status == "in_progress"
-            ):
-                reuse = session_id
+            if existing is None:
+                raise NotFoundError("세션을 찾을 수 없습니다.")
+            if existing.student_id != student_id:
+                raise ForbiddenError("이 세션에 접근할 수 없습니다.")
+            if existing.status == "completed":
+                return await self.get_profile_summary(student_id)
+            if existing.status != "in_progress":
+                raise ConflictError("이미 종료된 세션입니다.")
+            reuse = session_id
 
         async with self._db_pool.transaction() as conn:
             if reuse is not None:

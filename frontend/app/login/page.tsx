@@ -107,7 +107,7 @@ function LoginForm() {
       // 아직 시작 전(신규/다른 학생)이면 프로필로 간다.
       const s = useSessionStore.getState();
       const screen = resumeScreen(s);
-      if (screen === "explore") {
+      if (screen === "explore" && !s.retakingSurvey) {
         router.push(`/profile/${res.student_id}`);
       } else {
         router.replace(resumePath(s));
