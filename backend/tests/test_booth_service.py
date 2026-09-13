@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
@@ -9,7 +10,7 @@ import asyncpg
 import pytest
 from pydantic import ValidationError
 
-from app.config import Settings
+from app.config import Settings, get_settings
 from app.core.booth_code import BOOTH_CODE_ALPHABET, BOOTH_CODE_LENGTH
 from app.core.errors import ConflictError, NotFoundError
 from app.repositories.booth_repo import BoothRecord
@@ -25,7 +26,9 @@ class FakeBoothRepo:
         self.collide_times = collide_times
         self.attempted_codes: list[str] = []
 
-    async def create(self, *, code: str, name: str, description: str | None) -> BoothRecord:
+    async def create(
+        self, *, code: str, name: str, description: str | None, zone: str
+    ) -> BoothRecord:
         self.attempted_codes.append(code)
         if self.collide_times > 0:
             self.collide_times -= 1
@@ -36,6 +39,8 @@ class FakeBoothRepo:
             code=code,
             name=name,
             description=description,
+            zone=zone,
+            competencies=(),
             created_at=now,
             updated_at=now,
         )
@@ -52,24 +57,36 @@ class FakeBoothRepo:
         return sorted(self.rows.values(), key=lambda r: r.created_at)
 
     async def update(
-        self, booth_id: UUID, *, name: str, description: str | None
+        self, booth_id: UUID, *, name: str, description: str | None, zone: str
     ) -> BoothRecord | None:
         current = self.rows.get(booth_id)
         if current is None:
             return None
-        updated = BoothRecord(
+        # 저장된 상태(self.rows)는 역량을 보존한다 — 실제 DB 행이 그렇다.
+        stored = BoothRecord(
             id=current.id,
             code=current.code,
             name=name,
             description=description,
+            zone=zone,
+            competencies=current.competencies,
             created_at=current.created_at,
             updated_at=datetime.now(UTC),
         )
-        self.rows[booth_id] = updated
-        return updated
+        self.rows[booth_id] = stored
+        # 반환값은 진짜 BoothRepository.update()의 returning과 같이 competencies=()다 —
+        # update 쿼리는 조인 쿼리가 아니라 역량 컬럼이 없다. 서비스가 이 빈 값을 곧이곧대로
+        # 쓰면 안 된다는 걸 테스트가 잡아야 하므로 Fake도 진짜와 같은 결손을 재현한다.
+        return replace(stored, competencies=())
 
     async def delete(self, booth_id: UUID) -> bool:
         return self.rows.pop(booth_id, None) is not None
+
+    async def replace_competencies(self, booth_id: UUID, competencies: list[str]) -> None:
+        current = self.rows.get(booth_id)
+        if current is None:
+            return
+        self.rows[booth_id] = replace(current, competencies=tuple(competencies))
 
 
 def _service(repo: FakeBoothRepo, *, origin: str = "https://i-be.vercel.app") -> BoothService:
@@ -170,3 +187,110 @@ async def test_list_all_returns_created_booths() -> None:
     items = await service.list_all()
 
     assert [b.name for b in items] == ["부스1", "부스2"]
+
+
+@pytest.mark.anyio
+async def test_create_with_zone() -> None:
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+
+    created = await service.create(BoothCreateRequest(name="드론 시뮬레이션", zone="F"))
+
+    assert created.zone == "F"
+
+
+@pytest.mark.anyio
+async def test_create_without_zone_is_blank() -> None:
+    """기존 관리자 화면은 zone을 보내지 않는다. 그 요청이 그대로 동작해야 한다."""
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+
+    created = await service.create(BoothCreateRequest(name="이름만 있는 부스"))
+
+    assert created.zone == ""
+
+
+@pytest.mark.anyio
+async def test_update_keeps_zone_when_not_sent() -> None:
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+    created = await service.create(BoothCreateRequest(name="원래 이름", zone="L"))
+
+    updated = await service.update(created.id, BoothUpdateRequest(name="바뀐 이름"))
+
+    assert updated.name == "바뀐 이름"
+    assert updated.zone == "L"
+
+
+@pytest.mark.anyio
+async def test_update_changes_zone_when_sent() -> None:
+    """zone을 보내면 실제로 바뀌어야 한다 — repo에 zone을 안 넘겨도 통과하는
+
+    "유지" 테스트만으로는 이 경로가 조용히 깨질 수 있다.
+    """
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+    created = await service.create(BoothCreateRequest(name="원래 이름", zone="L"))
+
+    updated = await service.update(created.id, BoothUpdateRequest(zone="Y"))
+
+    assert updated.zone == "Y"
+
+
+def test_invalid_zone_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        BoothCreateRequest(name="부스", zone="Z")
+
+
+@pytest.mark.anyio
+async def test_create_with_competencies() -> None:
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+
+    created = await service.create(
+        BoothCreateRequest(
+            name="드론 시뮬레이션",
+            zone="F",
+            competencies=["challenge", "analysis", "thinking"],
+        )
+    )
+
+    assert sorted(created.competencies) == ["analysis", "challenge", "thinking"]
+
+
+@pytest.mark.anyio
+async def test_update_replaces_competencies() -> None:
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+    created = await service.create(
+        BoothCreateRequest(name="부스", zone="F", competencies=["challenge"])
+    )
+
+    updated = await service.update(
+        created.id, BoothUpdateRequest(competencies=["empathy", "planning"])
+    )
+
+    assert sorted(updated.competencies) == ["empathy", "planning"]
+
+
+@pytest.mark.anyio
+async def test_update_keeps_competencies_when_not_sent() -> None:
+    repo = FakeBoothRepo()
+    service = BoothService(booths=repo, settings=get_settings())  # type: ignore[arg-type]
+    created = await service.create(
+        BoothCreateRequest(name="부스", zone="F", competencies=["challenge"])
+    )
+
+    updated = await service.update(created.id, BoothUpdateRequest(name="바뀐 이름"))
+
+    assert updated.competencies == ["challenge"]
+
+
+def test_unknown_competency_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        BoothCreateRequest(name="부스", competencies=["없는역량"])
+
+
+def test_duplicate_competency_is_rejected() -> None:
+    with pytest.raises(ValidationError):
+        BoothCreateRequest(name="부스", competencies=["challenge", "challenge"])

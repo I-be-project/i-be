@@ -1,0 +1,59 @@
+// NCS 직업기초능력 10개 역량 — 키와 한글 라벨.
+// 백엔드 app/core/competencies.py와 같은 목록이고 같은 순서다. 이 순서가 레이더 차트 축 순서다.
+export const COMPETENCIES = [
+  { key: "communication", label: "의사소통" },
+  { key: "creativity", label: "창의성" },
+  { key: "analysis", label: "분석력" },
+  { key: "challenge", label: "도전정신" },
+  { key: "empathy", label: "공감" },
+  { key: "collaboration", label: "협업" },
+  { key: "thinking", label: "사고력" },
+  { key: "judgment", label: "판단력" },
+  { key: "self_understanding", label: "자기이해" },
+  { key: "planning", label: "계획성" },
+] as const;
+
+// 부스가 속한 존. ''는 존을 모르는 부스(기존 등록분).
+export type BoothZone = "F" | "L" | "Y" | "C" | "";
+
+export const ZONE_LABELS: Record<BoothZone, string> = {
+  F: "F(Future)존",
+  L: "L(Love)존",
+  Y: "Y(Yourself)존",
+  C: "역량체험존",
+  "": "미지정",
+};
+
+// 직업체험 부스는 역량 3개, 역량체험 부스는 1개.
+export const REQUIRED_COMPETENCY_COUNT: Record<BoothZone, number | null> = {
+  F: 3,
+  L: 3,
+  Y: 3,
+  C: 1,
+  "": null,
+};
+
+// 점수 배열의 형태만 요구한다. api.ts의 ProfileCompetencyScore를 import하지 않는 이유는
+// api.ts가 이 파일의 BoothZone을 가져다 쓰기 때문이다 — 타입만 오가면 런타임 순환은
+// 없지만, 한쪽 방향으로만 의존하게 두는 편이 읽기 쉽다.
+// label은 실제 응답(ProfileCompetencyScore)에도 있다 — 옵셔널로 열어 둬야 그 값을 그대로
+// 넘겨도(초과 속성 검사) 타입 에러가 나지 않는다. 이 함수는 label을 쓰지 않고 무시한다.
+type Scored = { key: string; score: number; label?: string };
+
+/**
+ * 레이더 차트에 넣을 10개 축. 응답에 빠진 역량은 0으로 채운다.
+ *
+ * 축을 서버 응답 순서가 아니라 COMPETENCIES 순서로 고정한다. 축 순서가 화면마다
+ * 달라지면 같은 학생의 그래프가 다르게 보인다.
+ */
+export function toChartData(
+  scores: readonly Scored[] | undefined
+): { label: string; score: number }[] {
+  const byKey = new Map((scores ?? []).map((s) => [s.key, s.score]));
+  return COMPETENCIES.map((c) => ({ label: c.label, score: byKey.get(c.key) ?? 0 }));
+}
+
+/** 점수가 하나라도 있는지. 전부 0이면 차트 대신 빈 상태를 보여준다. */
+export function hasAnyScore(scores: readonly Scored[] | undefined): boolean {
+  return (scores ?? []).some((s) => s.score > 0);
+}

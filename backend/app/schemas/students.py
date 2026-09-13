@@ -65,6 +65,18 @@ class ProfileBoothStatus(BaseModel):
     visited: bool = Field(..., description="이 학생이 이 부스에 방문 기록을 남겼는지")
 
 
+class ProfileCompetencyScore(BaseModel):
+    """역량 1개의 점수 — 성향 탭 레이더 차트의 축 하나.
+
+    점수가 0인 역량도 빠뜨리지 않고 10개를 모두 내려준다. 프론트가 빠진 축을 메우는
+    코드를 갖지 않게 하기 위함이다.
+    """
+
+    key: str = Field(..., description="역량 키 (app/core/competencies.py)")
+    label: str = Field(..., description="화면에 쓰는 한글 이름")
+    score: int = Field(..., ge=0, description="이 역량을 다루는 부스를 방문한 횟수")
+
+
 class ProfileSummary(BaseModel):
     """프로필 화면 상태.
 
@@ -72,6 +84,7 @@ class ProfileSummary(BaseModel):
     retry_enabled: 행사 전역 '다시 하기' 스위치(ops.settings.retry_enabled).
     persona/card: 완료 시에만 채워지고, 없으면 null.
     booths: 전체 부스 목록 + 이 학생의 방문 여부. 설문 완료 여부와 무관하게 항상 채운다.
+    competencies: 역량 10개의 점수. 방문 기록이 없어도 0점으로 10개를 채운다.
     """
 
     has_completed: bool
@@ -80,3 +93,4 @@ class ProfileSummary(BaseModel):
     persona: PersonaSummary | None = None
     card: CardSummary | None = None
     booths: list[ProfileBoothStatus] = Field(default_factory=list)
+    competencies: list[ProfileCompetencyScore] = Field(default_factory=list)

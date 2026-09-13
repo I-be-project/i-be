@@ -122,10 +122,11 @@ Worker      jobs 큐 폴링 → CardService 호출 (자체 로직 없음)  🔴 
 |---|---|
 | `/signup` · `/login` | 가입·로그인. 참여 유형 탭(중학교·고등학교·개인) |
 | `/explore` | 설문 진행 (고정 질문 → 생성형 질문 → 페르소나 선택) |
-| `/(tabs)` | 완료 후 4탭 — `home` · `booths` · `tendency` · `profile` |
+| `/(tabs)` | 완료 후 4탭 — `home` · `booths` · `tendency`(역량 10개 레이더 차트) · `profile` |
 | `/b/[code]` | 부스 QR 진입 → 방문 인증 |
 | `/operator` | 운영진 콘솔 (좌석표·부스·방문) |
 | `/admin` | 관리자 콘솔 (회원·좌석표·부스·테스트 계정) |
+| `/admin/booths/print` | 부스 QR 일괄 인쇄 (존 선택 → 격자 인쇄) |
 
 `/operator`와 `/admin`은 화면 컴포넌트를 `components/console/`에서 공유하고
 권한만 다르게 준다.
@@ -153,7 +154,7 @@ Worker      jobs 큐 폴링 → CardService 호출 (자체 로직 없음)  🔴 
 |---|---|---|
 | `pii` | `students` | 학생 원본(학교/학년/반/번호/이름/성별/사진키/`kind`) |
 | `generated` | `sessions` `answers` `personas` `cards` | 설문·답변·페르소나·카드 |
-| `ops` | `settings` `booths` `booth_visits` | 운영 설정·부스·방문 기록 |
+| `ops` | `settings` `booths` `booth_competencies` `booth_visits` | 운영 설정·부스·역량 연결·방문 기록 |
 
 > 운영진 토큰은 조회 범위가 제한된다. 운영진 상세 조회에서 **설문 답변 원문은
 > 제외**된다(`22d49e3`).
@@ -359,3 +360,4 @@ Lightsail 인스턴스 (2GB/2vCPU, Dual-stack)
 |---|---|
 | 2026-06-27 | 전체 아키텍처 개요 v1 (Lightsail·Supabase·S3·사진영구·페르소나선택 반영) |
 | 2026-08-15 | 현행화 — 프론트 실연동·Vercel 배포, 스키마 3개(`rewards` 없음), 계정 종류(`kind`) 3종, 부스 QR 방문, 운영진 콘솔, 4탭 구조, 토큰 만료 12h, 배포 브랜치 `production`, S3 프리픽스 3종 반영. 카드 파이프라인·감사로그를 🔴 미구현으로 명시 |
+| 2026-09-11 | 부스에 존(F·L·Y·C)과 NCS 역량 10개 연결 추가. 성향 탭 차트 축을 부스에서 역량으로 교체. QR 일괄 인쇄 페이지 추가 |

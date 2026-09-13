@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ApiError, fetchBoothStats, type BoothStats } from "@/lib/api";
+import { ZONE_LABELS } from "@/lib/competencies";
 
 /** 상단 요약 숫자 1칸. */
 function StatTile({ label, value, hint }: { label: string; value: number; hint: string }) {
@@ -66,7 +67,17 @@ export function BoothStatsView() {
   }, [load]);
 
   // 가장 많이 찍힌 부스를 기준으로 막대 길이를 잡는다(0으로 나누지 않도록 최소 1).
+  // 존마다 기준이 달라지면 막대 길이를 존 사이에서 비교할 수 없어, 그룹으로 나눈 뒤에도
+  // 이 전체 기준값을 그대로 쓴다.
   const max = Math.max(1, ...(stats?.booths.map((b) => b.visit_count) ?? [1]));
+
+  // 존별로 묶어 보여준다. 집계 자체는 서버가 하고, 화면은 나누기만 한다.
+  const groups = (["F", "L", "Y", "C", ""] as const)
+    .map((zone) => ({
+      zone,
+      rows: (stats?.booths ?? []).filter((b) => b.zone === zone),
+    }))
+    .filter((g) => g.rows.length > 0);
 
   return (
     <div className="min-h-dvh bg-background">
@@ -112,44 +123,53 @@ export function BoothStatsView() {
               />
             </div>
 
-            <div className="overflow-x-auto rounded-lg border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>부스</TableHead>
-                    <TableHead>코드</TableHead>
-                    <TableHead className="w-[45%]">참여</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stats.booths.map((b) => (
-                    <TableRow key={b.booth_id}>
-                      <TableCell className="font-medium">{b.name}</TableCell>
-                      <TableCell className="font-mono text-muted-foreground">
-                        {b.code}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="h-2 flex-1 overflow-hidden rounded-full bg-muted"
-                            role="presentation"
-                          >
-                            <div
-                              className="h-full rounded-full bg-[var(--chart-2)]"
-                              style={{
-                                width: `${(b.visit_count / max) * 100}%`,
-                              }}
-                            />
-                          </div>
-                          <span className="w-14 shrink-0 text-right tabular-nums">
-                            {b.visit_count}명
-                          </span>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="space-y-6">
+              {groups.map((group) => (
+                <div key={group.zone || "none"}>
+                  <h2 className="mb-2 text-sm font-semibold text-ink">
+                    {ZONE_LABELS[group.zone]}
+                  </h2>
+                  <div className="overflow-x-auto rounded-lg border">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>부스</TableHead>
+                          <TableHead>코드</TableHead>
+                          <TableHead className="w-[45%]">참여</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {group.rows.map((b) => (
+                          <TableRow key={b.booth_id}>
+                            <TableCell className="font-medium">{b.name}</TableCell>
+                            <TableCell className="font-mono text-muted-foreground">
+                              {b.code}
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div
+                                  className="h-2 flex-1 overflow-hidden rounded-full bg-muted"
+                                  role="presentation"
+                                >
+                                  <div
+                                    className="h-full rounded-full bg-[var(--chart-2)]"
+                                    style={{
+                                      width: `${(b.visit_count / max) * 100}%`,
+                                    }}
+                                  />
+                                </div>
+                                <span className="w-14 shrink-0 text-right tabular-nums">
+                                  {b.visit_count}명
+                                </span>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </div>
+              ))}
             </div>
           </>
         )}

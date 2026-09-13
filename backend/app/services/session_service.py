@@ -7,6 +7,7 @@ from typing import Any, Protocol
 from uuid import UUID
 
 from app.config import Settings
+from app.core.competencies import COMPETENCY_KEYS, COMPETENCY_LABELS
 from app.core.errors import ConflictError, ForbiddenError, InvalidStageError, NotFoundError
 from app.repositories.booth_repo import BoothRecord
 from app.repositories.booth_visit_repo import BoothVisitRecord
@@ -19,6 +20,7 @@ from app.schemas.students import (
     CardSummary,
     PersonaSummary,
     ProfileBoothStatus,
+    ProfileCompetencyScore,
     ProfileSummary,
     StudentInfo,
 )
@@ -29,6 +31,30 @@ RETRY_ENABLED_KEY = "retry_enabled"
 # 저장을 허용하는 stage. q1to6은 Q1~6 결과를 한 번에 담고, q7a~q9는 단계별.
 # q9가 마지막 질문이며, 이후 /complete로 세션을 완료한다.
 ANSWER_STAGES = frozenset({"q1to6", "q7a", "q7b", "q8", "q9"})
+
+
+def compute_competency_scores(
+    *,
+    booth_competencies: dict[UUID, tuple[str, ...]],
+    visited_booth_ids: set[UUID],
+) -> list[ProfileCompetencyScore]:
+    """방문한 부스의 역량을 1점씩 더해 10개 축을 만든다.
+
+    점수를 저장하지 않고 조회할 때마다 센다. 매핑이 나중에 바뀌어도 재계산이 필요 없고,
+    학생 1명당 최대 부스 수만큼만 도는 계산이라 비용이 문제되지 않는다.
+
+    클래스 밖에 두는 이유는 테스트다 — DB도 서비스 조립도 없이 부를 수 있다.
+    """
+    counts = dict.fromkeys(COMPETENCY_KEYS, 0)
+    for booth_id in visited_booth_ids:
+        for competency in booth_competencies.get(booth_id, ()):
+            # 알 수 없는 값은 건너뛴다. 역량 목록에서 항목을 뺐는데 DB에 남아 있는 경우.
+            if competency in counts:
+                counts[competency] += 1
+    return [
+        ProfileCompetencyScore(key=key, label=COMPETENCY_LABELS[key], score=counts[key])
+        for key in COMPETENCY_KEYS
+    ]
 
 
 class StudentRepo(Protocol):
@@ -134,7 +160,7 @@ class SessionService:
             record is not None and record.kind == "test"
         )
         student = await self._build_student_info(record)
-        booths = await self._list_booth_statuses(student_id)
+        booths, competencies = await self._list_booth_statuses(student_id)
 
         # 진행 중(in_progress) 세션이 있어도 완료 판정은 최근 '완료' 세션 기준.
         latest = await self._sessions.get_latest_completed_for_student(student_id)
@@ -146,6 +172,7 @@ class SessionService:
                 persona=None,
                 card=None,
                 booths=booths,
+                competencies=competencies,
             )
 
         persona = await self._personas.get_by_session(latest.id)
@@ -158,6 +185,7 @@ class SessionService:
                 persona=None,
                 card=None,
                 booths=booths,
+                competencies=competencies,
             )
 
         return ProfileSummary(
@@ -165,6 +193,7 @@ class SessionService:
             retry_enabled=retry_enabled,
             student=student,
             booths=booths,
+            competencies=competencies,
             persona=PersonaSummary(
                 name=persona.name,
                 tagline=persona.tagline,
@@ -290,18 +319,25 @@ class SessionService:
             photo_url=photo_url,
         )
 
-    async def _list_booth_statuses(self, student_id: UUID) -> list[ProfileBoothStatus]:
-        """전체 부스 목록에 이 학생의 방문 여부를 표시해 반환한다.
+    async def _list_booth_statuses(
+        self, student_id: UUID
+    ) -> tuple[list[ProfileBoothStatus], list[ProfileCompetencyScore]]:
+        """전체 부스에 방문 여부를 표시하고, 방문한 부스의 역량을 세어 함께 반환한다.
 
         부스는 행사당 수십 개 수준이라 조인 없이 두 번 조회 후 파이썬에서 합친다.
         """
         all_booths = await self._booths.list_all()
         visits = await self._visits.list_for_student(student_id)
         visited_ids = {v.booth_id for v in visits}
-        return [
+        statuses = [
             ProfileBoothStatus(id=booth.id, name=booth.name, visited=booth.id in visited_ids)
             for booth in all_booths
         ]
+        scores = compute_competency_scores(
+            booth_competencies={b.id: b.competencies for b in all_booths},
+            visited_booth_ids=visited_ids,
+        )
+        return statuses, scores
 
     async def _build_card_summary(self, persona_id: UUID) -> CardSummary | None:
         """카드 이미지가 있으면 Presigned URL로, 없으면 None."""
