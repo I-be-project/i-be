@@ -328,9 +328,18 @@ class SessionService:
         """
         all_booths = await self._booths.list_all()
         visits = await self._visits.list_for_student(student_id)
-        visited_ids = {v.booth_id for v in visits}
+        visited_at = {v.booth_id: v.created_at for v in visits}
+        visited_ids = set(visited_at)
         statuses = [
-            ProfileBoothStatus(id=booth.id, name=booth.name, visited=booth.id in visited_ids)
+            ProfileBoothStatus(
+                id=booth.id,
+                name=booth.name,
+                visited=booth.id in visited_ids,
+                zone=booth.zone,
+                description=booth.description,
+                competencies=list(booth.competencies),
+                visited_at=visited_at.get(booth.id),
+            )
             for booth in all_booths
         ]
         scores = compute_competency_scores(

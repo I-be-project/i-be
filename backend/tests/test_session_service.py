@@ -212,13 +212,19 @@ def _persona() -> PersonaRecord:
     )
 
 
-def _booth(name: str = "체험부스", *, competencies: tuple[str, ...] = ()) -> BoothRecord:
+def _booth(
+    name: str = "체험부스",
+    *,
+    competencies: tuple[str, ...] = (),
+    zone: str = "",
+    description: str | None = None,
+) -> BoothRecord:
     return BoothRecord(
         id=uuid4(),
         code="ABC123",
         name=name,
-        description=None,
-        zone="",
+        description=description,
+        zone=zone,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
         competencies=competencies,
@@ -430,6 +436,38 @@ async def test_profile_summary_ignores_other_students_visits() -> None:
     summary = await service.get_profile_summary(uuid4())
 
     assert summary.booths == [ProfileBoothStatus(id=booth.id, name=booth.name, visited=False)]
+
+
+async def test_profile_summary_carries_booth_details() -> None:
+    """부스 탭 카드가 쓰는 존·설명·역량·방문 시각이 프로필 응답에 실려야 한다.
+
+    이 필드들은 이미 조회한 레코드에서 옮겨 담기만 하면 되는데, 옮기는 걸 빠뜨려도
+    이름과 visited는 맞아서 다른 테스트가 전부 통과한다 — 그래서 따로 못 박는다.
+    """
+    student_id = uuid4()
+    booth = _booth(
+        "스피치ON", competencies=("communication",), zone="C", description="자기소개 미션"
+    )
+    visit = _visit(student_id=student_id, booth_id=booth.id)
+    service, _, _ = _build(latest=None, booths=[booth], visits=[visit])
+
+    status = (await service.get_profile_summary(student_id)).booths[0]
+
+    assert status.zone == "C"
+    assert status.description == "자기소개 미션"
+    assert status.competencies == ["communication"]
+    assert status.visited_at == visit.created_at
+
+
+async def test_profile_summary_unvisited_booth_has_no_visited_at() -> None:
+    booth = _booth(zone="F")
+    service, _, _ = _build(latest=None, booths=[booth])
+
+    status = (await service.get_profile_summary(uuid4())).booths[0]
+
+    assert status.visited is False
+    assert status.visited_at is None
+    assert status.zone == "F"
 
 
 async def test_profile_summary_no_booths_returns_empty_list() -> None:
