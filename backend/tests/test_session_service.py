@@ -31,7 +31,11 @@ class FakeStudentRepo:
 
 class FakeSessionRepo:
     async def delete_completed_for_student(self, student_id: UUID) -> None:
-        if self.latest and self.latest.student_id == student_id and self.latest.status == "completed":
+        if (
+            self.latest
+            and self.latest.student_id == student_id
+            and self.latest.status == "completed"
+        ):
             self.latest = None
 
     def __init__(self, latest: SessionRecord | None = None) -> None:
@@ -265,7 +269,9 @@ def _build(
     return service, storage, db_pool
 
 
-async def test_restart_clears_completion_preserves_photo_and_allows_completion_with_retry_off() -> None:
+async def test_restart_clears_completion_preserves_photo_and_allows_completion_with_retry_off() -> (
+    None
+):
     student = _student()
     latest = replace(_session("completed"), student_id=student.id)
     service, _, _ = _build(latest=latest, student=student, retry=False)

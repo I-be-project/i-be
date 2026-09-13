@@ -24,10 +24,14 @@ async def test_restart_deletes_only_owners_completed_results_and_dependents() ->
         """)
         owner, other = uuid4(), uuid4()
         for sid, student, status in (
-            ("old1", owner, "completed"), ("old2", owner, "completed"),
-            ("pending", owner, "in_progress"), ("other", other, "completed"),
+            ("old1", owner, "completed"),
+            ("old2", owner, "completed"),
+            ("pending", owner, "in_progress"),
+            ("other", other, "completed"),
         ):
-            db.execute("insert into generated.sessions values (?, ?, ?)", (sid, str(student), status))
+            db.execute(
+                "insert into generated.sessions values (?, ?, ?)", (sid, str(student), status)
+            )
             db.execute("insert into generated.answers values (?, ?)", (sid, sid))
             db.execute("insert into generated.personas values (?, ?)", (sid, sid))
             db.execute("insert into generated.cards values (?, ?)", (sid, sid))
