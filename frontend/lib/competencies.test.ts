@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { hasAnyScore, toChartData } from "@/lib/competencies";
+import { hasAnyScore, toChartData, toRadius } from "@/lib/competencies";
 
 describe("toChartData", () => {
   it("응답이 없으면 10개 축을 0으로 채운다", () => {
@@ -41,5 +41,24 @@ describe("hasAnyScore", () => {
 
   it("응답이 없으면 false", () => {
     expect(hasAnyScore(undefined)).toBe(false);
+  });
+});
+
+describe("toRadius", () => {
+  it("0점도 중심이 아니라 기본 10각형 위에 놓인다", () => {
+    expect(toRadius(0)).toBeCloseTo(0.2);
+  });
+
+  it("점수가 오를수록 커지되 증가폭은 줄어든다 — 로그", () => {
+    const step1 = toRadius(1) - toRadius(0);
+    const step9 = toRadius(9) - toRadius(8);
+
+    expect(step1).toBeGreaterThan(0);
+    expect(step9).toBeGreaterThan(0);
+    expect(step9).toBeLessThan(step1);
+  });
+
+  it("점수가 아무리 커도 축 밖으로 새지 않는다", () => {
+    expect(toRadius(999)).toBeLessThanOrEqual(1);
   });
 });

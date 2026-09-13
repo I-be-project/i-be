@@ -48,9 +48,30 @@ type Scored = { key: string; score: number; label?: string };
  */
 export function toChartData(
   scores: readonly Scored[] | undefined
-): { label: string; score: number }[] {
+): { label: string; score: number; r: number }[] {
   const byKey = new Map((scores ?? []).map((s) => [s.key, s.score]));
-  return COMPETENCIES.map((c) => ({ label: c.label, score: byKey.get(c.key) ?? 0 }));
+  return COMPETENCIES.map((c) => {
+    const score = byKey.get(c.key) ?? 0;
+    return { label: c.label, score, r: toRadius(score) };
+  });
+}
+
+// 0점이 놓이는 반지름. 중심으로 붕괴시키지 않아야 기본 10각형이 남는다.
+const BASE_RADIUS = 0.2;
+// 이 점수에서 축이 꽉 찬다. 로그라 근처에서 이미 완만해서 값을 조금 틀려도 티가 안 난다.
+const FULL_SCORE = 15;
+
+/**
+ * 점수 → 반지름(0~1). 만점이 정해진 지표가 아니라 로그로 눌러 그린다.
+ *
+ * 선형으로 두고 축 끝을 데이터 최댓값에 맞추면 부스를 1개만 찍어도 그 축이 꽉 찬다.
+ * 축 끝을 상수로 고정하면 그 상수가 곧 '만점'이 되는데, 이 지표엔 만점이 없다.
+ * 로그는 둘 다 피한다 — 점수가 아무리 쌓여도 바깥으로 새지 않고(클램프), 축 끝의
+ * 값을 무엇으로 잡든 그림이 크게 달라지지 않는다.
+ */
+export function toRadius(score: number): number {
+  const t = Math.log2(1 + Math.max(0, score)) / Math.log2(1 + FULL_SCORE);
+  return BASE_RADIUS + (1 - BASE_RADIUS) * Math.min(1, t);
 }
 
 /** 점수가 하나라도 있는지. 전부 0이면 차트 대신 빈 상태를 보여준다. */
