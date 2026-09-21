@@ -72,18 +72,18 @@ export default function TendencyPage() {
             </p>
           </div>
         ) : (
-          <div className={cardClass}>
-            <div className="h-72 w-full">
+          <div className={`${cardClass} px-3 py-5`}>
+            <div className="h-[26rem] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={chartData} outerRadius="68%" margin={{ top: 8, right: 24, bottom: 8, left: 24 }}>
+                <RadarChart data={chartData} outerRadius="76%" margin={{ top: 12, right: 28, bottom: 12, left: 28 }}>
                   <PolarGrid stroke="#cfe3f5" />
                   <PolarAngleAxis
                     dataKey="label"
-                    tick={{ fill: "#4c6a82", fontSize: 10, fontWeight: 700 }}
+                    tick={{ fill: "#4c6a82", fontSize: 11.5, fontWeight: 700 }}
                   />
-                  <PolarRadiusAxis tick={false} axisLine={false} />
+                  <PolarRadiusAxis domain={[0, 1]} tick={false} axisLine={false} />
                   <Radar
-                    dataKey="score"
+                    dataKey="r"
                     stroke="#0284c7"
                     fill="#38bdf8"
                     fillOpacity={0.45}
