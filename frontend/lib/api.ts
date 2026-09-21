@@ -344,11 +344,10 @@ export interface AdminClassProgress {
   not_started: number;
 }
 
-export interface AdminAnswer {
-  stage: string;
-  payload: Record<string, unknown>;
-  created_at: string;
-}
+// Q1~6은 고정 질문(question), Q7-A~Q9는 AI 생성 선택지라 설명(description)이 온다.
+export type AdminAnswer =
+  | { no: string; question: string; answer: string }
+  | { no: string; description: string; answer: string[] };
 
 export interface AdminPersona {
   name: string;
@@ -362,6 +361,8 @@ export interface AdminSessionDetail {
   status: string;
   created_at: string;
   completed_at: string | null;
+  riasec: Record<string, number> | null;
+  pair_code: string | null;
   answers: AdminAnswer[];
   persona: AdminPersona | null;
   card_image_url: string | null;

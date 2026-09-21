@@ -16,6 +16,7 @@ import {
   ApiError,
   deleteAdminStudent,
   fetchAdminStudentDetail,
+  type AdminAnswer,
   type AdminSessionDetail,
   type AdminStudentDetail,
   type AdminStudentItem,
@@ -66,24 +67,18 @@ function StageStepper({
   );
 }
 
-/** 한 답변 payload를 읽기 쉽게 렌더. */
-function AnswerPayload({ payload }: { payload: Record<string, unknown> }) {
-  const entries = Object.entries(payload);
-  if (entries.length === 0)
-    return <span className="text-xs text-muted-foreground">(내용 없음)</span>;
+/** 문항 하나 — 질문(Q1~6) 또는 설명(Q7~9)과 학생의 답. */
+function AnswerItem({ answer: a }: { answer: AdminAnswer }) {
   return (
-    <dl className="space-y-0.5">
-      {entries.map(([k, v]) => (
-        <div key={k} className="flex gap-2 text-xs">
-          <dt className="shrink-0 text-muted-foreground">{k}</dt>
-          <dd className="break-all font-medium">
-            {typeof v === "string" || typeof v === "number"
-              ? String(v)
-              : JSON.stringify(v)}
-          </dd>
-        </div>
-      ))}
-    </dl>
+    <div className="rounded-md border p-2 text-xs">
+      <p className="mb-1 text-muted-foreground">
+        <span className="font-semibold">{a.no}</span>{" "}
+        {"question" in a ? a.question : a.description}
+      </p>
+      <p className="break-all font-medium">
+        {Array.isArray(a.answer) ? a.answer.join(" / ") : a.answer}
+      </p>
+    </div>
   );
 }
 
@@ -151,13 +146,17 @@ function SessionBlock({
       {showAnswers &&
         (session.answers.length > 0 ? (
           <div className="space-y-2">
+            {session.pair_code && (
+              <p className="text-xs text-muted-foreground">
+                Pair Code <span className="font-semibold text-foreground">{session.pair_code}</span>
+                {session.riasec &&
+                  ` · ${Object.entries(session.riasec)
+                    .map(([k, v]) => `${k}${v}`)
+                    .join(" ")}`}
+              </p>
+            )}
             {session.answers.map((a) => (
-              <div key={a.stage} className="rounded-md border p-2">
-                <p className="mb-1 text-xs font-semibold text-muted-foreground">
-                  {a.stage}
-                </p>
-                <AnswerPayload payload={a.payload} />
-              </div>
+              <AnswerItem key={a.no} answer={a} />
             ))}
           </div>
         ) : (
