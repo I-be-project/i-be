@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -76,12 +76,20 @@ class AdminClassProgress(BaseModel):
     not_started: int
 
 
-class AdminAnswer(BaseModel):
-    """세션에 저장된 단계별 답변 1건."""
+class AdminQuestionAnswer(BaseModel):
+    """고정 질문이 있는 문항(Q1~Q6)의 질문·답 1건."""
 
-    stage: str
-    payload: dict[str, Any]
-    created_at: datetime
+    no: str = Field(..., description="문항 번호 (Q1~Q6)")
+    question: str
+    answer: str
+
+
+class AdminStageAnswer(BaseModel):
+    """선택지를 AI가 만들어 고정 질문이 없는 문항(Q7-A~Q9)의 설명·답 1건."""
+
+    no: str = Field(..., description="문항 번호 (Q7-A, Q7-B, Q8, Q9)")
+    description: str
+    answer: list[str] = Field(..., description="Q7은 [1순위, 2순위], Q8·Q9는 고른 표현 + 직접 입력")
 
 
 class AdminSessionDetail(BaseModel):
@@ -91,7 +99,9 @@ class AdminSessionDetail(BaseModel):
     status: str
     created_at: datetime
     completed_at: datetime | None
-    answers: list[AdminAnswer]
+    riasec: dict[str, int] | None = Field(None, description="Q1~Q6 RIASEC 점수")
+    pair_code: str | None = Field(None, description="RIASEC 상위 두 유형 (예: CS)")
+    answers: list[AdminQuestionAnswer | AdminStageAnswer]
     persona: PersonaSummary | None = None
     card_image_url: str | None = Field(None, description="카드 이미지 presigned URL (없으면 null)")
 
