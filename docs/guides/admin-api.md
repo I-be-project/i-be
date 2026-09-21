@@ -169,8 +169,21 @@ curl -H "Authorization: Bearer $TOKEN" \
       "status": "completed",
       "created_at": "2026-07-31T02:20:00+00:00",
       "completed_at": "2026-07-31T03:02:11+00:00",
+      "riasec": { "A": 1, "C": 7, "E": 1, "I": 2, "R": 0, "S": 5 },
+      "pair_code": "CS",
       "answers": [
-        { "stage": "q1to6", "payload": { "…단계별 응답…" }, "created_at": "…" }
+        {
+          "no": "Q1",
+          "question": "[선착장 도착] 가장 먼저 시작하는 일은?",
+          "answer": "지도와 주변 풍경을 비교해 지금 위치를 짐작한다."
+        },
+        "… Q2 ~ Q6 …",
+        {
+          "no": "Q7-A",
+          "description": "오늘 밤 다시 가보고 싶은 캠프 공간 1·2순위 (Pair Code별 고정 선택지)",
+          "answer": ["쉼터 — 친구들의 상태를 살피며 쉬어 가는 곳", "모임방 — 팀 모임 순서를 안정적으로 지키는 곳"]
+        },
+        "… Q7-B, Q8, Q9 …"
       ],
       "persona": {
         "name": "숲을 설계하는 조율자",
@@ -183,6 +196,14 @@ curl -H "Authorization: Bearer $TOKEN" \
   ]
 }
 ```
+
+`answers`는 문항 순서(Q1~Q6, Q7-A, Q7-B, Q8, Q9)로 온다.
+
+- Q1~Q6: `question`(`[장면] 질문`)과 학생이 고른 선택지 문구 `answer`(문자열).
+- Q7-A~Q9: 선택지를 AI가 학생마다 만들어 고정 질문이 없으므로 `question` 대신 문항 설명
+  `description`이 오고, `answer`는 문자열 배열이다. Q7-A·Q7-B는 `[1순위, 2순위]`,
+  Q8·Q9는 고른 표현 뒤에 직접 입력한 문장이 있으면 덧붙는다.
+- 답하지 않은 문항(진행 중 세션)은 목록에서 빠진다. `riasec`·`pair_code`는 Q1~Q6을 마치기 전이면 `null`이다.
 
 `persona`와 `card_image_url`은 아직 생성 전이면 `null`이다. `card_image_url`도 사진과 동일하게 **1시간 만료**되는 URL이다.
 
@@ -543,3 +564,4 @@ export/
 | 2026-07-31 | 최초 작성 (외부 전달용). 관련 내부 문서: [`../notes/2026-07-31-관리자-api-외부-개방.md`](../notes/2026-07-31-관리자-api-외부-개방.md) |
 | 2026-08-01 | `include_photo` 파라미터와 `has_photo` 필드 추가, 반별 집계·사진 단건 엔드포인트 추가. 기존 동작·기본값은 그대로 |
 | 2026-08-08 | 계정 종류(`kind`) 도입. `GET /api/admin/students` 기본 응답에서 테스트 계정(`kind="test"`) 제외, `kind` 쿼리 파라미터와 `kind` 응답 필드(목록) 추가. 테스트 계정 발급·진입 토큰·일괄 삭제 엔드포인트 3개 추가(3.7절, 관리자 화면 전용) |
+| 2026-09-21 | 학생 상세(3.3절) `answers`를 `{stage, payload, created_at}` 원본에서 문항별 `{no, question 또는 description, answer}`로 변경, 세션에 `riasec`·`pair_code` 추가. 저장된 데이터는 그대로이고 응답 형태만 바뀐다 |
