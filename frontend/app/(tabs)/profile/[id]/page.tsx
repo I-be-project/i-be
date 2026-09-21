@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Camera, GraduationCap, Pencil, RotateCcw } from "lucide-react";
+import { Camera, GraduationCap, Pencil } from "lucide-react";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -357,18 +357,9 @@ export default function ProfilePage() {
       );
     }
 
-    // 설문 완료 — 페르소나 + 카드 이미지 + 다시 하기.
+    // 설문 완료 — 페르소나 + 카드 이미지.
     return (
       <div className="flex flex-col gap-6">
-        <div className={`${cardClass} flex flex-col items-center text-center`}>
-          <div className="mb-2 rounded-full border border-solid border-sky-200 bg-sky-50 px-3 py-1 text-xs font-bold tracking-wider text-sky-700">
-            탐험 완료
-          </div>
-          <p className="text-sm font-medium text-ink-muted">
-            나로섬 탐험이 끝나고, 너의 탐험대원증이 발급됐어!
-          </p>
-        </div>
-
         {profile.persona ? (
           <PersonaCard
             // PersonaCard는 name/tagline/keywords만 사용. 타입 호환 위해 빈 배열 채움.
@@ -393,22 +384,6 @@ export default function ProfilePage() {
             </p>
           </div>
         )}
-
-        {/* 다시 하기 — 관리자 전역 스위치(retry_enabled)가 켜진 동안에만 활성. */}
-        <div className="flex flex-col items-center gap-2">
-          <CtaButton
-            disabled={!profile.retry_enabled}
-            onClick={() => router.push("/explore")}
-          >
-            <RotateCcw className="h-5 w-5" />
-            다시 탐험하기
-          </CtaButton>
-          {!profile.retry_enabled && (
-            <p className="text-xs font-medium text-ink-muted/70">
-              지금은 다시 탐험하기가 열려있지 않아요.
-            </p>
-          )}
-        </div>
       </div>
     );
   }

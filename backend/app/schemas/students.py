@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -58,11 +59,21 @@ class CardSummary(BaseModel):
 
 
 class ProfileBoothStatus(BaseModel):
-    """프로필 화면의 부스 참여 현황 — 부스 탭/성향 탭이 함께 쓴다."""
+    """프로필 화면의 부스 참여 현황 — 부스 탭/성향 탭이 함께 쓴다.
+
+    부스 목록과 방문 기록은 어차피 한 번씩 조회하므로, 존·설명·역량·방문 시각을
+    함께 실어 보낸다. 부스 탭 카드가 이름만 보여주려고 부스를 다시 조회하는 일이 없게.
+    """
 
     id: UUID
     name: str
     visited: bool = Field(..., description="이 학생이 이 부스에 방문 기록을 남겼는지")
+    zone: str = Field("", description="'F'·'L'·'Y'·'C' 중 하나. 존을 모르는 부스는 빈 문자열")
+    description: str | None = Field(None, description="직업체험은 기관명, 역량체험은 미션 활동")
+    competencies: list[str] = Field(
+        default_factory=list, description="이 부스에 연결된 역량 키. 매핑 전이면 빈 목록"
+    )
+    visited_at: datetime | None = Field(None, description="첫 방문 시각. 미방문이면 null")
 
 
 class ProfileCompetencyScore(BaseModel):

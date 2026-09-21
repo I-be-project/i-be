@@ -20,9 +20,14 @@ export default function HomePage() {
       <VoyageBackground variant="soft" />
 
       <div className="relative z-10 flex flex-col gap-6">
-        <div className="glass-card self-start rounded-full px-3.5 py-1.5 text-xs font-bold tracking-wider text-sky-700">
-          나Be한마당
-        </div>
+        <Image
+          src="/logo-hanmadang.png"
+          alt="제12회 청소년 나Be한마당"
+          width={720}
+          height={523}
+          priority
+          className="h-16 w-auto self-start"
+        />
 
         <div>
           <h1 className="text-2xl font-extrabold text-ink">부스맵</h1>
