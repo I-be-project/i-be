@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { hasAnyScore, toChartData, toRadius } from "@/lib/competencies";
+import {
+  countVisitedByZone,
+  hasAnyScore,
+  toChartData,
+  toRadius,
+} from "@/lib/competencies";
 
 describe("toChartData", () => {
   it("응답이 없으면 10개 축을 0으로 채운다", () => {
@@ -60,5 +65,41 @@ describe("toRadius", () => {
 
   it("점수가 아무리 커도 축 밖으로 새지 않는다", () => {
     expect(toRadius(999)).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("countVisitedByZone", () => {
+  it("참여가 없어도 F/L/Y/C 네 칸이 0으로 남는다", () => {
+    expect(countVisitedByZone([])).toEqual([
+      { zone: "F", count: 0 },
+      { zone: "L", count: 0 },
+      { zone: "Y", count: 0 },
+      { zone: "C", count: 0 },
+    ]);
+  });
+
+  it("존별로 세고 순서는 항상 F/L/Y/C다", () => {
+    const rows = countVisitedByZone([
+      { zone: "Y" },
+      { zone: "F" },
+      { zone: "F" },
+      { zone: "C" },
+    ]);
+
+    expect(rows).toEqual([
+      { zone: "F", count: 2 },
+      { zone: "L", count: 0 },
+      { zone: "Y", count: 1 },
+      { zone: "C", count: 1 },
+    ]);
+  });
+
+  it("존을 모르는 부스가 있을 때만 미지정 칸이 맨 뒤에 붙는다", () => {
+    expect(countVisitedByZone([{ zone: "F" }])).toHaveLength(4);
+
+    const rows = countVisitedByZone([{ zone: "F" }, {}, { zone: "" }]);
+
+    expect(rows).toHaveLength(5);
+    expect(rows[4]).toEqual({ zone: "", count: 2 });
   });
 });

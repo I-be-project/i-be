@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -62,7 +61,6 @@ export default function TendencyPage() {
           </div>
         ) : empty ? (
           <div className={`${tabCardClass} flex flex-col items-center gap-2 text-center`}>
-            <Sparkles className="h-8 w-8 text-hm-coral" />
             <p className="text-sm font-bold text-hm-blue">아직 데이터가 없어.</p>
             <p className="text-xs font-bold text-hm-blue/50">
               부스를 돌아보면 여기에 역량 그래프가 그려질 거야.
@@ -73,7 +71,7 @@ export default function TendencyPage() {
             <div className="h-[26rem] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <RadarChart data={chartData} outerRadius="76%" margin={{ top: 12, right: 28, bottom: 12, left: 28 }}>
-                  <PolarGrid stroke="#e5e1d0" />
+                  <PolarGrid stroke="#c2e1f6" />
                   <PolarAngleAxis
                     dataKey="label"
                     tick={{ fill: "#005bab", fontSize: 11.5, fontWeight: 800 }}
@@ -81,10 +79,10 @@ export default function TendencyPage() {
                   <PolarRadiusAxis domain={[0, 1]} tick={false} axisLine={false} />
                   <Radar
                     dataKey="r"
-                    stroke="#005bab"
-                    strokeWidth={2.5}
-                    fill="#00aca8"
-                    fillOpacity={0.35}
+                    stroke="#5fb0e5"
+                    strokeWidth={2}
+                    fill="#8fcdf0"
+                    fillOpacity={0.45}
                   />
                 </RadarChart>
               </ResponsiveContainer>
