@@ -24,6 +24,43 @@ export const ZONE_LABELS: Record<BoothZone, string> = {
   "": "미지정",
 };
 
+// 요약 칩용 짧은 라벨. ZONE_LABELS("F(Future)존")는 칩에 넣기엔 길다.
+export const ZONE_SHORT: Record<BoothZone, string> = {
+  F: "F존",
+  L: "L존",
+  Y: "Y존",
+  C: "역량체험",
+  "": "미지정",
+};
+
+// 요약 그리드에 늘어놓는 순서. 이 넷은 참여가 0이어도 칸을 비워두지 않고 0으로 보여준다
+// — 안 가본 존이 어디인지가 요약의 핵심 정보다.
+const ZONE_ORDER: BoothZone[] = ["F", "L", "Y", "C"];
+
+// 참여한 부스에서 요약에 필요한 필드만. api.ts의 ProfileBoothStatus를 import하지 않는
+// 이유는 Scored와 같다 — 의존 방향을 한쪽(api.ts → 이 파일)으로만 둔다.
+type VisitedBooth = { zone?: BoothZone };
+
+/**
+ * 참여한 부스를 존별로 센다.
+ *
+ * F/L/Y/C는 참여가 없어도 0으로 넣는다. 미지정('')은 존을 모르는 기존 등록분이라
+ * 평소엔 칸을 차지할 이유가 없어, 실제로 있을 때만 맨 뒤에 붙인다.
+ */
+export function countVisitedByZone(
+  visited: readonly VisitedBooth[]
+): { zone: BoothZone; count: number }[] {
+  const counted = new Map<BoothZone, number>();
+  for (const booth of visited) {
+    const zone = booth.zone ?? "";
+    counted.set(zone, (counted.get(zone) ?? 0) + 1);
+  }
+
+  const rows = ZONE_ORDER.map((zone) => ({ zone, count: counted.get(zone) ?? 0 }));
+  const unassigned = counted.get("") ?? 0;
+  return unassigned > 0 ? [...rows, { zone: "" as BoothZone, count: unassigned }] : rows;
+}
+
 // 직업체험 부스는 역량 3개, 역량체험 부스는 1개.
 export const REQUIRED_COMPETENCY_COUNT: Record<BoothZone, number | null> = {
   F: 3,
