@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -30,39 +31,51 @@ class FakeStudentRepo:
 
 
 class FakeSessionRepo:
-    async def delete_completed_for_student(self, student_id: UUID) -> None:
-        if (
-            self.latest
-            and self.latest.student_id == student_id
-            and self.latest.status == "completed"
-        ):
-            self.latest = None
-
     def __init__(self, latest: SessionRecord | None = None) -> None:
         self.latest = latest
+        self.records = {latest.id: latest} if latest else {}
+        self.requests = {}
         self.created: list[SessionRecord] = []
         self.inserted: list[tuple[UUID, str, dict[str, Any]]] = []
-        # 원자성 검증용 — create/insert_answer가 받은 conn(동일 트랜잭션인지 확인).
         self.create_conn: Any = None
         self.insert_conn: Any = None
 
-    async def get_by_id(self, session_id: UUID) -> SessionRecord | None:
-        for rec in (self.latest, *self.created):
-            if rec is not None and rec.id == session_id:
-                return rec
-        return None
+    async def lock_student(self, student_id, *, conn):
+        pass  # FakeDBPool serializes transactions; PostgreSQL uses a row lock.
 
-    async def get_latest_for_student(self, student_id: UUID) -> SessionRecord | None:
+    async def get_request(self, student_id, request_id, *, conn):
+        key = (student_id, request_id)
+        return key in self.requests, self.requests.get(key)
+
+    async def remember_request(self, student_id, request_id, session_id, *, conn):
+        self.requests[(student_id, request_id)] = session_id
+
+    async def abandon_in_progress(self, student_id, *, conn):
+        for sid, rec in list(self.records.items()):
+            if rec.student_id == student_id and rec.status == "in_progress":
+                self.records[sid] = replace(rec, status="abandoned")
+
+    async def delete_completed_for_student(self, student_id, *, conn=None):
+        for sid, rec in list(self.records.items()):
+            if rec.student_id == student_id and rec.status == "completed":
+                del self.records[sid]
+                for key, value in list(self.requests.items()):
+                    if value == sid:
+                        self.requests[key] = None
+        if self.latest and self.latest.id not in self.records:
+            self.latest = None
+
+    async def get_by_id(self, session_id, *, conn=None):
+        return self.records.get(session_id)
+
+    async def get_latest_for_student(self, student_id, *, conn=None):
         return self.latest
 
-    async def get_latest_completed_for_student(self, student_id: UUID) -> SessionRecord | None:
-        if self.latest is not None and self.latest.status == "completed":
-            return self.latest
-        return None
+    async def get_latest_completed_for_student(self, student_id, *, conn=None):
+        records = [r for r in self.records.values() if r.status == "completed"]
+        return max(records, key=lambda r: r.created_at) if records else None
 
-    async def create(
-        self, student_id: UUID, *, status: str = "in_progress", conn: Any = None
-    ) -> SessionRecord:
+    async def create(self, student_id, *, status="in_progress", conn=None):
         self.create_conn = conn
         rec = SessionRecord(
             id=uuid4(),
@@ -72,25 +85,24 @@ class FakeSessionRepo:
             completed_at=datetime.now(UTC) if status == "completed" else None,
         )
         self.created.append(rec)
-        self.latest = rec  # 이후 get_profile_summary가 최신 세션으로 보게 함
+        self.records[rec.id] = rec
+        self.latest = rec
         return rec
 
-    async def update_status(
-        self, session_id: UUID, status: str, *, conn: Any = None
-    ) -> SessionRecord:
-        assert self.latest is not None
+    async def update_status(self, session_id, status, *, conn=None):
+        rec = self.records[session_id]
         updated = replace(
-            self.latest,
+            rec,
             status=status,
-            completed_at=datetime.now(UTC) if status == "completed" else self.latest.completed_at,
+            completed_at=datetime.now(UTC) if status == "completed" else rec.completed_at,
         )
+        self.records[session_id] = updated
         self.latest = updated
         return updated
 
-    async def insert_answer(
-        self, session_id: UUID, stage: str, payload: dict[str, Any], *, conn: Any = None
-    ) -> object:
+    async def insert_answer(self, session_id, stage, payload, *, conn=None):
         self.insert_conn = conn
+        self.inserted = [r for r in self.inserted if r[:2] != (session_id, stage)]
         self.inserted.append((session_id, stage, payload))
         return object()
 
@@ -171,12 +183,14 @@ class FakeStorage:
 class FakeDBPool:
     def __init__(self) -> None:
         self.entered = False
+        self.lock = asyncio.Lock()
         self.conn = object()  # 트랜잭션이 넘기는 커넥션 식별용 sentinel
 
     @asynccontextmanager
     async def transaction(self):
         self.entered = True
-        yield self.conn
+        async with self.lock:
+            yield self.conn
 
 
 def _student() -> StudentRecord:
@@ -276,13 +290,14 @@ async def test_restart_clears_completion_preserves_photo_and_allows_completion_w
     latest = replace(_session("completed"), student_id=student.id)
     service, _, _ = _build(latest=latest, student=student, retry=False)
     before = await service.get_profile_summary(student.id)
-    await service.restart_survey(student.id)
-    await service.restart_survey(student.id)  # 응답 유실 후 재호출해도 안전
+    request_id = uuid4()
+    sid = await service.restart_survey(student.id, request_id, latest.id)
+    assert await service.restart_survey(student.id, request_id, latest.id) == sid
     after = await service.get_profile_summary(student.id)
     assert before.has_completed is True
     assert after.has_completed is False
     assert after.student == before.student
-    assert (await service.complete_survey(student.id, None)).has_completed is True
+    assert (await service.complete_survey(student.id, None, sid)).has_completed is True
 
 
 async def test_no_session_returns_not_completed() -> None:
@@ -586,7 +601,7 @@ async def test_submit_answer_uses_given_in_progress_session() -> None:
 
     assert sid == existing.id
     assert service._sessions.created == []  # type: ignore[attr-defined]
-    assert db_pool.entered is False
+    assert db_pool.entered is True
     assert service._sessions.inserted == [(existing.id, "q7a", {"x": 1})]  # type: ignore[attr-defined]
 
 
@@ -603,11 +618,11 @@ async def test_deleted_survey_cannot_be_completed_again_from_stale_tab() -> None
 
     old = _session("completed")
     service, _, pool = _build(latest=old)
-    await service.restart_survey(old.student_id)
+    await service.restart_survey(old.student_id, uuid4(), old.id)
     with pytest.raises(NotFoundError):
         await service.complete_survey(old.student_id, None, old.id)
-    assert pool.entered is False
-    assert service._sessions.created == []
+    assert pool.entered is True
+    assert len(service._sessions.created) == 1
 
 
 async def test_complete_rejects_other_students_session() -> None:
@@ -617,7 +632,7 @@ async def test_complete_rejects_other_students_session() -> None:
     service, _, pool = _build(latest=old)
     with pytest.raises(ForbiddenError):
         await service.complete_survey(uuid4(), None, old.id)
-    assert pool.entered is False
+    assert pool.entered is True
 
 
 async def test_submit_answer_forbidden_for_other_student() -> None:

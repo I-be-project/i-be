@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.adapters.ai_client import AIClient
 from app.adapters.db_pool import DBPool
+from app.adapters.storage_client import StorageClient
 from app.config import get_settings
 from app.core.errors import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
@@ -31,6 +32,7 @@ from app.routers import (
     students,
 )
 from app.workers.card_worker import card_worker_loop
+from app.workers.photo_cleanup import photo_cleanup_loop
 
 logger = get_logger(__name__)
 
@@ -51,6 +53,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         db_pool = DBPool(settings.database_url)
         await db_pool.connect()
     app.state.db_pool = db_pool
+    cleanup_task = (
+        asyncio.create_task(photo_cleanup_loop(db_pool, StorageClient.from_settings(settings)))
+        if db_pool is not None
+        else None
+    )
 
     # 카드 워커 — DB 활성화 + 명시 활성화 시에만 실행
     worker_task: asyncio.Task[None] | None = None
@@ -61,6 +68,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        if cleanup_task is not None:
+            cleanup_task.cancel()
+            try:
+                await cleanup_task
+            except asyncio.CancelledError:
+                pass
         if worker_task is not None:
             worker_task.cancel()
             try:

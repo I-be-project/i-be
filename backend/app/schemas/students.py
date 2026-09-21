@@ -88,6 +88,7 @@ class ProfileSummary(BaseModel):
     """
 
     has_completed: bool
+    completed_session_id: UUID | None = None
     retry_enabled: bool
     student: StudentInfo | None = None
     persona: PersonaSummary | None = None

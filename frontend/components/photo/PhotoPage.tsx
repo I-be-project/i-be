@@ -59,6 +59,7 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
   const [savedPhoto, setSavedPhoto] = useState<{ token: string; url: string | null } | null>(null);
   const [photoError, setPhotoError] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const uploadLock = useRef(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; variant: ToastVariant } | null>(
     null,
@@ -132,7 +133,8 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
 
   const handleUpload = async () => {
     const { studentToken } = useSessionStore.getState();
-    if (!file || !studentToken || uploading) return;
+    if (!file || !studentToken || uploadLock.current) return;
+    uploadLock.current = true;
     setUploading(true);
     try {
       await uploadPhoto(studentToken, file);
@@ -150,6 +152,7 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
           ? err.message
           : "사진을 올리지 못했어. 잠시 뒤 다시 시도해줘.";
       showToast(message, "error");
+      uploadLock.current = false;
       setUploading(false);
     }
   };

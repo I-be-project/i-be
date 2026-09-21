@@ -136,7 +136,10 @@ async def test_photo_upload_links_key() -> None:
             files={"file": ("photo.jpg", b"jpegbytes", "image/jpeg")},
         )
         assert res.status_code == 200, res.text
-        assert res.json()["photo_key"] == f"photos/{student_id}/photo"
+        assert res.json()["photo_key"] == f"photos/{storage.uploads[0][0]}"
+        prefix = f"{student_id}/photo-"
+        assert storage.uploads[0][0].startswith(prefix)
+        UUID(storage.uploads[0][0][len(prefix) :])
         assert storage.uploads and storage.uploads[0][2] == "image/jpeg"
     finally:
         await gen.aclose()

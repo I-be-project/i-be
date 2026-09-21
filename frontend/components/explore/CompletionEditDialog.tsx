@@ -1,17 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, RotateCcw, X } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { CtaButton } from "@/components/voyage/CtaButton";
-import { ApiError, restartSurvey } from "@/lib/api";
+import { ApiError, getMyProfile, restartSurvey } from "@/lib/api";
+import { newRequestId } from "@/lib/requestId";
 import { useSessionStore } from "@/store/useSessionStore";
 
 export function CompletionEditDialog({ preview = false }: { preview?: boolean }) {
   const router = useRouter();
   const [open, setOpen] = useState(true);
   const [starting, setStarting] = useState(false);
+  const restartLock = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [confirming, setConfirming] = useState(false);
 
@@ -21,20 +23,34 @@ export function CompletionEditDialog({ preview = false }: { preview?: boolean })
       return;
     }
     const store = useSessionStore.getState();
-    if (starting || !store.studentToken) return;
+    if (restartLock.current || !store.studentToken) return;
+    restartLock.current = true;
     setStarting(true);
     setError(null);
     try {
-      await restartSurvey(store.studentToken);
-      store.restartSurvey();
+      let pending = store.pendingRestart;
+      if (!pending) {
+        const profile = await getMyProfile(store.studentToken);
+        if (useSessionStore.getState().studentToken !== store.studentToken) return;
+        if (!profile.completed_session_id) {
+          throw new Error("설문 상태가 변경되었습니다. 새로고침해 주세요.");
+        }
+        pending = { requestId: newRequestId(), sourceSessionId: profile.completed_session_id };
+        useSessionStore.getState().setPendingRestart(pending);
+      }
+      const response = await restartSurvey(store.studentToken, pending.requestId, pending.sourceSessionId);
+      const current = useSessionStore.getState();
+      if (current.studentId !== store.studentId || current.pendingRestart?.requestId !== pending.requestId) return;
+      current.restartSurvey(response.session_id, pending.requestId);
       router.replace("/explore");
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         router.replace("/login");
         return;
       }
-      setError("설문을 시작하지 못했어. 잠시 후 다시 눌러 줘.");
+      setError(err instanceof Error ? err.message : "설문을 시작하지 못했어. 잠시 후 다시 눌러 줘.");
     } finally {
+      restartLock.current = false;
       setStarting(false);
     }
   };

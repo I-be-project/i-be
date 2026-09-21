@@ -67,10 +67,14 @@ interface SessionStore {
   hasPhoto: boolean;
   // 진행 중 세션 id — Q7 첫 답변 저장 때 백엔드가 발급, 이후 저장·완료에 재사용.
   sessionId: string | null;
+  surveyRequestId: string | null;
+  pendingRestart: { requestId: string; sourceSessionId: string } | null;
+  setSurveyRequestId: (id: string) => void;
+  setPendingRestart: (value: { requestId: string; sourceSessionId: string } | null) => void;
   // 설문(Q9)까지 마치고 완료 저장에 성공했는지. 재진입 시 종료 화면으로 라우팅하는 기준.
   surveyCompleted: boolean;
   retakingSurvey: boolean;
-  restartSurvey: () => void;
+  restartSurvey: (sessionId?: string, requestId?: string) => void;
   persona: PersonaResult | null;
   cardId: string | null;
   riasecScores: Record<RiasecType, number> | null;
@@ -112,11 +116,12 @@ export const useSessionStore = create<SessionStore>()(
   inputMode: null,
   answers: [],
   hasPhoto: false,
-  sessionId: null,
+  sessionId: null, surveyRequestId: null, pendingRestart: null,
   surveyCompleted: false,
   retakingSurvey: false,
-  restartSurvey: () => set({
-    inputMode: null, answers: [], sessionId: null, surveyCompleted: false,
+  restartSurvey: (sessionId, requestId) => set({
+    inputMode: null, answers: [], sessionId: sessionId ?? null, surveyRequestId: requestId ?? null,
+    pendingRestart: null, surveyCompleted: false,
     retakingSurvey: true, persona: null, cardId: null, riasecScores: null,
     pairCode: null, q7aSelection: null, q7bSelection: null,
     q8Selection: null, q9Selection: null,
@@ -145,7 +150,7 @@ export const useSessionStore = create<SessionStore>()(
         inputMode: null,
         answers: [],
         hasPhoto: false,
-        sessionId: null,
+        sessionId: null, surveyRequestId: null, pendingRestart: null,
         surveyCompleted: false,
         retakingSurvey: false,
         persona: null,
@@ -174,6 +179,8 @@ export const useSessionStore = create<SessionStore>()(
       return { answers: next };
     }),
   setSessionId: (id) => set({ sessionId: id }),
+  setSurveyRequestId: (id) => set({ surveyRequestId: id }),
+  setPendingRestart: (value) => set({ pendingRestart: value }),
   setSurveyCompleted: (v) => set((state) => ({ surveyCompleted: v, retakingSurvey: v ? false : state.retakingSurvey })),
   setPersona: (persona) => set({ persona }),
   setCardId: (id) => set({ cardId: id }),
@@ -190,7 +197,7 @@ export const useSessionStore = create<SessionStore>()(
       inputMode: null,
       answers: [],
       hasPhoto: false,
-      sessionId: null,
+      sessionId: null, surveyRequestId: null, pendingRestart: null,
       surveyCompleted: false,
       retakingSurvey: false,
       persona: null,
@@ -217,6 +224,8 @@ export const useSessionStore = create<SessionStore>()(
         answers: state.answers,
         hasPhoto: state.hasPhoto,
         sessionId: state.sessionId,
+        surveyRequestId: state.surveyRequestId,
+        pendingRestart: state.pendingRestart,
         surveyCompleted: state.surveyCompleted,
         retakingSurvey: state.retakingSurvey,
         riasecScores: state.riasecScores,

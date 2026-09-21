@@ -57,7 +57,11 @@ class StudentRepo(Protocol):
 
     async def get_by_id(self, student_id: UUID) -> StudentRecord | None: ...
 
-    async def update_photo_key(self, student_id: UUID, photo_key: str) -> None: ...
+    async def replace_photo_key(
+        self, student_id: UUID, expected: str | None, photo_key: str
+    ) -> bool: ...
+    async def queue_photo_cleanup(self, photo_key: str) -> None: ...
+    async def finish_photo_cleanup(self, photo_key: str) -> None: ...
 
     async def update_info(
         self, student_id: UUID, *, name: str | None, gender: str | None
@@ -220,23 +224,36 @@ class AuthService:
         if student is None:
             raise NotFoundError("학생을 찾을 수 없습니다.")
 
-        # 수정은 새 키로 올린 뒤 DB를 바꾼다. 캐시 재사용과 저장 실패 시 원본 덮어쓰기를 방지한다.
-        path = f"{student_id}/photo-{uuid4()}" if student.photo_key else f"{student_id}/photo"
+        # 최초 등록도 고유 키를 사용한다. 실패한 동시 요청이 성공한 파일을 지우지 못한다.
+        path = f"{student_id}/photo-{uuid4()}"
         photo_key = await self._storage.upload_photo(path, data, content_type=content_type)
         try:
-            await self._students.update_photo_key(student_id, photo_key)
+            changed = await self._students.replace_photo_key(
+                student_id, student.photo_key, photo_key
+            )
         except Exception:
+            # 커밋 응답 유실일 수도 있으므로 즉시 삭제하지 않는다. 워커가 DB 참조를 확인한다.
             try:
-                await self._storage.delete(photo_key)
+                await self._students.queue_photo_cleanup(photo_key)
             except Exception:
-                logger.warning("저장 실패한 새 사진 정리 실패", exc_info=True)
+                logger.exception("사진 정리 예약 실패", extra={"photo_key": photo_key})
             raise
-        if student.photo_key and student.photo_key != photo_key:
-            try:
-                await self._storage.delete(student.photo_key)
-            except Exception:
-                logger.warning("교체한 이전 사진 정리 실패", exc_info=True)
+        if not changed:
+            await self._delete_queued_photo(photo_key)
+            raise ConflictError(
+                "다른 화면에서 사진을 수정했습니다. 현재 사진을 확인한 뒤 다시 선택해 주세요."
+            )
+        if student.photo_key:
+            await self._delete_queued_photo(student.photo_key)
         return photo_key
+
+    async def _delete_queued_photo(self, photo_key: str) -> None:
+        try:
+            await self._storage.delete(photo_key)
+            await self._students.finish_photo_cleanup(photo_key)
+        except Exception:
+            # replace_photo_key가 이미 큐를 저장했다. 워커가 재시도한다.
+            logger.warning("사진 삭제 재시도 대기", exc_info=True)
 
     async def update_profile(
         self,

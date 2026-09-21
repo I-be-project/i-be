@@ -219,17 +219,48 @@ class StudentRepository(BaseRepository):
             rows = await conn.fetch(query, kind)
         return [_to_record(row) for row in rows]
 
-    async def update_photo_key(self, student_id: UUID, photo_key: str) -> None:
-        """학생의 photo_key 갱신. 대상이 없으면 NotFoundError 대신 조용히 통과하지 않도록
-        서비스 레이어에서 학생 존재를 보장한다(여기서는 단순 UPDATE)."""
-        query = """
-            update pii.students
-            set photo_key = $2
-            where id = $1
-              and deleted_at is null
-        """
+    async def replace_photo_key(
+        self, student_id: UUID, expected: str | None, photo_key: str
+    ) -> bool:
+        """CAS와 이전 파일 삭제 예약을 같은 트랜잭션에 커밋한다."""
+        async with self._pool.transaction() as conn:
+            changed = await conn.fetchval(
+                """update pii.students set photo_key = $3
+                   where id = $1 and deleted_at is null and photo_key is not distinct from $2
+                   returning id""",
+                student_id,
+                expected,
+                photo_key,
+            )
+            cleanup = expected if changed else photo_key
+            if cleanup:
+                await conn.execute(
+                    "insert into generated.photo_cleanup (photo_key) values ($1) on conflict do nothing",
+                    cleanup,
+                )
+        return changed is not None
+
+    async def queue_photo_cleanup(self, photo_key: str) -> None:
         async with self._pool.acquire() as conn:
-            await conn.execute(query, student_id, photo_key)
+            await conn.execute(
+                "insert into generated.photo_cleanup (photo_key) values ($1) on conflict do nothing",
+                photo_key,
+            )
+
+    async def finish_photo_cleanup(self, photo_key: str) -> None:
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "delete from generated.photo_cleanup where photo_key = $1", photo_key
+            )
+
+    async def unused_photo_keys(self) -> list[str]:
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(
+                """select q.photo_key from generated.photo_cleanup q
+                   where not exists (select 1 from pii.students s where s.photo_key = q.photo_key)
+                   order by q.created_at limit 100"""
+            )
+        return [r["photo_key"] for r in rows]
 
     async def update_info(self, student_id: UUID, *, name: str | None, gender: str | None) -> None:
         """학생의 이름/성별 부분 갱신(COALESCE). 대상 존재 보장은 서비스 레이어

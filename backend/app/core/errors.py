@@ -48,6 +48,14 @@ class ConflictError(DomainError):
     code = "conflict"
 
 
+class SessionCompletedError(ConflictError):
+    code = "session_completed"
+
+
+class SessionSupersededError(ConflictError):
+    code = "session_superseded"
+
+
 class InvalidStageError(DomainError):
     status_code = 422
     code = "invalid_stage"

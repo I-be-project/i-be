@@ -12,8 +12,9 @@ from app.main import create_app
 
 
 class FakeService:
-    async def restart_survey(self, student_id):
-        self.calls.append((student_id,))
+    async def restart_survey(self, student_id, request_id, source_session_id):
+        self.calls.append((student_id, request_id, source_session_id))
+        return request_id
 
     def __init__(self, *, conflict: bool = False) -> None:
         self.conflict = conflict
@@ -70,6 +71,7 @@ _BODY = {
 
 async def test_restart_requires_confirmation_and_uses_authenticated_student() -> None:
     student_id = uuid4()
+    request_id, source_id = uuid4(), uuid4()
     service = FakeService()
     app = _app_with(service)
     app.dependency_overrides[current_student] = lambda: student_id
@@ -81,10 +83,17 @@ async def test_restart_requires_confirmation_and_uses_authenticated_student() ->
             assert response.status_code == 422
         assert service.calls == []
         response = await client.post(
-            "/api/sessions/restart", json={"confirmed": True, "student_id": str(uuid4())}
+            "/api/sessions/restart",
+            json={
+                "confirmed": True,
+                "student_id": str(uuid4()),
+                "requestId": str(request_id),
+                "sourceSessionId": str(source_id),
+            },
         )
         assert response.status_code == 200
-        assert service.calls == [(student_id,)]
+        assert service.calls == [(student_id, request_id, source_id)]
+        assert response.json()["session_id"] == str(request_id)
 
 
 async def test_restart_requires_login() -> None:

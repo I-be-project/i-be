@@ -73,13 +73,44 @@ class SessionContent:
 
 
 class SessionRepository(BaseRepository):
-    async def delete_completed_for_student(self, student_id: UUID) -> None:
-        """재시작을 확인한 학생의 완료 결과만 삭제한다. 답변·페르소나·카드는 FK CASCADE."""
-        async with self._pool.acquire() as conn:
-            await conn.execute(
-                "delete from generated.sessions where student_id = $1 and status = 'completed'",
-                student_id,
-            )
+    async def lock_student(self, student_id: UUID, *, conn: Any) -> None:
+        # 모든 저장/완료/재시작에서 같은 학생 행을 잠근다(서버 프로세스 간에도 유효).
+        await conn.fetchval("select id from pii.students where id = $1 for update", student_id)
+
+    async def get_request(
+        self, student_id: UUID, request_id: UUID, *, conn: Any
+    ) -> tuple[bool, UUID | None]:
+        row = await conn.fetchrow(
+            "select session_id from generated.survey_requests where student_id = $1 and request_id = $2",
+            student_id,
+            request_id,
+        )
+        return (row is not None, row["session_id"] if row else None)
+
+    async def remember_request(
+        self, student_id: UUID, request_id: UUID, session_id: UUID, *, conn: Any
+    ) -> None:
+        await conn.execute(
+            "insert into generated.survey_requests (student_id, request_id, session_id) values ($1, $2, $3)",
+            student_id,
+            request_id,
+            session_id,
+        )
+
+    async def abandon_in_progress(self, student_id: UUID, *, conn: Any) -> None:
+        await conn.execute(
+            "update generated.sessions set status = 'abandoned' where student_id = $1 and status = 'in_progress'",
+            student_id,
+        )
+
+    async def delete_completed_for_student(self, student_id: UUID, *, conn: Any = None) -> None:
+        """확인된 재시작에서만 완료 결과 삭제. 답변·페르소나·카드는 FK CASCADE."""
+        query = "delete from generated.sessions where student_id = $1 and status = 'completed'"
+        if conn is not None:
+            await conn.execute(query, student_id)
+        else:
+            async with self._pool.acquire() as c:
+                await c.execute(query, student_id)
 
     async def create(
         self,
@@ -111,14 +142,19 @@ class SessionRepository(BaseRepository):
             completed_at=row["completed_at"],
         )
 
-    async def get_by_id(self, session_id: UUID) -> SessionRecord | None:
+    async def get_by_id(self, session_id: UUID, *, conn: Any = None) -> SessionRecord | None:
         """세션 1개를 id로 조회. 없으면 None."""
         query = f"select {_COLUMNS} from generated.sessions where id = $1"
-        async with self._pool.acquire() as conn:
+        if conn is not None:
             row = await conn.fetchrow(query, session_id)
+        else:
+            async with self._pool.acquire() as c:
+                row = await c.fetchrow(query, session_id)
         return _to_session(row)
 
-    async def get_latest_for_student(self, student_id: UUID) -> SessionRecord | None:
+    async def get_latest_for_student(
+        self, student_id: UUID, *, conn: Any = None
+    ) -> SessionRecord | None:
         """그 학생의 가장 최근 세션 1개(created_at 내림차순). 없으면 None."""
         query = f"""
             select {_COLUMNS}
@@ -127,11 +163,16 @@ class SessionRepository(BaseRepository):
             order by created_at desc
             limit 1
         """
-        async with self._pool.acquire() as conn:
+        if conn is not None:
             row = await conn.fetchrow(query, student_id)
+        else:
+            async with self._pool.acquire() as c:
+                row = await c.fetchrow(query, student_id)
         return _to_session(row)
 
-    async def get_latest_completed_for_student(self, student_id: UUID) -> SessionRecord | None:
+    async def get_latest_completed_for_student(
+        self, student_id: UUID, *, conn: Any = None
+    ) -> SessionRecord | None:
         """그 학생의 가장 최근 'completed' 세션 1개. 없으면 None.
 
         진행 중(in_progress) 세션이 완료 판정을 가리지 않도록,
@@ -144,8 +185,11 @@ class SessionRepository(BaseRepository):
             order by created_at desc
             limit 1
         """
-        async with self._pool.acquire() as conn:
+        if conn is not None:
             row = await conn.fetchrow(query, student_id)
+        else:
+            async with self._pool.acquire() as c:
+                row = await c.fetchrow(query, student_id)
         return _to_session(row)
 
     async def update_status(

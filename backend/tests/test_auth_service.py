@@ -39,6 +39,7 @@ class FakeStudentRepo:
         # 집계 fake용 — 테스트가 학생별 최근 세션 상태를 직접 심는다.
         # None(키 없음)=세션 없음, "completed"=완료, 그 외=진행중.
         self.progress_status: dict[UUID, str] = {}
+        self.cleanup: set[str] = set()
 
     @staticmethod
     def _key(
@@ -111,6 +112,26 @@ class FakeStudentRepo:
 
     async def list_by_kind(self, kind: str) -> list[StudentRecord]:
         return [r for r in self._by_id.values() if r.kind == kind and r.deleted_at is None]
+
+    async def queue_photo_cleanup(self, photo_key: str) -> None:
+        self.cleanup.add(photo_key)
+
+    async def finish_photo_cleanup(self, photo_key: str) -> None:
+        self.cleanup.discard(photo_key)
+
+    async def unused_photo_keys(self):
+        return [k for k in self.cleanup if all(r.photo_key != k for r in self._by_id.values())]
+
+    async def replace_photo_key(
+        self, student_id: UUID, expected: str | None, photo_key: str
+    ) -> bool:
+        if self._by_id[student_id].photo_key != expected:
+            self.cleanup.add(photo_key)
+            return False
+        if expected:
+            self.cleanup.add(expected)
+        await self.update_photo_key(student_id, photo_key)
+        return True
 
     async def update_photo_key(self, student_id: UUID, photo_key: str) -> None:
         record = self._by_id[student_id]
@@ -443,8 +464,9 @@ async def test_attach_photo_uploads_and_links_key() -> None:
 
     photo_key = await service.attach_photo(student.id, b"jpegbytes", content_type="image/jpeg")
 
-    assert storage.uploads == [(f"{student.id}/photo", b"jpegbytes", "image/jpeg")]
-    assert photo_key == f"photos/{student.id}/photo"
+    assert storage.uploads[0][0].startswith(f"{student.id}/photo-")
+    assert storage.uploads[0][1:] == (b"jpegbytes", "image/jpeg")
+    assert photo_key == f"photos/{storage.uploads[0][0]}"
     refreshed = await repo.get_by_id(student.id)
     assert refreshed is not None and refreshed.photo_key == photo_key
 
@@ -475,12 +497,13 @@ async def test_replace_photo_db_failure_preserves_old_photo() -> None:
     async def fail(*args: object) -> None:
         raise RuntimeError("database unavailable")
 
-    repo.update_photo_key = fail
+    repo.replace_photo_key = fail
     with pytest.raises(RuntimeError, match="database unavailable"):
         await service.attach_photo(student.id, b"new", content_type="image/png")
     assert (await repo.get_by_id(student.id)).photo_key == old_key
     assert old_key not in storage.deleted
-    assert storage.deleted == [f"photos/{storage.uploads[-1][0]}"]
+    assert storage.deleted == []
+    assert f"photos/{storage.uploads[-1][0]}" in repo.cleanup
 
 
 async def test_update_profile_updates_name_and_gender() -> None:

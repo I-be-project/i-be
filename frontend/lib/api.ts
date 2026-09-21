@@ -88,6 +88,7 @@ export interface ProfileCompetencyScore {
 }
 
 export interface ProfileSummary {
+  completed_session_id?: string | null;
   has_completed: boolean;
   retry_enabled: boolean;
   student: ProfileStudent | null;
@@ -242,11 +243,11 @@ export function getMyProfile(token: string): Promise<ProfileSummary> {
   });
 }
 
-export function restartSurvey(token: string): Promise<{ restarted: boolean }> {
+export function restartSurvey(token: string, requestId: string, sourceSessionId: string): Promise<SaveAnswerResponse> {
   return request("/api/sessions/restart", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ confirmed: true }),
+    body: JSON.stringify({ confirmed: true, requestId, sourceSessionId }),
   });
 }
 
@@ -600,7 +601,7 @@ export interface SaveAnswerResponse {
 
 export function saveAnswer(
   token: string,
-  input: { sessionId?: string; stage: AnswerStage; answer: Record<string, unknown> }
+  input: { sessionId?: string; requestId?: string; stage: AnswerStage; answer: Record<string, unknown> }
 ): Promise<SaveAnswerResponse> {
   return request<SaveAnswerResponse>("/api/sessions/answers", {
     method: "POST",
@@ -610,6 +611,7 @@ export function saveAnswer(
     },
     body: JSON.stringify({
       sessionId: input.sessionId,
+      requestId: input.requestId,
       stage: input.stage,
       answer: input.answer,
     }),
