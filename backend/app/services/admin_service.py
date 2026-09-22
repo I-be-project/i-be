@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+from collections.abc import Sequence
 from datetime import timedelta
 from uuid import UUID
 
@@ -11,18 +12,21 @@ from app.adapters.storage_client import StorageClient
 from app.config import Settings
 from app.core.errors import NotFoundError, UnauthorizedError
 from app.core.security import TokenKind, create_token
+from app.core.survey_catalog import Q1TO6, STAGE_DESCRIPTIONS
 from app.repositories.session_repo import (
+    AnswerRecord,
     SessionContent,
     SessionRepository,
     StudentProgressRow,
 )
 from app.repositories.student_repo import ClassProgressRow, StudentRepository
 from app.schemas.admin import (
-    AdminAnswer,
     AdminBulkDeleteResponse,
     AdminClassProgress,
     AdminDeleteResponse,
+    AdminQuestionAnswer,
     AdminSessionDetail,
+    AdminStageAnswer,
     AdminStudentDetail,
     AdminStudentItem,
     AdminStudentList,
@@ -33,6 +37,7 @@ from app.schemas.admin import (
     AdminTestToken,
 )
 from app.schemas.students import PersonaSummary
+from app.services.dev_service import build_persona_inputs, chip_items
 
 logger = logging.getLogger(__name__)
 
@@ -194,18 +199,18 @@ class AdminService:
 
         sessions: list[AdminSessionDetail] = []
         for c in contents:
+            answers, riasec, pair_code = (
+                _readable_answers(c.answers) if include_answers else ([], None, None)
+            )
             sessions.append(
                 AdminSessionDetail(
                     id=c.id,
                     status=c.status,
                     created_at=c.created_at,
                     completed_at=c.completed_at,
-                    answers=[
-                        AdminAnswer(stage=a.stage, payload=a.payload, created_at=a.created_at)
-                        for a in c.answers
-                    ]
-                    if include_answers
-                    else [],
+                    riasec=riasec,
+                    pair_code=pair_code,
+                    answers=answers,
                     persona=_to_persona_summary(c),
                     card_image_url=(signed.get(c.card_image_key) if c.card_image_key else None),
                 )
@@ -342,6 +347,47 @@ def _to_progress(row: StudentProgressRow | None) -> AdminStudentProgress:
         has_card=row.has_card,
         last_activity_at=row.completed_at or row.created_at,
     )
+
+
+def _readable_answers(
+    records: list[AnswerRecord],
+) -> tuple[list[AdminQuestionAnswer | AdminStageAnswer], dict[str, int] | None, str | None]:
+    """저장된 단계별 payload → (질문·답 목록, RIASEC 점수, Pair Code).
+
+    저장 형식은 그대로 두고 응답만 읽기 좋게 푼다. 문구를 모르는 선택지 ID(카탈로그에
+    없는 값)는 버리지 않고 원문 그대로 둔다. 답이 없는 단계는 목록에서 뺀다.
+    """
+    payloads = {r.stage: r.payload for r in records}
+    inputs = build_persona_inputs(payloads, career_pool=[])
+
+    items: list[AdminQuestionAnswer | AdminStageAnswer] = []
+    raw = payloads.get("q1to6", {}).get("answers")
+    picked = {
+        a.get("questionId"): a.get("value")
+        for a in (raw if isinstance(raw, list) else [])
+        if isinstance(a, dict)
+    }
+    for qid, (question, options) in Q1TO6.items():
+        value = picked.get(qid)
+        if isinstance(value, str):
+            items.append(
+                AdminQuestionAnswer(
+                    no=f"Q{qid}", question=question, answer=options.get(value, value)
+                )
+            )
+
+    stage_answers: dict[str, Sequence[str | None]] = {
+        "q7a": [inputs.q7a_first, inputs.q7a_second],
+        "q7b": [inputs.q7b_first, inputs.q7b_second],
+        "q8": chip_items(payloads.get("q8", {})),
+        "q9": chip_items(payloads.get("q9", {})),
+    }
+    for stage, (no, description) in STAGE_DESCRIPTIONS.items():
+        answer = [a for a in stage_answers[stage] if a]
+        if answer:
+            items.append(AdminStageAnswer(no=no, description=description, answer=answer))
+
+    return items, inputs.riasec_scores or None, inputs.pair_code or None
 
 
 def _to_persona_summary(content: SessionContent) -> PersonaSummary | None:

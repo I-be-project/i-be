@@ -12,6 +12,7 @@
 //     기준 멱등(upsert)이라 재전송은 안전하며, 어느 단계 저장이 실패했든
 //     완료 세션은 항상 완전해진다. 즉 "완료"가 데이터 무결성의 단일 관문이다.
 
+import { newRequestId } from "@/lib/requestId";
 import { ApiError, saveAnswer } from "@/lib/api";
 import type { AnswerStage, SaveAnswerResponse } from "@/lib/api";
 import { useSessionStore } from "@/store/useSessionStore";
@@ -28,6 +29,7 @@ function isTransient(error: unknown): boolean {
 
 interface SaveInput {
   sessionId?: string;
+  requestId?: string;
   stage: AnswerStage;
   answer: Record<string, unknown>;
 }
@@ -38,11 +40,15 @@ async function saveWithRetry(
   input: SaveInput,
   tries = 3,
   baseDelayMs = 400,
+  guard: () => void = () => {},
 ): Promise<SaveAnswerResponse> {
   let lastError: unknown;
   for (let attempt = 0; attempt < tries; attempt++) {
     try {
-      return await saveAnswer(token, input);
+      guard();
+      const result = await saveAnswer(token, input);
+      guard();
+      return result;
     } catch (error) {
       lastError = error;
       if (!isTransient(error) || attempt === tries - 1) throw error;
@@ -56,52 +62,52 @@ async function saveWithRetry(
 // 여러 저장이 sessionId 없이 동시에 나가도 세션은 딱 하나만 만들어지고,
 // 나머지는 그 sessionId를 기다렸다가 각자 단계를 저장한다.
 // 모듈 스코프라 questions/path 두 화면이 같은 락을 공유한다.
-let sessionInit: Promise<string> | null = null;
+const sessionInit = new Map<string, Promise<string>>();
 
-interface EnsureResult {
-  sessionId: string;
-  // 세션을 새로 만든 호출이면, 그 seed 단계는 이미 저장된 상태다.
-  seededStage: AnswerStage | null;
+function surveyContext(token: string) {
+  const state = useSessionStore.getState();
+  const requestId = state.surveyRequestId ?? newRequestId();
+  if (!state.surveyRequestId) state.setSurveyRequestId(requestId);
+  const guard = () => {
+    const current = useSessionStore.getState();
+    if (current.studentId !== state.studentId || current.surveyRequestId !== requestId || current.studentToken !== state.studentToken) {
+      throw new ApiError("설문 상태가 변경됐어. 새로고침해 줘.", 409, "session_superseded");
+    }
+  };
+  return { requestId, guard, key: `${token}:${requestId}` };
 }
 
-async function ensureSession(token: string, seed: SaveInput): Promise<EnsureResult> {
-  const existing = useSessionStore.getState().sessionId;
-  if (existing) return { sessionId: existing, seededStage: null };
-
-  const initiator = sessionInit === null;
-  if (initiator) {
-    sessionInit = (async () => {
-      // sessionId 없이 저장하면 백엔드가 in_progress 세션을 만들어 id를 돌려준다.
-      const res = await saveWithRetry(token, {
-        stage: seed.stage,
-        answer: seed.answer,
-      });
-      useSessionStore.getState().setSessionId(res.session_id);
-      return res.session_id;
-    })();
-  }
-  const pending = sessionInit!;
-  try {
-    const sessionId = await pending;
-    return { sessionId, seededStage: initiator ? seed.stage : null };
-  } finally {
-    // 버스트가 끝나면 락을 비워, 이후(예: 재로그인으로 sessionId 초기화) 호출이
-    // 낡은 세션 id를 재사용하지 않도록 한다. 실패한 경우에도 반드시 비운다.
-    if (initiator && sessionInit === pending) sessionInit = null;
-  }
-}
-
-// 한 단계 답변을 저장한다(sessionId 확보 포함). 성공 시 sessionId 반환.
-// 세션을 새로 만든 호출은 seed 단계가 함께 저장되므로 추가 저장을 생략한다.
-export async function persistStage(
-  token: string,
-  stage: AnswerStage,
-  answer: Record<string, unknown>,
+async function persistWithContext(
+  token: string, stage: AnswerStage, answer: Record<string, unknown>, context: ReturnType<typeof surveyContext>,
 ): Promise<string> {
-  const { sessionId, seededStage } = await ensureSession(token, { stage, answer });
-  if (seededStage === stage) return sessionId;
-  await saveWithRetry(token, { sessionId, stage, answer });
+  context.guard();
+  let sessionId = useSessionStore.getState().sessionId;
+  if (!sessionId) {
+    const initiator = !sessionInit.has(context.key);
+    if (initiator) {
+      const pending = (async () => {
+        const res = await saveWithRetry(token, { requestId: context.requestId, stage, answer }, 3, 400, context.guard);
+        context.guard();
+        useSessionStore.getState().setSessionId(res.session_id);
+        return res.session_id;
+      })();
+      sessionInit.set(context.key, pending);
+    }
+    const pending = sessionInit.get(context.key)!;
+    try {
+      sessionId = await pending;
+      context.guard();
+      if (initiator) return sessionId;
+    } finally {
+      if (initiator && sessionInit.get(context.key) === pending) sessionInit.delete(context.key);
+    }
+  }
+  await saveWithRetry(token, { sessionId, stage, answer }, 3, 400, context.guard);
   return sessionId;
+}
+
+export async function persistStage(token: string, stage: AnswerStage, answer: Record<string, unknown>): Promise<string> {
+  return persistWithContext(token, stage, answer, surveyContext(token));
 }
 
 export interface StagePayload {
@@ -179,18 +185,19 @@ export function buildStagePayloads(): StagePayload[] {
 // 반환된 sessionId로 곧바로 completeSurvey를 호출하면, 완료 세션은 앞선 저장이
 // 일부 실패했더라도 항상 q1to6~q9를 온전히 갖는다. 저장할 답변이 없으면 예외.
 export async function reconcileAllAnswers(token: string): Promise<string> {
+  const context = surveyContext(token);
   const stages = buildStagePayloads();
   if (stages.length === 0) {
     throw new Error("동기화할 답변이 없습니다.");
   }
   // 첫 단계로 세션 확보(이미 있으면 재사용), 나머지는 그 세션에 순차 저장.
-  const sessionId = await persistStage(token, stages[0].stage, stages[0].answer);
+  const sessionId = await persistWithContext(token, stages[0].stage, stages[0].answer, context);
   for (let i = 1; i < stages.length; i++) {
     await saveWithRetry(token, {
       sessionId,
       stage: stages[i].stage,
       answer: stages[i].answer,
-    });
+    }, 3, 400, context.guard);
   }
   return sessionId;
 }

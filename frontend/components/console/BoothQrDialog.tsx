@@ -50,7 +50,7 @@ function BoothQrBody({ booth }: BoothQrBodyProps) {
 
   useEffect(() => {
     let active = true;
-    renderBoothQrPng(booth.qr_url, booth.code)
+    renderBoothQrPng(booth.qr_url, booth.name)
       .then((dataUrl) => {
         if (active) setPngDataUrl(dataUrl);
       })
@@ -99,7 +99,7 @@ function BoothQrBody({ booth }: BoothQrBodyProps) {
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={pngDataUrl}
-              alt={`${booth.name} 부스 QR (코드 ${booth.code})`}
+              alt={`${booth.name} 부스 QR`}
               className="size-56 object-contain"
             />
           ) : (

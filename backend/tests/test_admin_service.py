@@ -274,7 +274,7 @@ async def test_student_detail_assembles_sessions() -> None:
             status="completed",
             created_at=now,
             completed_at=now,
-            answers=[AnswerRecord(uuid4(), uuid4(), "q1to6", {"riasec": "RIA"}, now)],
+            answers=[AnswerRecord(uuid4(), uuid4(), "q1to6", {"pairCode": "RI"}, now)],
             persona=SessionPersona(
                 name="탐험가", tagline="새로움을 좇는", keywords=["호기심"], fields=["과학"]
             ),
@@ -285,7 +285,7 @@ async def test_student_detail_assembles_sessions() -> None:
     assert detail.name == "홍길동"
     assert len(detail.sessions) == 1
     s = detail.sessions[0]
-    assert s.answers[0].stage == "q1to6"
+    assert s.pair_code == "RI"
     assert s.persona is not None and s.persona.name == "탐험가"
     assert s.card_image_url is not None  # presigned URL 생성됨
 
@@ -694,7 +694,11 @@ async def test_get_student_detail_omits_answers_for_operator() -> None:
                     id=uuid4(),
                     session_id=session_id,
                     stage="q1to6",
-                    payload={"q1": "친구들과 같이 하는 일"},
+                    payload={
+                        "answers": [{"questionId": 1, "value": "q1-s"}],
+                        "riasec": {"S": 2},
+                        "pairCode": "SA",
+                    },
                     created_at=now,
                 )
             ],
@@ -711,6 +715,62 @@ async def test_get_student_detail_omits_answers_for_operator() -> None:
 
     for_operator = await service.get_student_detail(student.id, include_answers=False)
     assert for_operator.sessions[0].answers == []
+    assert for_operator.sessions[0].riasec is None
+    assert for_operator.sessions[0].pair_code is None
     # 답변만 빠지고 나머지 필드는 그대로여야 한다.
     assert for_operator.sessions[0].id == session_id
     assert for_operator.name == for_admin.name
+
+
+async def test_student_detail_answers_read_as_question_and_answer() -> None:
+    """저장된 payload를 질문·답(Q1~6)과 설명·답(Q7~9)으로 풀고 잡음 필드는 뺀다."""
+    repo, storage = FakeStudentRepo(), FakeStorage()
+    await _seed(repo)
+    sessions = FakeSessionRepo()
+    student = next(r for r in repo._by_id.values() if r.name == "홍길동")
+    now = datetime.now(UTC)
+    sid = uuid4()
+    payloads = {
+        "q1to6": {
+            "riasec": {"A": 1, "C": 7, "E": 1, "I": 2, "R": 0, "S": 5},
+            "answers": [
+                {"value": "q1-i", "questionId": 1},
+                {"value": "q2-unknown", "questionId": 2},  # 카탈로그에 없는 ID는 원문 유지
+            ],
+            "pairCode": "CS",
+            "optionIds": ["q1-i", "q2-unknown"],
+        },
+        "q7a": {"first": "쉼터 — 쉬어 가는 곳", "second": "모임방 — 모이는 곳"},
+        "q7b": {
+            "first": {"title": "관계 기록장", "subfield_id": "SUB_03"},
+            "second": {"title": "일정 설계 판", "subfield_id": "SUB_04"},
+        },
+        "q8": {"chips": ["계획대로 진행되는 과정을 확인하는"], "freeText": ""},
+        # q9 없음 — 진행 중 세션
+    }
+    sessions.contents[student.id] = [
+        SessionContent(
+            id=sid,
+            status="in_progress",
+            created_at=now,
+            completed_at=None,
+            # 역순 저장이어도 문항 순서로 나온다.
+            answers=[AnswerRecord(uuid4(), sid, k, v, now) for k, v in reversed(payloads.items())],
+            persona=None,
+            card_image_key=None,
+        )
+    ]
+    s = (await _svc(repo, storage, sessions).get_student_detail(student.id)).sessions[0]
+
+    assert s.pair_code == "CS" and s.riasec is not None and s.riasec["C"] == 7
+    got = [a.model_dump() for a in s.answers]
+    assert [a["no"] for a in got] == ["Q1", "Q2", "Q7-A", "Q7-B", "Q8"]
+    assert got[0] == {
+        "no": "Q1",
+        "question": "[선착장 도착] 가장 먼저 시작하는 일은?",
+        "answer": "지도와 주변 풍경을 비교해 지금 위치를 짐작한다.",
+    }
+    assert got[1]["answer"] == "q2-unknown"
+    assert got[3]["answer"] == ["관계 기록장", "일정 설계 판"]
+    assert got[4]["answer"] == ["계획대로 진행되는 과정을 확인하는"]
+    assert "description" in got[2] and "question" not in got[2]

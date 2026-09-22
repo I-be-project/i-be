@@ -7,6 +7,7 @@ from datetime import timedelta
 from uuid import uuid4
 
 import httpx
+import pytest
 
 from app.config import get_settings
 from app.core.security import TokenKind, create_token
@@ -237,3 +238,40 @@ async def test_delete_missing_booth_returns_404() -> None:
         assert res.status_code == 404
     finally:
         await gen.aclose()
+
+
+@pytest.mark.anyio
+async def test_create_booth_rejects_unknown_zone() -> None:
+    app, _repo = _build()
+    async for client in _client(app):
+        res = await client.post(
+            "/api/admin/booths",
+            json={"name": "부스", "zone": "Z"},
+            headers=_auth(),
+        )
+        assert res.status_code == 422
+
+
+@pytest.mark.anyio
+async def test_create_booth_returns_zone() -> None:
+    app, _repo = _build()
+    async for client in _client(app):
+        res = await client.post(
+            "/api/admin/booths",
+            json={"name": "드론 시뮬레이션", "zone": "F"},
+            headers=_auth(),
+        )
+        assert res.status_code == 201
+        assert res.json()["zone"] == "F"
+
+
+@pytest.mark.anyio
+async def test_create_booth_rejects_unknown_competency() -> None:
+    app, _repo = _build()
+    async for client in _client(app):
+        res = await client.post(
+            "/api/admin/booths",
+            json={"name": "부스", "competencies": ["없는역량"]},
+            headers=_auth(),
+        )
+        assert res.status_code == 422

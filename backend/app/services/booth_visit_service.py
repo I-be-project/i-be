@@ -109,6 +109,7 @@ class BoothVisitService:
                     booth_id=r.booth_id,
                     code=r.code,
                     name=r.name,
+                    zone=r.zone,
                     visit_count=r.visit_count,
                 )
                 for r in rows

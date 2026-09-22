@@ -8,7 +8,11 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  --font-sans:
+    "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo",
+    "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", sans-serif;
   --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -145,6 +149,16 @@
   --color-ink-soft: #1d4a5e; /* 본문 */
   --color-ink-muted: #4c6a82; /* 보조 텍스트 */
   --color-sand: #fdf3e0; /* 화면 하단 모래사장 — 스크림 색과 동일해야 함 */
+
+  /* 한마당 팔레트 — 액센트 3색은 포스터 이미지에서 추출한 값 그대로.
+     바탕만 포스터의 크림 대신 하늘색을 쓴다(여정의 하늘 톤과 이어짐).
+     탭 4개(홈·부스·성향·프로필)가 이 톤을 공유한다. */
+  --color-hm-sky: #d8edfb; /* 화면 바탕 */
+  --color-hm-pattern: #c2e1f6; /* 바탕 위 톤온톤 아이콘 — 대비를 낮게 유지 */
+  --color-hm-tint: #eaf5fd; /* 카드 안쪽 연한 면 */
+  --color-hm-blue: #005bab; /* 제목·본문 */
+  --color-hm-coral: #e96160;
+  --color-hm-teal: #00aca8;
 }
 
 /* 하늘 → 바다 → 모래사장. 학생 여정 공통 배경.
@@ -168,21 +182,44 @@
 }
 
 @keyframes twinkle {
-  0%, 100% { opacity: 0.2; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.15); }
+  0%,
+  100% {
+    opacity: 0.2;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
 }
 @keyframes floaty {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-12px); }
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
 }
 @keyframes drift {
-  0%, 100% { transform: translate(0, 0); }
-  50% { transform: translate(10px, -20px); }
+  0%,
+  100% {
+    transform: translate(0, 0);
+  }
+  50% {
+    transform: translate(10px, -20px);
+  }
 }
 
-.animate-twinkle { animation: twinkle 3.2s ease-in-out infinite; }
-.animate-floaty { animation: floaty 5.5s ease-in-out infinite; }
-.animate-drift { animation: drift 11s ease-in-out infinite; }
+.animate-twinkle {
+  animation: twinkle 3.2s ease-in-out infinite;
+}
+.animate-floaty {
+  animation: floaty 5.5s ease-in-out infinite;
+}
+.animate-drift {
+  animation: drift 11s ease-in-out infinite;
+}
 
 @media (prefers-reduced-motion: reduce) {
   .animate-twinkle,
@@ -190,4 +227,18 @@
   .animate-drift {
     animation: none !important;
   }
+}
+/* ── 한마당 포스터 톤 (탭 4개 전용) ─────────────────────────
+   포스터 구성을 그대로 따르되 바탕만 하늘색: 단색 면에 톤온톤 아이콘이 깔리고,
+   그 위에 파랑·코랄·틸 블록이 얹힌다. 글래스/그라데이션 없이 납작하게 간다. */
+.bg-hanmadang {
+  background: var(--color-hm-sky);
+}
+
+/* 포스터 카드 — 반투명 유리 대신 불투명 흰 종이 + 또렷한 테두리 */
+.hm-card {
+  border-radius: 1.5rem;
+  background: #fff;
+  border: 2px solid var(--color-hm-pattern);
+  box-shadow: 0 4px 0 0 var(--color-hm-pattern);
 }

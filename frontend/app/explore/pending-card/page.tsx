@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { Copy, Check } from "lucide-react";
 import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
 import { FlowLoading } from "@/components/voyage/FlowLoading";
+import { CompletionEditDialog } from "@/components/explore/CompletionEditDialog";
 
 const SUPPORT_EMAIL = "ibesupport.2026@gmail.com";
 
@@ -32,6 +33,7 @@ export default function PendingCardPage() {
 
   return (
     <main className="relative flex h-[100dvh] flex-col items-center justify-center overflow-hidden px-6 py-8 font-sans">
+      <CompletionEditDialog />
       {/* 배경 — 나로섬 한마당 전경(해질녘 광장). 앱 프레임(main) 안에 갇힘. */}
       <div
         aria-hidden

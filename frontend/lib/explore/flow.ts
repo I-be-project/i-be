@@ -96,7 +96,7 @@ export function resumePath(s: FlowState): string {
 // 이미 사진을 올린 학생까지 다시 올리라고 요구하게 된다. 서버에 사진이 있으면 통과시킨다.
 export function reconcileFromProfile(profile: ProfileSummary): void {
   const store = useSessionStore.getState();
-  if (profile.has_completed) {
+  if (profile.has_completed && !store.retakingSurvey) {
     store.setSurveyCompleted(true);
   }
   if (profile.student?.photo_url) {
@@ -143,7 +143,7 @@ function pickFlowState(): FlowState {
 //  - 진행상황이 이 화면보다 앞서 있으면 → 그 화면으로 밀어냄(뒤로가기 차단 + 이어하기)
 //  - 이 화면에 있을 조건이 안 되면(비정상 진입) → 진행상황에 맞는 화면으로
 // 반환값 ready가 true가 되기 전(복원 전/리다이렉트 대상)에는 화면을 그리지 않는다.
-export function useFlowGuard(screen: FlowScreen): { ready: boolean } {
+export function useFlowGuard(screen: FlowScreen, editingPhoto = false): { ready: boolean } {
   const router = useRouter();
   const hasHydrated = useSessionStore((s) => s.hasHydrated);
   const studentToken = useSessionStore((s) => s.studentToken);
@@ -166,6 +166,7 @@ export function useFlowGuard(screen: FlowScreen): { ready: boolean } {
     }
     const state = pickFlowState();
     const target = resumeScreen(state);
+    if (editingPhoto && screen === "photo" && state.surveyCompleted) return;
     // 이미 목표 화면에 있으면(같은 경로) 리다이렉트하지 않는다 — 어떤 상태에서도
     // 자기 자신으로 되미는 무한 리다이렉트(→ 영구 로딩/하늘 배경)를 원천 차단한다.
     if (SCREEN_PATH[target] === SCREEN_PATH[screen]) return;
@@ -191,6 +192,7 @@ export function useFlowGuard(screen: FlowScreen): { ready: boolean } {
     completed,
     hasPhoto,
     screen,
+    editingPhoto,
     router,
   ]);
 
@@ -198,7 +200,7 @@ export function useFlowGuard(screen: FlowScreen): { ready: boolean } {
   const state = pickFlowState();
   const target = resumeScreen(state);
   const ready =
-    screenIndex(target) <= screenIndex(screen) && canAccess(screen, state);
+    (screenIndex(target) <= screenIndex(screen) || (editingPhoto && screen === "photo")) && canAccess(screen, state);
   return { ready };
 }
 

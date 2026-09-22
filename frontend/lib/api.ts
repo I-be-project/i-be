@@ -6,6 +6,8 @@
 //     검증 에러     { "detail": [ { "loc", "msg" } ] }  (FastAPI 기본)
 //   두 형식을 parseErrorMessage가 하나의 사용자 메시지로 통일한다.
 
+import type { BoothZone } from "@/lib/competencies";
+
 export const API_BASE_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
@@ -76,9 +78,22 @@ export interface ProfileBoothStatus {
   id: string;
   name: string;
   visited: boolean;
+  // 아래 4개는 부스 탭 카드용. 구버전 서버가 안 내려줄 수 있어 선택 필드로 둔다.
+  zone?: BoothZone;
+  description?: string | null;
+  competencies?: string[];
+  visited_at?: string | null;
+}
+
+// 역량 10개 점수 — 방문한 부스에 연결된 역량이 1점씩 오른다. 0점도 빠짐없이 내려온다.
+export interface ProfileCompetencyScore {
+  key: string;
+  label: string;
+  score: number;
 }
 
 export interface ProfileSummary {
+  completed_session_id?: string | null;
   has_completed: boolean;
   retry_enabled: boolean;
   student: ProfileStudent | null;
@@ -86,6 +101,8 @@ export interface ProfileSummary {
   persona: ProfilePersona | null;
   card: ProfileCard | null;
   booths?: ProfileBoothStatus[];
+  // 배포 순서상 구버전 서버가 안 내려줄 수 있어 선택 필드로 둔다(booths와 같은 이유).
+  competencies?: ProfileCompetencyScore[];
 }
 
 // API 호출 실패를 status/code와 함께 던진다. 화면에서 분기(409/403/401 등)에 사용.
@@ -231,6 +248,14 @@ export function getMyProfile(token: string): Promise<ProfileSummary> {
   });
 }
 
+export function restartSurvey(token: string, requestId: string, sourceSessionId: string): Promise<SaveAnswerResponse> {
+  return request("/api/sessions/restart", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ confirmed: true, requestId, sourceSessionId }),
+  });
+}
+
 export function uploadPhoto(
   token: string,
   file: File
@@ -319,11 +344,10 @@ export interface AdminClassProgress {
   not_started: number;
 }
 
-export interface AdminAnswer {
-  stage: string;
-  payload: Record<string, unknown>;
-  created_at: string;
-}
+// Q1~6은 고정 질문(question), Q7-A~Q9는 AI 생성 선택지라 설명(description)이 온다.
+export type AdminAnswer =
+  | { no: string; question: string; answer: string }
+  | { no: string; description: string; answer: string[] };
 
 export interface AdminPersona {
   name: string;
@@ -337,6 +361,8 @@ export interface AdminSessionDetail {
   status: string;
   created_at: string;
   completed_at: string | null;
+  riasec: Record<string, number> | null;
+  pair_code: string | null;
   answers: AdminAnswer[];
   persona: AdminPersona | null;
   card_image_url: string | null;
@@ -581,7 +607,7 @@ export interface SaveAnswerResponse {
 
 export function saveAnswer(
   token: string,
-  input: { sessionId?: string; stage: AnswerStage; answer: Record<string, unknown> }
+  input: { sessionId?: string; requestId?: string; stage: AnswerStage; answer: Record<string, unknown> }
 ): Promise<SaveAnswerResponse> {
   return request<SaveAnswerResponse>("/api/sessions/answers", {
     method: "POST",
@@ -591,6 +617,7 @@ export function saveAnswer(
     },
     body: JSON.stringify({
       sessionId: input.sessionId,
+      requestId: input.requestId,
       stage: input.stage,
       answer: input.answer,
     }),
@@ -632,6 +659,8 @@ export interface AdminBooth {
   code: string;
   name: string;
   description: string | null;
+  zone: BoothZone;
+  competencies: string[];
   qr_url: string;
   created_at: string;
 }
@@ -639,6 +668,8 @@ export interface AdminBooth {
 export interface AdminBoothCreatePayload {
   name: string;
   description: string | null;
+  zone: BoothZone;
+  competencies: string[];
 }
 
 // 보내지 않은 필드는 서버가 기존 값을 유지한다.
@@ -646,6 +677,8 @@ export interface AdminBoothCreatePayload {
 export interface AdminBoothUpdatePayload {
   name?: string;
   description?: string | null;
+  zone?: BoothZone;
+  competencies?: string[];
 }
 
 export function fetchAdminBooths(token: string): Promise<AdminBooth[]> {
@@ -699,6 +732,7 @@ export interface BoothVisitStat {
   booth_id: string;
   code: string;
   name: string;
+  zone: BoothZone;
   visit_count: number;
 }
 

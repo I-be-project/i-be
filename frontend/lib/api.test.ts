@@ -373,7 +373,12 @@ describe("부스 관리 API", () => {
       .mockResolvedValue(new Response(JSON.stringify(booth), { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await createAdminBooth("tok123", { name: "드론 체험", description: null });
+    await createAdminBooth("tok123", {
+      name: "드론 체험",
+      description: null,
+      zone: "",
+      competencies: [],
+    });
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("http://localhost:8000/api/admin/booths");
@@ -381,6 +386,8 @@ describe("부스 관리 API", () => {
     expect(JSON.parse(init.body as string)).toEqual({
       name: "드론 체험",
       description: null,
+      zone: "",
+      competencies: [],
     });
   });
 

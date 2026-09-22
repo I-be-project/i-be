@@ -15,10 +15,11 @@ AI 기반 진로 탐색 경험. 3개 저장소(`backend`·`frontend`·`docs`)를
 
 ### 브랜치 전략
 
-- `production` — 배포 브랜치 (PR base). 직접 커밋 금지
+- `production` — 배포 브랜치. 직접 커밋 금지
 - `develop` — 통합 브랜치. 일상 작업은 여기서 진행
 - 독립 기능/문서/설정 작업은 접두사 브랜치로 분리: `feat/*`, `fix/*`, `chore/*`, `docs/*`
-- 모든 PR의 base는 `production`
+- 흐름은 `feat/*` → `develop` → `production`. 접두사 브랜치 PR의 base는 `develop`,
+  배포 PR(`develop` → `production`)의 base만 `production`
 
 ### 커밋 메시지
 
@@ -30,8 +31,8 @@ AI 기반 진로 탐색 경험. 3개 저장소(`backend`·`frontend`·`docs`)를
 
 - 제목: 커밋 메시지와 동일한 컨벤션 (접두사 + 한국어). 여러 성격이 섞이면 대표 성격으로 요약
 - 본문: `## 개요` + `## 변경 내용`(항목별 목록) 구성. UI 문구 변경은 before → after로 표기
-- 생성 전 `git log origin/production..origin/develop`로 포함될 커밋 확인, 동일 base/head의 열린 PR 중복 여부 체크
-- base는 항상 `production`
+- 생성 전 `git log origin/<base>..origin/<head>`로 포함될 커밋 확인, 동일 base/head의 열린 PR 중복 여부 체크
+- base는 접두사 브랜치 PR이면 `develop`, 배포 PR이면 `production`
 - 커밋 메시지·PR 본문에 `🤖 Generated with Claude Code` 등 자동 생성 푸터/서명 넣지 않기
 
 ## 배포 규칙

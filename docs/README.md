@@ -41,6 +41,7 @@
 | [`development.md`](guides/development.md) | 로컬 개발 환경 |
 | [`deployment.md`](guides/deployment.md) | 배포·CD·운영 환경변수·DB 마이그레이션 |
 | [`operations.md`](guides/operations.md) | 행사 운영 런북 — 장애 확인 순서, 배포 동결 |
+| [`booths.md`](guides/booths.md) | 직업·역량체험부스 명단 (F·L·Y존 57개 + 역량 10개) |
 | [`architecture.md`](guides/architecture.md) | 시스템 구조 |
 | [`backend-design.md`](guides/backend-design.md) | 백엔드 종합 설계 |
 | [`design-system.md`](guides/design-system.md) | Voyage 디자인 시스템 |

@@ -12,6 +12,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { AdminBooth } from "@/lib/api";
+import {
+  COMPETENCIES,
+  REQUIRED_COMPETENCY_COUNT,
+  ZONE_LABELS,
+  type BoothZone,
+} from "@/lib/competencies";
 
 interface BoothFormDialogProps {
   open: boolean;
@@ -20,7 +26,12 @@ interface BoothFormDialogProps {
   submitting: boolean;
   error: string | null;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (values: { name: string; description: string | null }) => void;
+  onSubmit: (values: {
+    name: string;
+    description: string | null;
+    zone: BoothZone;
+    competencies: string[];
+  }) => void;
 }
 
 /**
@@ -62,7 +73,12 @@ interface BoothFormBodyProps {
   submitting: boolean;
   error: string | null;
   onCancel: () => void;
-  onSubmit: (values: { name: string; description: string | null }) => void;
+  onSubmit: (values: {
+    name: string;
+    description: string | null;
+    zone: BoothZone;
+    competencies: string[];
+  }) => void;
 }
 
 /** 다이얼로그가 열려 있는 동안만 사는 실제 폼. 마운트 시점의 booth 값으로 초기화된다. */
@@ -75,6 +91,8 @@ function BoothFormBody({
 }: BoothFormBodyProps) {
   const [name, setName] = useState(booth?.name ?? "");
   const [description, setDescription] = useState(booth?.description ?? "");
+  const [zone, setZone] = useState<BoothZone>(booth?.zone ?? "");
+  const [competencies, setCompetencies] = useState<string[]>(booth?.competencies ?? []);
 
   const trimmedName = name.trim();
 
@@ -83,6 +101,8 @@ function BoothFormBody({
     onSubmit({
       name: trimmedName,
       description: description.trim() || null,
+      zone,
+      competencies,
     });
   }
 
@@ -133,6 +153,53 @@ function BoothFormBody({
             onChange={(e) => setDescription(e.target.value)}
           />
         </div>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-bold text-ink">존</span>
+          <select
+            value={zone}
+            onChange={(e) => setZone(e.target.value as BoothZone)}
+            className="h-10 rounded-md border border-solid border-input bg-background px-3 text-sm"
+          >
+            {(Object.keys(ZONE_LABELS) as BoothZone[]).map((z) => (
+              <option key={z} value={z}>
+                {ZONE_LABELS[z]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <fieldset className="flex flex-col gap-1.5">
+          <legend className="text-sm font-bold text-ink">역량</legend>
+          <p className="text-xs text-ink-muted">
+            {REQUIRED_COMPETENCY_COUNT[zone] === null
+              ? "존을 고르면 필요한 개수를 알려줘요."
+              : `${REQUIRED_COMPETENCY_COUNT[zone]}개를 골라주세요. 지금 ${competencies.length}개.`}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {COMPETENCIES.map((c) => {
+              const on = competencies.includes(c.key);
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() =>
+                    setCompetencies((prev) =>
+                      prev.includes(c.key) ? prev.filter((k) => k !== c.key) : [...prev, c.key]
+                    )
+                  }
+                  className={
+                    on
+                      ? "rounded-full border border-solid border-sky-400 bg-sky-50 px-3 py-1 text-sm font-bold text-sky-700"
+                      : "rounded-full border border-solid border-input px-3 py-1 text-sm text-ink-muted"
+                  }
+                >
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
 
         {error && <p className="text-sm text-destructive">{error}</p>}
       </div>

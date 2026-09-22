@@ -7,10 +7,26 @@ from uuid import UUID
 from fastapi import APIRouter
 
 from app.deps import CurrentStudentDep, SessionServiceDep
-from app.schemas.sessions import CompleteRequest, SaveAnswerRequest, SaveAnswerResponse
+from app.schemas.sessions import (
+    CompleteRequest,
+    RestartRequest,
+    SaveAnswerRequest,
+    SaveAnswerResponse,
+)
 from app.schemas.students import ProfileSummary
 
 router = APIRouter(prefix="/api/sessions", tags=["sessions"])
+
+
+@router.post("/restart", response_model=SaveAnswerResponse)
+async def restart_survey(
+    student_id: CurrentStudentDep,
+    sessions: SessionServiceDep,
+    body: RestartRequest,
+) -> SaveAnswerResponse:
+    """확인 팝업에 동의한 로그인 학생 자신의 이전 완료 결과를 삭제한다."""
+    session_id = await sessions.restart_survey(student_id, body.request_id, body.source_session_id)
+    return SaveAnswerResponse(session_id=session_id)
 
 
 @router.post("/answers", response_model=SaveAnswerResponse)
@@ -24,7 +40,9 @@ async def submit_answer(
     session_id가 없으면 in_progress 세션을 새로 만들어 그 id를 응답으로 돌려주고,
     이후 저장·완료 호출은 그 세션 id를 재사용한다.
     """
-    session_id = await sessions.submit_answer(student_id, body.session_id, body.stage, body.answer)
+    session_id = await sessions.submit_answer(
+        student_id, body.session_id, body.stage, body.answer, request_id=body.request_id
+    )
     return SaveAnswerResponse(session_id=session_id)
 
 

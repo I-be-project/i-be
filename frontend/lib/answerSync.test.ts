@@ -10,6 +10,7 @@ import { useSessionStore } from "@/store/useSessionStore";
 function resetStore() {
   useSessionStore.setState({
     sessionId: null,
+    surveyRequestId: null,
     answers: [],
     riasecScores: null,
     pairCode: null,

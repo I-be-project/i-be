@@ -34,6 +34,7 @@ class BoothVisitCountRow:
     booth_id: UUID
     code: str
     name: str
+    zone: str
     visit_count: int
 
 
@@ -95,7 +96,7 @@ class BoothVisitRepository(BaseRepository):
         해당 방문 행만 매칭에서 빠지게 한다(방문이 전부 테스트 계정뿐이면 0).
         """
         query = """
-            select b.id, b.code, b.name, count(v.id) as visit_count
+            select b.id, b.code, b.name, b.zone, count(v.id) as visit_count
               from ops.booths b
               left join ops.booth_visits v
                 on v.booth_id = b.id
@@ -103,7 +104,7 @@ class BoothVisitRepository(BaseRepository):
                      select 1 from pii.students s
                       where s.id = v.student_id and s.kind <> 'test'
                    )
-             group by b.id, b.code, b.name
+             group by b.id, b.code, b.name, b.zone
              order by b.created_at
         """
         async with self._pool.acquire() as conn:
@@ -113,6 +114,7 @@ class BoothVisitRepository(BaseRepository):
                 booth_id=row["id"],
                 code=row["code"],
                 name=row["name"],
+                zone=row["zone"],
                 visit_count=row["visit_count"],
             )
             for row in rows

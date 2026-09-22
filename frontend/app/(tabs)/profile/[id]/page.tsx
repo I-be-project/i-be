@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Camera, GraduationCap, Pencil, RotateCcw } from "lucide-react";
-import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { Camera, GraduationCap, Pencil } from "lucide-react";
+import { HanmadangBackground, tabCardClass } from "@/components/tabs/HanmadangBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Input } from "@/components/ui/input";
@@ -21,13 +21,10 @@ import {
   type ProfileSummary,
 } from "@/lib/api";
 
-const cardClass =
-  "rounded-3xl border border-solid border-white/70 bg-white/85 p-6 shadow-[0_12px_32px_rgba(37,99,235,0.10)] backdrop-blur-xl";
-
 // 이름 편집 폼 스타일 — app/signup/page.tsx와 동일한 값을 그대로 맞췄다.
-const labelClass = "mb-1.5 block text-sm font-bold text-zinc-600";
+const labelClass = "mb-1.5 block text-sm font-bold text-hm-blue/70";
 const inputClass =
-  "h-13 rounded-2xl border border-transparent bg-zinc-100 px-4 text-base shadow-none focus-visible:border-sky-400 focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-sky-100";
+  "h-13 rounded-2xl border border-transparent bg-hm-tint px-4 text-base shadow-none focus-visible:border-hm-blue focus-visible:bg-white focus-visible:ring-4 focus-visible:ring-hm-blue/15";
 
 // 사진 수정 시 프론트 선검증 (백엔드와 동일 기준).
 const ALLOWED_PHOTO_TYPES = ["image/jpeg", "image/png", "image/webp"];
@@ -181,8 +178,8 @@ export default function ProfilePage() {
   };
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col items-center overflow-hidden px-5 pb-28 pt-10 font-sans">
-      <VoyageBackground variant="soft" />
+    <main className="relative flex min-h-[100dvh] flex-col items-center px-5 pb-28 pt-10 font-sans">
+      <HanmadangBackground />
       {/* 사진 수정용 숨겨진 입력 */}
       <input
         ref={photoInputRef}
@@ -198,18 +195,18 @@ export default function ProfilePage() {
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="relative z-10 flex w-full max-w-2xl flex-col gap-6"
       >
-        <div className="glass-card self-start rounded-full px-3.5 py-1.5 text-xs font-bold tracking-wider text-sky-700">
+        <div className="self-start rounded-full bg-hm-coral px-3.5 py-1.5 text-xs font-extrabold tracking-wider text-white">
           내 탐험 기록
         </div>
 
         {/* 학생 정보 — 정사각형 사진 → 이름 → 학교/학년/반/번호 세로 정렬. */}
-        <section className={`${cardClass} flex flex-col items-center`}>
+        <section className={`${tabCardClass} flex flex-col items-center`}>
           {/* 정사각형 사진(클릭하면 수정). 업로드한 사진은 미리보기로 즉시 표시. */}
           <button
             type="button"
             onClick={() => photoInputRef.current?.click()}
             disabled={uploadingPhoto}
-            className="group relative aspect-square w-40 overflow-hidden rounded-2xl border-4 border-solid border-sky-100 bg-sky-50 transition-colors hover:border-sky-200 disabled:opacity-60"
+            className="group relative aspect-square w-40 overflow-hidden rounded-2xl border-4 border-solid border-hm-pattern bg-hm-tint transition-colors hover:border-hm-teal disabled:opacity-60"
             aria-label="사진 수정"
           >
             {photoSrc ? (
@@ -220,8 +217,8 @@ export default function ProfilePage() {
                 className="h-full w-full object-cover"
               />
             ) : (
-              <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-ink-muted">
-                <Camera className="h-8 w-8 text-sky-400" />
+              <span className="flex h-full w-full flex-col items-center justify-center gap-1 text-hm-blue/60">
+                <Camera className="h-8 w-8 text-hm-teal" />
                 <span className="text-xs font-bold">사진 추가</span>
               </span>
             )}
@@ -254,7 +251,7 @@ export default function ProfilePage() {
                     variant="outline"
                     onClick={cancelEditingProfile}
                     disabled={savingProfile}
-                    className="h-11 flex-1 rounded-full border-zinc-300 text-sm font-bold text-zinc-600 hover:bg-zinc-50"
+                    className="h-11 flex-1 rounded-full border-hm-pattern text-sm font-bold text-hm-blue/70 hover:bg-hm-tint"
                   >
                     취소
                   </Button>
@@ -262,7 +259,7 @@ export default function ProfilePage() {
                     type="button"
                     onClick={handleSaveProfile}
                     disabled={savingProfile || !editName.trim()}
-                    className="h-11 flex-1 rounded-full bg-gradient-to-r from-sky-500 to-blue-600 text-sm font-bold text-white hover:shadow-md"
+                    className="h-11 flex-1 rounded-full bg-hm-blue text-sm font-bold text-white hover:bg-hm-blue/90"
                   >
                     {savingProfile ? "저장 중..." : "저장"}
                   </Button>
@@ -271,12 +268,12 @@ export default function ProfilePage() {
             ) : (
               <>
                 {/* 이름 — 가운데 정렬, 크게 */}
-                <h2 className="mt-4 text-center text-2xl font-extrabold text-ink">
+                <h2 className="mt-4 text-center text-2xl font-extrabold text-hm-blue">
                   {displayStudent.name}
                 </h2>
                 {/* 학교 / 학년 / 반 / 번호 */}
-                <div className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-ink-muted">
-                  <GraduationCap className="h-4 w-4 text-sky-600" />
+                <div className="mt-1.5 flex items-center gap-1.5 text-sm font-medium text-hm-blue/60">
+                  <GraduationCap className="h-4 w-4 text-hm-teal" />
                   <span>
                     {displayStudent.school
                       ? `${displayStudent.school} · ${displayStudent.grade}학년 ${displayStudent.classNo}반 ${displayStudent.studentNo}번`
@@ -288,7 +285,7 @@ export default function ProfilePage() {
                 <button
                   type="button"
                   onClick={startEditingProfile}
-                  className="mt-3 inline-flex items-center gap-1 rounded-full border border-solid border-zinc-200 px-3.5 py-1.5 text-xs font-bold text-zinc-600 transition-colors hover:border-sky-300 hover:text-sky-700"
+                  className="mt-3 inline-flex items-center gap-1 rounded-full border border-solid border-hm-pattern px-3.5 py-1.5 text-xs font-bold text-hm-blue/70 transition-colors hover:border-hm-teal hover:text-hm-teal"
                 >
                   <Pencil className="h-3.5 w-3.5" />
                   정보 수정
@@ -301,7 +298,7 @@ export default function ProfilePage() {
               <Skeleton className="h-5 w-48" />
             </div>
           ) : (
-            <p className="mt-4 text-sm font-medium text-ink-muted">
+            <p className="mt-4 text-sm font-medium text-hm-blue/60">
               정보를 불러올 수 없어요.
             </p>
           )}
@@ -322,7 +319,7 @@ export default function ProfilePage() {
   function renderResult() {
     if (loading) {
       return (
-        <div className={cardClass}>
+        <div className={tabCardClass}>
           <Skeleton className="mb-4 h-6 w-32" />
           <Skeleton className="h-40 w-full rounded-2xl" />
         </div>
@@ -332,8 +329,8 @@ export default function ProfilePage() {
     if (!profile) {
       // 조회 실패(401 외) — 토스트로 안내, 자리만 비워둔다.
       return (
-        <div className={cardClass}>
-          <p className="text-sm font-medium text-ink-muted">
+        <div className={tabCardClass}>
+          <p className="text-sm font-medium text-hm-blue/60">
             설문 결과를 불러오지 못했어. 잠시 후 다시 시도해줘.
           </p>
         </div>
@@ -343,11 +340,11 @@ export default function ProfilePage() {
     // 설문 미완료 — 페르소나/카드 UI는 전혀 렌더하지 않는다.
     if (!profile.has_completed) {
       return (
-        <div className={`${cardClass} flex flex-col items-center text-center`}>
-          <h2 className="mb-2 text-xl font-extrabold text-ink">
+        <div className={`${tabCardClass} flex flex-col items-center text-center`}>
+          <h2 className="mb-2 text-xl font-extrabold text-hm-blue">
             아직 나로섬에 다녀오지 않았구나
           </h2>
-          <p className="mb-6 text-sm font-medium leading-relaxed text-ink-muted">
+          <p className="mb-6 text-sm font-medium leading-relaxed text-hm-blue/60">
             나의 미래 역할을 찾으러 떠나볼까?
           </p>
           <CtaButton onClick={() => router.push("/explore")}>
@@ -357,18 +354,9 @@ export default function ProfilePage() {
       );
     }
 
-    // 설문 완료 — 페르소나 + 카드 이미지 + 다시 하기.
+    // 설문 완료 — 페르소나 + 카드 이미지.
     return (
       <div className="flex flex-col gap-6">
-        <div className={`${cardClass} flex flex-col items-center text-center`}>
-          <div className="mb-2 rounded-full border border-solid border-sky-200 bg-sky-50 px-3 py-1 text-xs font-bold tracking-wider text-sky-700">
-            탐험 완료
-          </div>
-          <p className="text-sm font-medium text-ink-muted">
-            나로섬 탐험이 끝나고, 너의 탐험대원증이 발급됐어!
-          </p>
-        </div>
-
         {profile.persona ? (
           <PersonaCard
             // PersonaCard는 name/tagline/keywords만 사용. 타입 호환 위해 빈 배열 채움.
@@ -377,38 +365,22 @@ export default function ProfilePage() {
         ) : null}
 
         {profile.card?.card_image_url ? (
-          <div className={cardClass}>
-            <h2 className="mb-3 text-lg font-extrabold text-ink">발급된 탐험대원증</h2>
+          <div className={tabCardClass}>
+            <h2 className="mb-3 text-lg font-extrabold text-hm-blue">발급된 탐험대원증</h2>
             <div
-              className="aspect-[1.58/1] w-full rounded-2xl border border-solid border-sky-100 bg-sky-50 bg-cover bg-center shadow-sm"
+              className="aspect-[1.58/1] w-full rounded-2xl border border-solid border-hm-pattern bg-hm-tint bg-cover bg-center shadow-sm"
               style={{ backgroundImage: `url(${profile.card.card_image_url})` }}
               role="img"
               aria-label="발급된 탐험대원증"
             />
           </div>
         ) : (
-          <div className={`${cardClass} text-center`}>
-            <p className="text-sm font-medium text-ink-muted">
+          <div className={`${tabCardClass} text-center`}>
+            <p className="text-sm font-medium text-hm-blue/60">
               카드 준비 중이에요. 조금만 기다려줘!
             </p>
           </div>
         )}
-
-        {/* 다시 하기 — 관리자 전역 스위치(retry_enabled)가 켜진 동안에만 활성. */}
-        <div className="flex flex-col items-center gap-2">
-          <CtaButton
-            disabled={!profile.retry_enabled}
-            onClick={() => router.push("/explore")}
-          >
-            <RotateCcw className="h-5 w-5" />
-            다시 탐험하기
-          </CtaButton>
-          {!profile.retry_enabled && (
-            <p className="text-xs font-medium text-ink-muted/70">
-              지금은 다시 탐험하기가 열려있지 않아요.
-            </p>
-          )}
-        </div>
       </div>
     );
   }

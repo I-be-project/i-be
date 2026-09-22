@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Sparkles } from "lucide-react";
 import {
   PolarAngleAxis,
   PolarGrid,
@@ -10,18 +9,16 @@ import {
   RadarChart,
   ResponsiveContainer,
 } from "recharts";
-import { VoyageBackground } from "@/components/voyage/VoyageBackground";
+import { HanmadangBackground, tabCardClass } from "@/components/tabs/HanmadangBackground";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSessionStore } from "@/store/useSessionStore";
-import { ApiError, getMyProfile, type ProfileBoothStatus } from "@/lib/api";
-
-const cardClass =
-  "rounded-3xl border border-solid border-white/70 bg-white/85 p-6 shadow-[0_12px_32px_rgba(37,99,235,0.10)] backdrop-blur-xl";
+import { ApiError, getMyProfile, type ProfileCompetencyScore } from "@/lib/api";
+import { hasAnyScore, toChartData } from "@/lib/competencies";
 
 export default function TendencyPage() {
   const studentToken = useSessionStore((s) => s.studentToken);
 
-  const [booths, setBooths] = useState<ProfileBoothStatus[] | null>(null);
+  const [scores, setScores] = useState<ProfileCompetencyScore[] | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -29,10 +26,10 @@ export default function TendencyPage() {
     let active = true;
     getMyProfile(studentToken)
       .then((profile) => {
-        if (active) setBooths(profile.booths ?? []);
+        if (active) setScores(profile.competencies ?? []);
       })
       .catch((err) => {
-        if (active) setBooths(err instanceof ApiError ? [] : null);
+        if (active) setScores(err instanceof ApiError ? [] : null);
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -42,49 +39,49 @@ export default function TendencyPage() {
     };
   }, [studentToken]);
 
-  // 부스별 방문 여부(0/1)를 축으로 삼는다. 부스 개수가 늘어도 라벨이 겹치지 않도록
-  // 폰트를 작게 두고, 여백(margin)을 넉넉히 준다.
-  const chartData = (booths ?? []).map((b) => ({ name: b.name, value: b.visited ? 1 : 0 }));
+  // 축은 항상 역량 10개로 고정이다. 부스가 몇 개로 늘어도 차트 모양이 무너지지 않는다.
+  const chartData = toChartData(scores ?? undefined);
+  const empty = !hasAnyScore(scores ?? undefined);
 
   return (
-    <main className="relative flex min-h-[100dvh] flex-col overflow-hidden px-5 pb-28 pt-8 font-sans">
-      <VoyageBackground variant="soft" />
+    <main className="relative flex min-h-[100dvh] flex-col px-5 pb-28 pt-8 font-sans">
+      <HanmadangBackground />
 
       <div className="relative z-10 flex flex-col gap-6">
         <div>
-          <h1 className="text-2xl font-extrabold text-ink">자신의 성향</h1>
-          <p className="mt-1.5 text-sm font-medium text-ink-muted">
-            돌아본 부스를 축으로 네 관심사를 그려봐.
+          <h1 className="text-[28px] font-extrabold leading-tight text-hm-blue">자신의 성향</h1>
+          <p className="mt-1.5 text-sm font-bold text-hm-blue/60">
+            돌아본 부스에서 키운 역량을 그려봐.
           </p>
         </div>
 
         {loading ? (
-          <div className={cardClass}>
+          <div className={tabCardClass}>
             <Skeleton className="h-64 w-full rounded-2xl" />
           </div>
-        ) : chartData.length === 0 ? (
-          <div className={`${cardClass} flex flex-col items-center gap-2 text-center`}>
-            <Sparkles className="h-8 w-8 text-sky-300" />
-            <p className="text-sm font-bold text-ink-muted">아직 데이터가 없어.</p>
-            <p className="text-xs font-medium text-ink-muted/70">
-              부스를 돌아보면 여기에 성향 그래프가 그려질 거야.
+        ) : empty ? (
+          <div className={`${tabCardClass} flex flex-col items-center gap-2 text-center`}>
+            <p className="text-sm font-bold text-hm-blue">아직 데이터가 없어.</p>
+            <p className="text-xs font-bold text-hm-blue/50">
+              부스를 돌아보면 여기에 역량 그래프가 그려질 거야.
             </p>
           </div>
         ) : (
-          <div className={cardClass}>
-            <div className="h-72 w-full">
+          <div className={`${tabCardClass} px-3 py-5`}>
+            <div className="h-[26rem] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <RadarChart data={chartData} outerRadius="68%" margin={{ top: 8, right: 24, bottom: 8, left: 24 }}>
-                  <PolarGrid stroke="#cfe3f5" />
+                <RadarChart data={chartData} outerRadius="76%" margin={{ top: 12, right: 28, bottom: 12, left: 28 }}>
+                  <PolarGrid stroke="#c2e1f6" />
                   <PolarAngleAxis
-                    dataKey="name"
-                    tick={{ fill: "#4c6a82", fontSize: 10, fontWeight: 700 }}
+                    dataKey="label"
+                    tick={{ fill: "#005bab", fontSize: 11.5, fontWeight: 800 }}
                   />
                   <PolarRadiusAxis domain={[0, 1]} tick={false} axisLine={false} />
                   <Radar
-                    dataKey="value"
-                    stroke="#0284c7"
-                    fill="#38bdf8"
+                    dataKey="r"
+                    stroke="#5fb0e5"
+                    strokeWidth={2}
+                    fill="#8fcdf0"
                     fillOpacity={0.45}
                   />
                 </RadarChart>

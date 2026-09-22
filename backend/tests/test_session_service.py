@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from datetime import UTC, datetime
@@ -32,29 +33,49 @@ class FakeStudentRepo:
 class FakeSessionRepo:
     def __init__(self, latest: SessionRecord | None = None) -> None:
         self.latest = latest
+        self.records = {latest.id: latest} if latest else {}
+        self.requests = {}
         self.created: list[SessionRecord] = []
         self.inserted: list[tuple[UUID, str, dict[str, Any]]] = []
-        # 원자성 검증용 — create/insert_answer가 받은 conn(동일 트랜잭션인지 확인).
         self.create_conn: Any = None
         self.insert_conn: Any = None
 
-    async def get_by_id(self, session_id: UUID) -> SessionRecord | None:
-        for rec in (self.latest, *self.created):
-            if rec is not None and rec.id == session_id:
-                return rec
-        return None
+    async def lock_student(self, student_id, *, conn):
+        pass  # FakeDBPool serializes transactions; PostgreSQL uses a row lock.
 
-    async def get_latest_for_student(self, student_id: UUID) -> SessionRecord | None:
+    async def get_request(self, student_id, request_id, *, conn):
+        key = (student_id, request_id)
+        return key in self.requests, self.requests.get(key)
+
+    async def remember_request(self, student_id, request_id, session_id, *, conn):
+        self.requests[(student_id, request_id)] = session_id
+
+    async def abandon_in_progress(self, student_id, *, conn):
+        for sid, rec in list(self.records.items()):
+            if rec.student_id == student_id and rec.status == "in_progress":
+                self.records[sid] = replace(rec, status="abandoned")
+
+    async def delete_completed_for_student(self, student_id, *, conn=None):
+        for sid, rec in list(self.records.items()):
+            if rec.student_id == student_id and rec.status == "completed":
+                del self.records[sid]
+                for key, value in list(self.requests.items()):
+                    if value == sid:
+                        self.requests[key] = None
+        if self.latest and self.latest.id not in self.records:
+            self.latest = None
+
+    async def get_by_id(self, session_id, *, conn=None):
+        return self.records.get(session_id)
+
+    async def get_latest_for_student(self, student_id, *, conn=None):
         return self.latest
 
-    async def get_latest_completed_for_student(self, student_id: UUID) -> SessionRecord | None:
-        if self.latest is not None and self.latest.status == "completed":
-            return self.latest
-        return None
+    async def get_latest_completed_for_student(self, student_id, *, conn=None):
+        records = [r for r in self.records.values() if r.status == "completed"]
+        return max(records, key=lambda r: r.created_at) if records else None
 
-    async def create(
-        self, student_id: UUID, *, status: str = "in_progress", conn: Any = None
-    ) -> SessionRecord:
+    async def create(self, student_id, *, status="in_progress", conn=None):
         self.create_conn = conn
         rec = SessionRecord(
             id=uuid4(),
@@ -64,25 +85,24 @@ class FakeSessionRepo:
             completed_at=datetime.now(UTC) if status == "completed" else None,
         )
         self.created.append(rec)
-        self.latest = rec  # 이후 get_profile_summary가 최신 세션으로 보게 함
+        self.records[rec.id] = rec
+        self.latest = rec
         return rec
 
-    async def update_status(
-        self, session_id: UUID, status: str, *, conn: Any = None
-    ) -> SessionRecord:
-        assert self.latest is not None
+    async def update_status(self, session_id, status, *, conn=None):
+        rec = self.records[session_id]
         updated = replace(
-            self.latest,
+            rec,
             status=status,
-            completed_at=datetime.now(UTC) if status == "completed" else self.latest.completed_at,
+            completed_at=datetime.now(UTC) if status == "completed" else rec.completed_at,
         )
+        self.records[session_id] = updated
         self.latest = updated
         return updated
 
-    async def insert_answer(
-        self, session_id: UUID, stage: str, payload: dict[str, Any], *, conn: Any = None
-    ) -> object:
+    async def insert_answer(self, session_id, stage, payload, *, conn=None):
         self.insert_conn = conn
+        self.inserted = [r for r in self.inserted if r[:2] != (session_id, stage)]
         self.inserted.append((session_id, stage, payload))
         return object()
 
@@ -163,12 +183,14 @@ class FakeStorage:
 class FakeDBPool:
     def __init__(self) -> None:
         self.entered = False
+        self.lock = asyncio.Lock()
         self.conn = object()  # 트랜잭션이 넘기는 커넥션 식별용 sentinel
 
     @asynccontextmanager
     async def transaction(self):
         self.entered = True
-        yield self.conn
+        async with self.lock:
+            yield self.conn
 
 
 def _student() -> StudentRecord:
@@ -212,14 +234,22 @@ def _persona() -> PersonaRecord:
     )
 
 
-def _booth(name: str = "체험부스") -> BoothRecord:
+def _booth(
+    name: str = "체험부스",
+    *,
+    competencies: tuple[str, ...] = (),
+    zone: str = "",
+    description: str | None = None,
+) -> BoothRecord:
     return BoothRecord(
         id=uuid4(),
         code="ABC123",
         name=name,
-        description=None,
+        description=description,
+        zone=zone,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
+        competencies=competencies,
     )
 
 
@@ -257,6 +287,23 @@ def _build(
         visits=FakeBoothVisitRepo(visits),
     )
     return service, storage, db_pool
+
+
+async def test_restart_clears_completion_preserves_photo_and_allows_completion_with_retry_off() -> (
+    None
+):
+    student = _student()
+    latest = replace(_session("completed"), student_id=student.id)
+    service, _, _ = _build(latest=latest, student=student, retry=False)
+    before = await service.get_profile_summary(student.id)
+    request_id = uuid4()
+    sid = await service.restart_survey(student.id, request_id, latest.id)
+    assert await service.restart_survey(student.id, request_id, latest.id) == sid
+    after = await service.get_profile_summary(student.id)
+    assert before.has_completed is True
+    assert after.has_completed is False
+    assert after.student == before.student
+    assert (await service.complete_survey(student.id, None, sid)).has_completed is True
 
 
 async def test_no_session_returns_not_completed() -> None:
@@ -430,10 +477,64 @@ async def test_profile_summary_ignores_other_students_visits() -> None:
     assert summary.booths == [ProfileBoothStatus(id=booth.id, name=booth.name, visited=False)]
 
 
+async def test_profile_summary_carries_booth_details() -> None:
+    """부스 탭 카드가 쓰는 존·설명·역량·방문 시각이 프로필 응답에 실려야 한다.
+
+    이 필드들은 이미 조회한 레코드에서 옮겨 담기만 하면 되는데, 옮기는 걸 빠뜨려도
+    이름과 visited는 맞아서 다른 테스트가 전부 통과한다 — 그래서 따로 못 박는다.
+    """
+    student_id = uuid4()
+    booth = _booth(
+        "스피치ON", competencies=("communication",), zone="C", description="자기소개 미션"
+    )
+    visit = _visit(student_id=student_id, booth_id=booth.id)
+    service, _, _ = _build(latest=None, booths=[booth], visits=[visit])
+
+    status = (await service.get_profile_summary(student_id)).booths[0]
+
+    assert status.zone == "C"
+    assert status.description == "자기소개 미션"
+    assert status.competencies == ["communication"]
+    assert status.visited_at == visit.created_at
+
+
+async def test_profile_summary_unvisited_booth_has_no_visited_at() -> None:
+    booth = _booth(zone="F")
+    service, _, _ = _build(latest=None, booths=[booth])
+
+    status = (await service.get_profile_summary(uuid4())).booths[0]
+
+    assert status.visited is False
+    assert status.visited_at is None
+    assert status.zone == "F"
+
+
 async def test_profile_summary_no_booths_returns_empty_list() -> None:
     service, _, _ = _build(latest=None)
     summary = await service.get_profile_summary(uuid4())
     assert summary.booths == []
+
+
+async def test_profile_summary_scores_competencies_of_visited_booth() -> None:
+    """역량이 채워진 부스를 방문하면 그 역량만 1점, 나머지 9개는 0점이어야 한다.
+
+    _list_booth_statuses가 booth_competencies를 booth.id로, visited_booth_ids를
+    visit.booth_id로 맞추는 배선을 검증한다 — 여기서 키를 code로 잘못 쓰면 매핑이
+    와도 모든 점수가 0으로 나와 빈 상태와 구분할 수 없어진다.
+    """
+    student_id = uuid4()
+    booth = _booth("스피치ON", competencies=("communication",))
+    service, _, _ = _build(
+        latest=None,
+        booths=[booth],
+        visits=[_visit(student_id=student_id, booth_id=booth.id)],
+    )
+
+    summary = await service.get_profile_summary(student_id)
+
+    scores = {s.key: s.score for s in summary.competencies}
+    assert scores["communication"] == 1
+    assert all(score == 0 for key, score in scores.items() if key != "communication")
 
 
 def _persona_input() -> Persona:
@@ -538,7 +639,7 @@ async def test_submit_answer_uses_given_in_progress_session() -> None:
 
     assert sid == existing.id
     assert service._sessions.created == []  # type: ignore[attr-defined]
-    assert db_pool.entered is False
+    assert db_pool.entered is True
     assert service._sessions.inserted == [(existing.id, "q7a", {"x": 1})]  # type: ignore[attr-defined]
 
 
@@ -548,6 +649,28 @@ async def test_submit_answer_not_found_when_session_missing() -> None:
     service, _, _ = _build(latest=None)
     with pytest.raises(NotFoundError):
         await service.submit_answer(uuid4(), uuid4(), "q7a", {})
+
+
+async def test_deleted_survey_cannot_be_completed_again_from_stale_tab() -> None:
+    import pytest
+
+    old = _session("completed")
+    service, _, pool = _build(latest=old)
+    await service.restart_survey(old.student_id, uuid4(), old.id)
+    with pytest.raises(NotFoundError):
+        await service.complete_survey(old.student_id, None, old.id)
+    assert pool.entered is True
+    assert len(service._sessions.created) == 1
+
+
+async def test_complete_rejects_other_students_session() -> None:
+    import pytest
+
+    old = _session("in_progress")
+    service, _, pool = _build(latest=old)
+    with pytest.raises(ForbiddenError):
+        await service.complete_survey(uuid4(), None, old.id)
+    assert pool.entered is True
 
 
 async def test_submit_answer_forbidden_for_other_student() -> None:

@@ -41,11 +41,8 @@ def _text(value: Any) -> str | None:
     return stripped or None
 
 
-def _chip_answer(payload: dict[str, Any]) -> str | None:
-    """Q8·Q9 payload({chips: [...], freeText}) → 한 줄 문자열.
-
-    칩과 자유서술을 모두 살린다 — 규칙 v1이 둘 다 근거로 쓰기 때문.
-    """
+def chip_items(payload: dict[str, Any]) -> list[str]:
+    """Q8·Q9 payload({chips: [...], freeText}) → 고른 칩 + 자유서술 목록."""
     chips = payload.get("chips")
     parts = (
         [c.strip() for c in chips if isinstance(c, str) and c.strip()]
@@ -55,7 +52,15 @@ def _chip_answer(payload: dict[str, Any]) -> str | None:
     free = _text(payload.get("freeText"))
     if free:
         parts.append(free)
-    return " / ".join(parts) or None
+    return parts
+
+
+def _chip_answer(payload: dict[str, Any]) -> str | None:
+    """Q8·Q9 payload → 한 줄 문자열.
+
+    칩과 자유서술을 모두 살린다 — 규칙 v1이 둘 다 근거로 쓰기 때문.
+    """
+    return " / ".join(chip_items(payload)) or None
 
 
 def _subfield_title(value: Any) -> str | None:

@@ -59,7 +59,9 @@ def _admin_auth() -> dict[str, str]:
 
 
 async def _seed(booths: FakeBoothRepo) -> None:
-    await booths.create(code=_CODE, name="드론 체험", description="드론을 직접 조종해보는 부스")
+    await booths.create(
+        code=_CODE, name="드론 체험", description="드론을 직접 조종해보는 부스", zone=""
+    )
 
 
 async def test_get_requires_student_token() -> None:

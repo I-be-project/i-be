@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Compass, ScrollText, Sparkles } from "lucide-react";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { DragSheet } from "@/components/voyage/DragSheet";
 import { FullBleedScene } from "@/components/voyage/FullBleedScene";

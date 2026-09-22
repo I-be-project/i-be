@@ -19,6 +19,7 @@ import { ChipSelect } from "@/components/explore/ChipSelect";
 import { GeneratingScreen } from "@/components/explore/GeneratingScreen";
 import type { GeneratingStage } from "@/lib/assets/sceneManifest";
 import type { Q7BOption, Q8Chip, Q9Chip } from "@/store/useSessionStore";
+import { newRequestId } from "@/lib/requestId";
 import { useFlowGuard, useBlockBack, resumePath } from "@/lib/explore/flow";
 import { useKeepTokenFresh } from "@/hooks/useKeepTokenFresh";
 
@@ -268,6 +269,12 @@ export default function PathPage() {
       router.push("/login");
       return;
     }
+    const requestId = useSessionStore.getState().surveyRequestId ?? newRequestId();
+    useSessionStore.getState().setSurveyRequestId(requestId);
+    const isCurrent = () => {
+      const current = useSessionStore.getState();
+      return current.studentToken === studentToken && current.surveyRequestId === requestId;
+    };
     setGenerating(true);
     setError(null);
     try {
@@ -275,20 +282,24 @@ export default function PathPage() {
       // insert가 (session_id, stage) 기준 멱등이라 재전송은 안전하며, 이로써 완료 세션은
       // 항상 온전한 답변을 갖는다("완료"가 데이터 무결성의 단일 관문). 그 뒤 completed로 승격.
       const sid = await reconcileAllAnswers(studentToken);
+      if (!isCurrent()) return;
       await completeSurvey(studentToken, null, sid);
+      if (!isCurrent()) return;
       setSurveyCompleted(true);
       // 다음 화면은 흐름 규칙에 맡긴다 — 아직 사진이 없으면 사진 화면, 있으면 공개 대기.
       router.push(resumePath(useSessionStore.getState()));
     } catch (e) {
-      // 완료 흐름의 409는 "서버가 이미 이 학생을 완료로 본다"는 뜻이다:
-      //  - completeSurvey → "이미 설문을 완료했습니다"
-      //  - reconcile 중 saveAnswer → "이미 종료된 세션입니다"(sessionId가 완료 세션을 가리킴)
-      // 세션 상태는 현재 in_progress/completed 둘뿐이라(abandoned 전이 미사용) '이미 종료'는
-      // 곧 완료를 의미한다. 응답 유실·이미 완료로 인한 무한 409 재시도(막다른 길)를 피하려면
-      // 성공으로 간주해 종료 화면으로 보낸다. (향후 abandoned 도입 시 이 분기 재검토 필요)
-      if (e instanceof ApiError && e.status === 409) {
+      if (!isCurrent()) return;
+      // 서버가 이 세션의 완료를 명시한 경우에만 응답 유실 복구로 처리한다.
+      // abandoned/다른 시도의 409를 성공으로 바꾸면 미저장 답변을 완료로 표시하게 된다.
+      if (e instanceof ApiError && e.code === "session_completed") {
         setSurveyCompleted(true);
         router.push(resumePath(useSessionStore.getState()));
+        return;
+      }
+      if (e instanceof ApiError && (e.status === 409 || e.status === 404)) {
+        pendingRetry.current = null;
+        setError("설문 상태가 변경됐어. 새로고침해서 현재 진행 상태를 확인해 줘.");
         return;
       }
       // 토큰 만료/무효(401): 진행상황(답변·sessionId)을 스토어에 보존한 채 재로그인으로 보낸다.

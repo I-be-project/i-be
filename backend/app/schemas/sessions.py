@@ -2,12 +2,19 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.persona import Persona
+
+
+class RestartRequest(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+    confirmed: Literal[True]
+    request_id: UUID = Field(alias="requestId")
+    source_session_id: UUID = Field(alias="sourceSessionId")
 
 
 class SaveAnswerRequest(BaseModel):
@@ -20,6 +27,7 @@ class SaveAnswerRequest(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
     session_id: UUID | None = Field(default=None, alias="sessionId")
+    request_id: UUID | None = Field(default=None, alias="requestId")
     stage: str
     answer: dict[str, Any] = Field(default_factory=dict)
 

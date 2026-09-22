@@ -2,7 +2,6 @@
 
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Moon } from "lucide-react";
 import { TrailBar } from "@/components/voyage/TrailBar";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { DragSheet } from "@/components/voyage/DragSheet";

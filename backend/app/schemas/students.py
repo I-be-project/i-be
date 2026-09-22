@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
@@ -58,11 +59,33 @@ class CardSummary(BaseModel):
 
 
 class ProfileBoothStatus(BaseModel):
-    """프로필 화면의 부스 참여 현황 — 부스 탭/성향 탭이 함께 쓴다."""
+    """프로필 화면의 부스 참여 현황 — 부스 탭/성향 탭이 함께 쓴다.
+
+    부스 목록과 방문 기록은 어차피 한 번씩 조회하므로, 존·설명·역량·방문 시각을
+    함께 실어 보낸다. 부스 탭 카드가 이름만 보여주려고 부스를 다시 조회하는 일이 없게.
+    """
 
     id: UUID
     name: str
     visited: bool = Field(..., description="이 학생이 이 부스에 방문 기록을 남겼는지")
+    zone: str = Field("", description="'F'·'L'·'Y'·'C' 중 하나. 존을 모르는 부스는 빈 문자열")
+    description: str | None = Field(None, description="직업체험은 기관명, 역량체험은 미션 활동")
+    competencies: list[str] = Field(
+        default_factory=list, description="이 부스에 연결된 역량 키. 매핑 전이면 빈 목록"
+    )
+    visited_at: datetime | None = Field(None, description="첫 방문 시각. 미방문이면 null")
+
+
+class ProfileCompetencyScore(BaseModel):
+    """역량 1개의 점수 — 성향 탭 레이더 차트의 축 하나.
+
+    점수가 0인 역량도 빠뜨리지 않고 10개를 모두 내려준다. 프론트가 빠진 축을 메우는
+    코드를 갖지 않게 하기 위함이다.
+    """
+
+    key: str = Field(..., description="역량 키 (app/core/competencies.py)")
+    label: str = Field(..., description="화면에 쓰는 한글 이름")
+    score: int = Field(..., ge=0, description="이 역량을 다루는 부스를 방문한 횟수")
 
 
 class ProfileSummary(BaseModel):
@@ -72,11 +95,14 @@ class ProfileSummary(BaseModel):
     retry_enabled: 행사 전역 '다시 하기' 스위치(ops.settings.retry_enabled).
     persona/card: 완료 시에만 채워지고, 없으면 null.
     booths: 전체 부스 목록 + 이 학생의 방문 여부. 설문 완료 여부와 무관하게 항상 채운다.
+    competencies: 역량 10개의 점수. 방문 기록이 없어도 0점으로 10개를 채운다.
     """
 
     has_completed: bool
+    completed_session_id: UUID | None = None
     retry_enabled: bool
     student: StudentInfo | None = None
     persona: PersonaSummary | None = None
     card: CardSummary | None = None
     booths: list[ProfileBoothStatus] = Field(default_factory=list)
+    competencies: list[ProfileCompetencyScore] = Field(default_factory=list)
