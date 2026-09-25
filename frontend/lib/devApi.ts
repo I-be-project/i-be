@@ -31,6 +31,8 @@ export interface StudentAnswers {
   status: string | null;
   riasec_scores: Record<string, number>;
   pair_code: string;
+  // Pair Code 기본 Career Pool — 화면 편집 초깃값.
+  career_pool: string[];
   q7a_first: string | null;
   q7a_second: string | null;
   q7b_first: string | null;

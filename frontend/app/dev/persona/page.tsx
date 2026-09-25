@@ -21,8 +21,8 @@ import {
   type StudentAnswers,
 } from "@/lib/devApi"
 
-// 규칙 v1의 1순위 근거지만 DB에 저장되지 않는다(프론트 Q7-B 응답에만 존재).
-// 여기서 직접 넣어 결과가 어떻게 달라지는지 본다.
+// 규칙 v1의 1순위 근거. 학생을 고르면 Pair Code 기본 풀(백엔드 CAREER_POOLS)로
+// 채워지고, 여기서 고쳐 결과가 어떻게 달라지는지 본다.
 const CAREER_POOL_PLACEHOLDER = "UX 디자이너, 서비스 기획자, 데이터 분석가"
 
 export default function DevPersonaPage() {
@@ -47,7 +47,10 @@ export default function DevPersonaPage() {
     setAnswers(null)
     setResult(null)
     getStudentAnswers(student.id)
-      .then(setAnswers)
+      .then((a) => {
+        setAnswers(a)
+        setCareerPoolText(a.career_pool.join(", "))
+      })
       .catch((e: Error) => setError(e.message))
   }, [student])
 
@@ -113,7 +116,7 @@ export default function DevPersonaPage() {
             <label htmlFor="career-pool" className="text-sm font-medium">
               2. Career Pool{" "}
               <span className="font-normal text-muted-foreground">
-                (쉼표 구분 · DB에 저장되지 않아 직접 입력)
+                (쉼표 구분 · Pair Code 기본 풀로 채워짐, 편집 가능)
               </span>
             </label>
             <Input
