@@ -149,7 +149,7 @@ async def list_students(
 async def get_student_answers(student_id: UUID, sessions: SessionRepoDep) -> StudentAnswersResponse:
     """학생의 최근 세션 답변을 프롬프트 슬롯 형태로 반환.
 
-    career_pool은 DB에 저장되지 않으므로 여기서는 비운다 — 화면에서 입력받는다.
+    career_pool은 Pair Code의 기본 풀이다 — 화면에서 편집할 초깃값.
     """
     session = await sessions.get_latest_for_student(student_id)
     if session is None:
@@ -158,6 +158,7 @@ async def get_student_answers(student_id: UUID, sessions: SessionRepoDep) -> Stu
             status=None,
             riasec_scores={},
             pair_code="",
+            career_pool=[],
             q7a_first=None,
             q7a_second=None,
             q7b_first=None,
@@ -173,6 +174,7 @@ async def get_student_answers(student_id: UUID, sessions: SessionRepoDep) -> Stu
         status=session.status,
         riasec_scores=inputs.riasec_scores,
         pair_code=inputs.pair_code,
+        career_pool=inputs.career_pool,
         q7a_first=inputs.q7a_first,
         q7a_second=inputs.q7a_second,
         q7b_first=inputs.q7b_first,

@@ -11,6 +11,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
+from app.core.career_pools import CAREER_POOLS
 from app.core.errors import ExternalServiceError
 from app.deps import get_codex_client, get_session_repo
 from app.main import create_app
@@ -60,7 +61,8 @@ def test_missing_stages_do_not_raise() -> None:
     assert inputs.pair_code == "IA"
     assert inputs.q7a_first is None
     assert inputs.q8_response is None
-    assert inputs.career_pool == []
+    # 풀을 안 주면 Pair Code 기본 풀로 채운다.
+    assert inputs.career_pool == CAREER_POOLS["IA"]
 
 
 def test_ignores_malformed_payload_values() -> None:

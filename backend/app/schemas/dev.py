@@ -37,6 +37,7 @@ class StudentAnswersResponse(BaseModel):
     status: str | None
     riasec_scores: dict[str, int]
     pair_code: str
+    career_pool: list[str] = Field(description="Pair Code 기본 Career Pool (편집 초깃값)")
     q7a_first: str | None
     q7a_second: str | None
     q7b_first: str | None
@@ -60,7 +61,7 @@ class GeneratePersonaRequest(BaseModel):
     career_pool: list[str] = Field(
         default_factory=list,
         max_length=20,
-        description="Pair Code 기반 현실 직업 후보. DB에 저장되지 않아 화면에서 입력받는다.",
+        description="현실 직업 후보. 비우면 Pair Code 기본 풀을 쓴다.",
     )
     model: str | None = Field(None, description="codex 모델 override. 미지정 시 codex 기본값")
 
