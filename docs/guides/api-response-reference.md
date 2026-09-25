@@ -840,6 +840,7 @@
 | `status` | string 또는 null | 없음 |  |
 | `riasec_scores` | 키: integer 형태의 객체 | 없음 |  |
 | `pair_code` | string | 없음 |  |
+| `career_pool` | string 배열 | 없음 | Pair Code 기본 Career Pool (편집 초깃값) |
 | `q7a_first` | string 또는 null | 없음 |  |
 | `q7a_second` | string 또는 null | 없음 |  |
 | `q7b_first` | string 또는 null | 없음 |  |
@@ -853,6 +854,7 @@
   "status": "<string>",
   "riasec_scores": {},
   "pair_code": "<string>",
+  "career_pool": ["<string>"],
   "q7a_first": "<string>",
   "q7a_second": "<string>",
   "q7b_first": "<string>",
