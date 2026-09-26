@@ -77,6 +77,7 @@ class GeneratePersonaResponse(BaseModel):
     pool_extended: bool
     q8_reflection: str
     q9_reflection: str
+    competencies: list[str] = Field(..., description="10개 역량 중 가장 적합한 3개 (카드 키워드)")
     user_prompt: str = Field(..., description="실제로 codex에 보낸 user 프롬프트 (디버깅용)")
     elapsed_seconds: float
 

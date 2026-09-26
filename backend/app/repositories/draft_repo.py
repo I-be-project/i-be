@@ -290,10 +290,11 @@ class DraftRepository(BaseRepository):
                 """
                 insert into generated.personas
                     (session_id, name, tagline, base_career, headline,
-                     source_career_pool, pool_extended, image_key, approved_at)
-                values ($1, $2, $3, $4, $5, $6, $7, $8, now())
+                     source_career_pool, pool_extended, image_key, keywords, approved_at)
+                values ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, now())
                 on conflict (session_id) do update set
                     name = excluded.name, tagline = excluded.tagline,
+                    keywords = excluded.keywords,
                     base_career = excluded.base_career, headline = excluded.headline,
                     source_career_pool = excluded.source_career_pool,
                     pool_extended = excluded.pool_extended, image_key = excluded.image_key,
@@ -308,6 +309,8 @@ class DraftRepository(BaseRepository):
                 draft.source_career_pool,
                 draft.pool_extended,
                 draft.image_key,
+                # 역량 3개(codex 출력)가 확정본의 키워드. 역량 추가 전 초안은 빈 목록.
+                json.dumps(draft.raw.get("competencies") or [], ensure_ascii=False),
             )
             await conn.execute(
                 """

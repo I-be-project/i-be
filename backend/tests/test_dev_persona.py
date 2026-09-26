@@ -95,6 +95,7 @@ _CODEX_RESULT: dict[str, Any] = {
     "pool_extended": False,
     "q8_reflection": "작은 차이를 비교하는 방식",
     "q9_reflection": "처음 쓰는 사람",
+    "competencies": ["공감", "분석력", "창의성"],
 }
 
 
