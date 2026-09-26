@@ -58,9 +58,22 @@
 | GET | `/api/dev/students/{student_id}/answers` | 없음 | 200 | `StudentAnswersResponse` | 학생의 최근 세션 답변을 프롬프트 슬롯 형태로 반환. |
 | POST | `/api/dev/persona` | 없음 | 200 | `GeneratePersonaResponse` | 저장된 답변 + 편집한 시스템 프롬프트 → Career Persona 1개 (codex, 이미지 없음). |
 | POST | `/api/dev/future-photo` | 없음 | 200 | `GenerateFuturePhotoResponse` | 학생의 저장된 사진 + 편집한 프롬프트 → 10년 뒤 사진 (codex). |
+| GET | `/api/dev/drafts` | 없음 | 200 | `DraftList` | 페르소나·카드 초안 목록(`?status=pending\|approved\|rejected`)과 상태별 개수. |
+| PATCH | `/api/dev/drafts/{draft_id}` | 없음 | 200 | `DraftItem` | 카드 문구(headline·base_career·name·tagline·note) 수정. |
+| POST | `/api/dev/drafts/{draft_id}/regenerate-text` | 없음 | 200 | `DraftItem` | 페르소나 텍스트만 재생성 (codex). 검수 대기로 돌아간다. |
+| POST | `/api/dev/drafts/{draft_id}/regenerate-image` | 없음 | 200 | `DraftItem` | 인물 이미지만 재생성 (codex). 실패 시 `error`에 사유. |
+| POST | `/api/dev/drafts/{draft_id}/use-fallback` | 없음 | 200 | `DraftItem` | 생성 이미지를 해제하고 폴백 캐릭터로 카드를 만든다. |
+| GET | `/api/dev/drafts/{draft_id}/card` | 없음 | 200 | `CardPreview` | 현재 문구·이미지(없으면 폴백 캐릭터)로 합성한 카드 PNG(base64). 저장 안 함. |
+| POST | `/api/dev/drafts/{draft_id}/approve` | 없음 | 200 | `DraftItem` | 카드 PNG 합성 → S3 `cards/` → `generated.personas`·`cards` 확정. |
+| POST | `/api/dev/drafts/{draft_id}/reject` | 없음 | 200 | `DraftItem` | 반려. 일괄 생성이 다시 만들지 않는다. |
+| GET | `/api/dev/schools` | 없음 | 200 | `string[]` | 일괄 생성용 학교 목록. |
+| GET | `/api/dev/schools/classes` | 없음 | 200 | `DevClass[]` | 학교(`?school=`)의 학년·반별 학생 수·설문 완료 수·일괄 생성 대상 수(`targets`). |
+| GET | `/api/dev/drafts/batch` | 없음 | 200 | `BatchStatus` | 일괄 생성 진행률(메모리 보관 — 서버 재시작 시 초기화). |
+| POST | `/api/dev/drafts/batch` | 없음 | 202 | `BatchStatus` | `{classes: [{school, grade, class_no}], concurrency}` 선택한 반들의 대상 전원 초안 생성을 백그라운드로 시작. 진행 중이면 409. |
+| POST | `/api/dev/drafts/batch/cancel` | 없음 | 200 | `BatchStatus` | 일괄 생성 중단(진행 중인 codex 프로세스까지 종료). 저장된 초안은 남는다. |
 | GET | `/healthz` | 없음 | 200 | `{"status":"ok"}` | 서버 상태 확인 |
 
-총 46개: 구현 35개, 미구현 11개. `/api/dev/*` 5개는 `APP_ENV=local`에서만 등록됩니다.
+총 59개: 구현 48개, 미구현 11개. `/api/dev/*` 18개는 `APP_ENV=local`에서만 등록됩니다.
 
 미구현 API는 OpenAPI에 200과 일반 object로 표시되더라도 실제 정상 응답 계약이 없습니다. 유효한 경로 인자로 핸들러까지 도달하면 미처리 예외로 500이 발생합니다.
 
@@ -568,6 +581,27 @@
   "has_answers": false
 }
 ```
+
+### DraftItem
+
+`DraftList`는 `{ "drafts": DraftItem[], "counts": {"pending": n, "approved": n, "rejected": n} }`,
+`CardPreview`는 `{ "image_base64": "<PNG base64>" }`.
+
+| 필드 | 타입 | 기본값 여부 | 설명 |
+|---|---|---|---|
+| `id` | string (uuid) | 없음 | 초안 ID (세션당 1개) |
+| `student_id` | string (uuid) | 없음 |  |
+| `status` | string | 없음 | pending \| approved \| rejected |
+| `student_name`, `school`, `grade`, `class_no`, `student_no` | string / integer | 없음 | 카드 표시용 학생 정보 |
+| `name` | string | 없음 | persona_name 전체 |
+| `base_career` | string | 없음 | 카드 아랫줄(직업명) |
+| `headline` | string | 없음 | 카드 윗줄(수식어) |
+| `tagline` | string | 없음 | short_description |
+| `source_career_pool`, `pool_extended` | boolean 또는 null | 없음 | Career Pool 내 여부 / 인접 확장 여부 |
+| `raw` | object | 없음 | codex 출력 원본 |
+| `photo_url`, `image_url` | string 또는 null | 있음 | 원본 사진 / 생성 이미지 Presigned URL |
+| `error` | string 또는 null | 있음 | 마지막 이미지 생성 실패 사유 |
+| `note` | string | 없음 | 검수 메모 |
 
 ### DevStudentList
 
