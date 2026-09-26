@@ -66,6 +66,7 @@
 | GET | `/api/dev/drafts/{draft_id}/card` | 없음 | 200 | `CardPreview` | 현재 문구·이미지(없으면 폴백 캐릭터)로 합성한 카드 PNG(base64). 저장 안 함. |
 | POST | `/api/dev/drafts/{draft_id}/approve` | 없음 | 200 | `DraftItem` | 카드 PNG 합성 → S3 `cards/` → `generated.personas`·`cards` 확정. |
 | POST | `/api/dev/drafts/{draft_id}/reject` | 없음 | 200 | `DraftItem` | 반려. 일괄 생성이 다시 만들지 않는다. |
+| POST | `/api/dev/drafts/delete` | 없음 | 200 | `{deleted}` | `{ids: uuid[]}` 초안 삭제 — 그 세션은 다시 일괄 생성 대상. 승인된 초안은 확정본(personas·cards)도 삭제. S3 파일은 유지. |
 | GET | `/api/dev/schools` | 없음 | 200 | `string[]` | 일괄 생성용 학교 목록. |
 | GET | `/api/dev/schools/classes` | 없음 | 200 | `DevClass[]` | 학교(`?school=`)의 학년·반별 학생 수·설문 완료 수·일괄 생성 대상 수(`targets`). |
 | GET | `/api/dev/drafts/batch` | 없음 | 200 | `BatchStatus` | 일괄 생성 진행률(메모리 보관 — 서버 재시작 시 초기화). |
@@ -73,7 +74,7 @@
 | POST | `/api/dev/drafts/batch/cancel` | 없음 | 200 | `BatchStatus` | 일괄 생성 중단(진행 중인 codex 프로세스까지 종료). 저장된 초안은 남는다. |
 | GET | `/healthz` | 없음 | 200 | `{"status":"ok"}` | 서버 상태 확인 |
 
-총 59개: 구현 48개, 미구현 11개. `/api/dev/*` 18개는 `APP_ENV=local`에서만 등록됩니다.
+총 60개: 구현 49개, 미구현 11개. `/api/dev/*` 19개는 `APP_ENV=local`에서만 등록됩니다.
 
 미구현 API는 OpenAPI에 200과 일반 object로 표시되더라도 실제 정상 응답 계약이 없습니다. 유효한 경로 인자로 핸들러까지 도달하면 미처리 예외로 500이 발생합니다.
 
