@@ -14,12 +14,31 @@ import {
   fetchBoothByCode,
   fetchBoothStats,
   generateStage,
+  getPublicProfile,
   loginStudent,
   operatorLogin,
   saveAnswer,
   updateAdminBooth,
   updateMyProfile,
 } from "@/lib/api";
+
+describe("getPublicProfile", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  it("공유 조회는 로그인 토큰 없이 공개 API만 호출한다", async () => {
+    const payload = { persona: null, card: null, booths: [], competencies: [] };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(payload), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await getPublicProfile("owner-a.signature")).toEqual(payload);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/students/shared/owner-a.signature");
+    expect(init.headers).toBeUndefined();
+    expect(init.cache).toBe("no-store");
+  });
+  it("없는 공유 링크는 로그인으로 보내지 않고 404 오류를 전달한다", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { message: "공유 페이지를 찾을 수 없습니다." } }), { status: 404 })));
+    await expect(getPublicProfile("invalid")).rejects.toMatchObject({ status: 404 });
+  });
+});
 
 describe("completeSurvey", () => {
   beforeEach(() => vi.restoreAllMocks());

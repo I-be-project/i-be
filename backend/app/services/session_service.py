@@ -16,6 +16,7 @@ from app.core.errors import (
     SessionCompletedError,
     SessionSupersededError,
 )
+from app.core.profile_share import profile_share_code, read_profile_share_code
 from app.repositories.booth_repo import BoothRecord
 from app.repositories.booth_visit_repo import BoothVisitRecord
 from app.repositories.card_repo import CardRecord
@@ -29,6 +30,7 @@ from app.schemas.students import (
     ProfileBoothStatus,
     ProfileCompetencyScore,
     ProfileSummary,
+    PublicProfileSummary,
     StudentInfo,
 )
 
@@ -174,6 +176,11 @@ class SessionService:
         has_completed=false 로 내린다. 완료 시 persona→card 까지 따라간다.
         """
         record = await self._students.get_by_id(student_id)
+        share_path = (
+            f"/p/{profile_share_code(student_id, self._settings)}/home"
+            if record is not None and record.kind == "test" and record.deleted_at is None
+            else None
+        )
         # 테스트 계정은 전역 스위치와 무관하게 항상 다시 할 수 있다 — 그래야 계정 하나로
         # 반복 테스트가 되고, 테스트할 때마다 새 계정을 만들어 DB에 쌓지 않는다.
         retry_enabled = bool(await self._settings_repo.get(RETRY_ENABLED_KEY)) or (
@@ -187,6 +194,7 @@ class SessionService:
         if latest is None:
             return ProfileSummary(
                 has_completed=False,
+                share_path=share_path,
                 retry_enabled=retry_enabled,
                 student=student,
                 persona=None,
@@ -200,6 +208,7 @@ class SessionService:
             # 완료 상태인데 페르소나가 없는 비정상 케이스 — 완료로 표시하되 내용은 비운다.
             return ProfileSummary(
                 has_completed=True,
+                share_path=share_path,
                 completed_session_id=latest.id,
                 retry_enabled=retry_enabled,
                 student=student,
@@ -211,6 +220,7 @@ class SessionService:
 
         return ProfileSummary(
             has_completed=True,
+            share_path=share_path,
             completed_session_id=latest.id,
             retry_enabled=retry_enabled,
             student=student,
@@ -223,6 +233,30 @@ class SessionService:
                 fields=persona.fields,
             ),
             card=await self._build_card_summary(persona.id),
+        )
+
+    async def get_public_profile(self, code: str) -> PublicProfileSummary:
+        student_id = read_profile_share_code(code, self._settings)
+        record = await self._students.get_by_id(student_id)
+        if record is None or record.kind != "test" or record.deleted_at is not None:
+            raise NotFoundError("공유 페이지를 찾을 수 없습니다.")
+        # 표시 이름만 공개한다. 원본 사진 URL·성별·학적 정보는 응답에 넣지 않는다.
+        booths, competencies = await self._list_booth_statuses(student_id)
+        latest = await self._sessions.get_latest_completed_for_student(student_id)
+        persona = await self._personas.get_by_session(latest.id) if latest else None
+        return PublicProfileSummary(
+            display_name=record.name,
+            persona=PersonaSummary(
+                name=persona.name,
+                tagline=persona.tagline,
+                keywords=persona.keywords,
+                fields=persona.fields,
+            )
+            if persona
+            else None,
+            card=await self._build_card_summary(persona.id) if persona else None,
+            booths=booths,
+            competencies=competencies,
         )
 
     @staticmethod

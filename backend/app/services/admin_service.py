@@ -11,6 +11,7 @@ from uuid import UUID
 from app.adapters.storage_client import StorageClient
 from app.config import Settings
 from app.core.errors import NotFoundError, UnauthorizedError
+from app.core.profile_share import profile_share_code
 from app.core.security import TokenKind, create_token
 from app.core.survey_catalog import Q1TO6, STAGE_DESCRIPTIONS
 from app.repositories.session_repo import (
@@ -323,6 +324,12 @@ class AdminService:
             settings=self._settings,
         )
         return AdminTestToken(student_id=student_id, student_token=token)
+
+    async def get_test_profile_path(self, student_id: UUID) -> str:
+        record = await self._students.get_by_id(student_id)
+        if record is None or record.kind != "test" or record.deleted_at is not None:
+            raise NotFoundError("테스트 계정을 찾을 수 없습니다.")
+        return f"/p/{profile_share_code(student_id, self._settings)}/home"
 
     async def purge_test_students(self) -> AdminTestPurgeResponse:
         """테스트 계정 전체를 하드 삭제 — DB cascade + S3 사진·카드 이미지 정리."""
