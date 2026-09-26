@@ -1,6 +1,6 @@
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
-import { ArrowRight, ImageIcon, UserRoundSearch } from "lucide-react"
+import { ArrowRight, ClipboardCheck, ImageIcon, UserRoundSearch } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
@@ -28,6 +28,14 @@ const DEV_TOOLS: DevTool[] = [
     href: "/dev/future-photo",
     tag: "이미지",
     icon: ImageIcon,
+  },
+  {
+    title: "페르소나 카드 검수",
+    description:
+      "일괄 생성된 페르소나·인물 이미지를 한 명씩 확인하고, 카드 문구를 고치거나 재생성한 뒤 승인합니다. 승인하면 카드 PNG가 저장됩니다.",
+    href: "/dev/review",
+    tag: "검수",
+    icon: ClipboardCheck,
   },
 ]
 
