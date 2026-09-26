@@ -15,13 +15,15 @@ from __future__ import annotations
 
 import base64
 import time
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
+from app.adapters.storage_client import StorageClient
 from app.core.errors import NotFoundError
 from app.core.images import inspect_image
+from app.core.prompts.future_photo_prompt import DEFAULT_FUTURE_PHOTO_PROMPT
 from app.core.prompts.persona_prompt import (
     DEFAULT_SYSTEM_PROMPT,
     PERSONA_OUTPUT_SCHEMA,
@@ -29,15 +31,25 @@ from app.core.prompts.persona_prompt import (
 )
 from app.deps import (
     CodexClientDep,
+    DraftRepoDep,
+    DraftServiceDep,
     StorageClientDep,
     StudentRepoDep,
     get_session_repo,
 )
+from app.repositories.draft_repo import DraftRecord, DraftText
 from app.repositories.session_repo import SessionRepository
 from app.schemas.dev import (
+    BatchRequest,
+    BatchStatus,
+    CardPreview,
     DefaultPromptsResponse,
+    DevClass,
     DevStudent,
     DevStudentList,
+    DraftItem,
+    DraftList,
+    DraftUpdate,
     GenerateFuturePhotoRequest,
     GenerateFuturePhotoResponse,
     GeneratePersonaRequest,
@@ -45,56 +57,10 @@ from app.schemas.dev import (
     StudentAnswersResponse,
 )
 from app.services.dev_service import build_persona_inputs
+from app.services.draft_batch import dev_batch
 
 # 원본 사진 Presigned URL 유효시간. admin과 같은 1시간 — dev 세션에 충분하다.
 _PHOTO_URL_TTL_SECONDS = 3600
-
-# 미래 사진 생성 기본 프롬프트. 화면에서 편집 가능한 초깃값이다.
-#
-# 결과를 학생끼리 나란히 놓고 볼 수 있어야 하므로, 원본 사진에서 가져올 것(얼굴 정체성)과
-# 버릴 것(배경·구도·복장·조명)을 명시적으로 갈라놓는다. 원본은 교실·야외·단체사진 등
-# 제각각이라 이 구분이 없으면 결과도 그만큼 제각각이 된다.
-#
-# 나이: 참가자가 전원 중학생(1~3학년, 13~15세)이라 10년 뒤는 23~25세다.
-# 학년별로 다르지만 한 살 차이는 외형에 거의 안 드러나므로 24세로 고정한다.
-DEFAULT_FUTURE_PHOTO_PROMPT = """첨부한 사진 속 인물의 10년 뒤 모습을 담은 증명사진 한 장을 만들어라.
-
-[대상 인물 선택]
-- 사진에 사람이 여러 명이면, 화면에서 가장 크게 나오고 중앙에 가장 가까운 인물 한 명만 고른다.
-- 고른 한 명 외에는 결과에 넣지 않는다. 결과에는 반드시 한 사람만 나온다.
-- 얼굴이 가려지거나 흐린 인물은 고르지 않는다.
-
-[얼굴 정체성 — 원본에서 가져올 것]
-- 눈·코·입의 형태와 간격, 얼굴형과 턱선, 피부톤, 점·흉터 같은 고유한 특징을 유지해
-  같은 사람으로 알아볼 수 있게 한다.
-- 성별과 인종을 바꾸지 않는다.
-- 원본에서 안경을 썼으면 비슷한 형태의 안경을 유지한다.
-- 24세의 모습으로 그린다. 얼굴 윤곽이 성인으로 또렷해지고 볼의 아기살이 빠지되,
-  주름·흰머리·처짐은 넣지 않는다. 24세는 아직 젊다.
-- 미화하지 않는다. 이목구비를 고치거나 다른 사람으로 만들면 실패다.
-
-[구도 — 모든 결과가 서로 같아야 한다]
-- 세로 2:3 비율, 정면 상반신(가슴 위)만.
-- 카메라를 똑바로 바라본다. 고개를 기울이거나 옆으로 돌리지 않는다.
-- 양 어깨는 카메라와 나란히. 몸통을 비스듬히 틀지 않는다.
-- 눈높이에서 찍은 각도. 내려다보거나 올려다보는 각도를 쓰지 않는다.
-- 크기 기준(반드시 지킨다): 정수리 위 여백이 전체 높이의 10%,
-  두 눈이 전체 높이의 40% 지점, 정수리부터 턱까지가 전체 높이의 45%.
-- 얼굴이 프레임을 꽉 채우게 확대하지 않는다. 좌우로도 어깨가 잘리지 않게 넉넉히 담는다.
-- 표정은 입을 다문 옅은 미소. 이를 드러낸 큰 웃음이나 굳은 무표정은 쓰지 않는다.
-
-[배경·조명·복장 — 원본과 무관하게 고정한다]
-- 배경: RGB(210, 210, 210)의 균일한 밝은 회색 단색. 무늬·그러데이션·그림자 없이 완전히 평평하게.
-  원본의 장소·배경·소품·다른 사람은 모두 버린다.
-- 조명: 정면에서 오는 부드럽고 고른 조명. 짙은 그림자나 강한 반사광 없이.
-- 복장: 남색 크루넥 니트 하나로 고정한다. 무늬·로고·글자 없이.
-  원본의 교복·옷차림·색은 따르지 않는다.
-
-[금지]
-- 글자, 워터마크, 로고, 테두리, 액자
-- 여러 컷, 콜라주, 분할 화면, 전후 비교 이미지
-- 만화·일러스트·3D 렌더링 풍. 실제 카메라로 찍은 사진처럼 보여야 한다."""
-
 
 router = APIRouter(prefix="/api/dev", tags=["dev"])
 
@@ -251,3 +217,210 @@ async def generate_future_photo(
         height=info.height,
         elapsed_seconds=round(elapsed, 2),
     )
+
+
+# ──────────────────────────────────────────────────────────────
+# 검수 — scripts/batch_drafts.py가 만든 초안을 확인·수정·승인한다.
+# ──────────────────────────────────────────────────────────────
+
+
+def _draft_item(draft: DraftRecord, urls: dict[str, str]) -> DraftItem:
+    return DraftItem(
+        id=draft.id,
+        student_id=draft.student_id,
+        status=draft.status,
+        student_name=draft.student_name,
+        school=draft.school,
+        grade=draft.grade,
+        class_no=draft.class_no,
+        student_no=draft.student_no,
+        name=draft.name,
+        base_career=draft.base_career,
+        headline=draft.headline,
+        tagline=draft.tagline,
+        source_career_pool=draft.source_career_pool,
+        pool_extended=draft.pool_extended,
+        raw=draft.raw,
+        photo_url=urls.get(draft.photo_key) if draft.photo_key else None,
+        image_url=urls.get(draft.image_key) if draft.image_key else None,
+        error=draft.error,
+        note=draft.note,
+    )
+
+
+async def _draft_items(drafts: list[DraftRecord], storage: StorageClient) -> list[DraftItem]:
+    keys = [k for d in drafts for k in (d.photo_key, d.image_key) if k]
+    urls = await storage.create_signed_urls(keys, ttl_seconds=_PHOTO_URL_TTL_SECONDS)
+    return [_draft_item(d, urls) for d in drafts]
+
+
+async def _get_draft_item(
+    draft_id: UUID, drafts: DraftRepoDep, storage: StorageClient
+) -> DraftItem:
+    draft = await drafts.get(draft_id)
+    if draft is None:
+        raise NotFoundError("초안을 찾을 수 없습니다.")
+    return (await _draft_items([draft], storage))[0]
+
+
+@router.get("/drafts", response_model=DraftList)
+async def list_drafts(
+    drafts: DraftRepoDep,
+    storage: StorageClientDep,
+    status: Annotated[Literal["pending", "approved", "rejected"] | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> DraftList:
+    """초안 목록(학교·학년·반·번호 순)과 상태별 개수."""
+    records = await drafts.list_drafts(status=status, limit=limit, offset=offset)
+    return DraftList(
+        drafts=await _draft_items(records, storage), counts=await drafts.count_by_status()
+    )
+
+
+@router.patch("/drafts/{draft_id}", response_model=DraftItem)
+async def update_draft(
+    draft_id: UUID, req: DraftUpdate, drafts: DraftRepoDep, storage: StorageClientDep
+) -> DraftItem:
+    """카드 문구 수정. 상태는 그대로 — 승인은 따로 누른다."""
+    if await drafts.get(draft_id) is None:
+        raise NotFoundError("초안을 찾을 수 없습니다.")
+    await drafts.update_text(
+        draft_id,
+        DraftText(
+            name=req.name,
+            base_career=req.base_career,
+            headline=req.headline,
+            tagline=req.tagline,
+            source_career_pool=None,  # update_text는 문구 컬럼만 쓴다
+            pool_extended=None,
+        ),
+        note=req.note,
+    )
+    return await _get_draft_item(draft_id, drafts, storage)
+
+
+@router.post("/drafts/{draft_id}/regenerate-text", response_model=DraftItem)
+async def regenerate_draft_text(
+    draft_id: UUID, service: DraftServiceDep, drafts: DraftRepoDep, storage: StorageClientDep
+) -> DraftItem:
+    """페르소나 텍스트만 다시 생성(codex). 수정한 문구는 덮어써지고 검수 대기로 돌아간다."""
+    await service.regenerate_text(draft_id)
+    return await _get_draft_item(draft_id, drafts, storage)
+
+
+@router.post("/drafts/{draft_id}/regenerate-image", response_model=DraftItem)
+async def regenerate_draft_image(
+    draft_id: UUID, service: DraftServiceDep, drafts: DraftRepoDep, storage: StorageClientDep
+) -> DraftItem:
+    """인물 이미지만 다시 생성(codex). 실패하면 기존 이미지를 두고 error에 사유를 남긴다."""
+    await service.generate_image(draft_id)
+    return await _get_draft_item(draft_id, drafts, storage)
+
+
+@router.post("/drafts/{draft_id}/use-fallback", response_model=DraftItem)
+async def use_fallback_image(
+    draft_id: UUID, service: DraftServiceDep, drafts: DraftRepoDep, storage: StorageClientDep
+) -> DraftItem:
+    """생성 이미지 대신 폴백 캐릭터로 카드를 만든다."""
+    await service.use_fallback(draft_id)
+    return await _get_draft_item(draft_id, drafts, storage)
+
+
+@router.get("/drafts/{draft_id}/card", response_model=CardPreview)
+async def preview_draft_card(draft_id: UUID, service: DraftServiceDep) -> CardPreview:
+    """현재 문구·이미지(없으면 폴백 캐릭터)로 합성한 카드 미리보기. 저장하지 않는다."""
+    png = await service.preview_card(draft_id)
+    return CardPreview(image_base64=base64.b64encode(png).decode("ascii"))
+
+
+@router.post("/drafts/{draft_id}/approve", response_model=DraftItem)
+async def approve_draft(
+    draft_id: UUID, service: DraftServiceDep, drafts: DraftRepoDep, storage: StorageClientDep
+) -> DraftItem:
+    """카드 PNG 합성 → S3 cards/ → generated.personas·cards 확정."""
+    await service.approve(draft_id)
+    return await _get_draft_item(draft_id, drafts, storage)
+
+
+@router.post("/drafts/{draft_id}/reject", response_model=DraftItem)
+async def reject_draft(
+    draft_id: UUID, drafts: DraftRepoDep, storage: StorageClientDep
+) -> DraftItem:
+    """반려. 일괄 생성이 다시 만들지 않는다 — 필요하면 재생성 버튼으로 되살린다."""
+    if await drafts.get(draft_id) is None:
+        raise NotFoundError("초안을 찾을 수 없습니다.")
+    await drafts.reject(draft_id)
+    return await _get_draft_item(draft_id, drafts, storage)
+
+
+# ──────────────────────────────────────────────────────────────
+# 일괄 생성 — 학교·학년·반을 골라 백엔드 백그라운드에서 초안을 만든다.
+# ──────────────────────────────────────────────────────────────
+
+
+@router.get("/schools", response_model=list[str])
+async def list_schools(students: StudentRepoDep) -> list[str]:
+    return await students.list_schools()
+
+
+@router.get("/schools/classes", response_model=list[DevClass])
+async def list_classes(
+    students: StudentRepoDep, drafts: DraftRepoDep, school: Annotated[str, Query(min_length=1)]
+) -> list[DevClass]:
+    """학교의 반 목록 — 학생 수·설문 완료 수·일괄 생성 대상 수."""
+    rows = await students.get_class_progress(school)
+    targets = await drafts.count_targets_by_class(school)
+    return [
+        DevClass(
+            grade=r.grade,
+            class_no=r.class_no,
+            total=r.total,
+            completed=r.completed,
+            targets=targets.get((r.grade, r.class_no), 0),
+        )
+        for r in rows
+    ]
+
+
+def _batch_status() -> BatchStatus:
+    p = dev_batch.progress
+    return BatchStatus(
+        label=p.label,
+        total=p.total,
+        done=p.done,
+        failed=p.failed,
+        running=p.running,
+        cancelled=p.cancelled,
+        started_at=p.started_at,
+        finished_at=p.finished_at,
+        errors=p.errors,
+    )
+
+
+@router.get("/drafts/batch", response_model=BatchStatus)
+async def get_batch_status() -> BatchStatus:
+    return _batch_status()
+
+
+@router.post("/drafts/batch", response_model=BatchStatus, status_code=202)
+async def start_batch(
+    req: BatchRequest, drafts: DraftRepoDep, service: DraftServiceDep
+) -> BatchStatus:
+    """선택한 반들의 대상 전원 초안 생성을 백그라운드로 시작한다. 동시에 한 작업만."""
+    picked = dict.fromkeys((c.school, c.grade, c.class_no) for c in req.classes)  # 중복 제거
+    targets = []
+    for school, grade, class_no in picked:
+        targets += await drafts.list_targets(
+            limit=100_000, school=school, grade=grade, class_no=class_no
+        )
+    label = f"{len({p[0] for p in picked})}개 학교 · {len(picked)}개 반"
+    dev_batch.start(service, targets, concurrency=req.concurrency, label=label)
+    return _batch_status()
+
+
+@router.post("/drafts/batch/cancel", response_model=BatchStatus)
+async def cancel_batch() -> BatchStatus:
+    """진행 중인 codex 호출까지 끊는다. 이미 저장된 초안은 남는다."""
+    dev_batch.cancel()
+    return _batch_status()

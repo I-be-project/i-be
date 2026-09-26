@@ -5,6 +5,7 @@ dev는 로컬 Codex CLI로만 동작한다 — OpenRouter(AIClient)를 쓰지 �
 
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -92,3 +93,89 @@ class GenerateFuturePhotoResponse(BaseModel):
     width: int
     height: int
     elapsed_seconds: float
+
+
+# ──────────────────────────────────────────────────────────────
+# 검수 (/api/dev/drafts)
+# ──────────────────────────────────────────────────────────────
+
+
+class DraftItem(BaseModel):
+    """검수 화면 한 줄 — 초안 + 학생 정보 + 이미지 URL."""
+
+    id: UUID
+    student_id: UUID
+    status: str = Field(..., description="pending | approved | rejected")
+    student_name: str
+    school: str
+    grade: int
+    class_no: int
+    student_no: int
+    name: str = Field(..., description="persona_name 전체")
+    base_career: str = Field(..., description="카드 아랫줄(직업명)")
+    headline: str = Field(..., description="카드 윗줄(수식어)")
+    tagline: str = Field(..., description="short_description")
+    source_career_pool: bool | None
+    pool_extended: bool | None
+    raw: dict[str, object] = Field(..., description="codex 출력 원본")
+    photo_url: str | None = Field(None, description="원본 사진 Presigned URL")
+    image_url: str | None = Field(None, description="생성 이미지 Presigned URL")
+    error: str | None = Field(None, description="마지막 이미지 생성 실패 사유")
+    note: str
+
+
+class DraftList(BaseModel):
+    drafts: list[DraftItem]
+    counts: dict[str, int] = Field(..., description="상태별 전체 개수")
+
+
+class DraftUpdate(BaseModel):
+    """검수자가 고치는 카드 문구."""
+
+    name: str = Field(..., max_length=200)
+    base_career: str = Field(..., min_length=1, max_length=60)
+    headline: str = Field(..., max_length=80)
+    tagline: str = Field(..., max_length=500)
+    note: str = Field("", max_length=1000)
+
+
+class CardPreview(BaseModel):
+    image_base64: str = Field(..., description="카드 PNG (base64)")
+
+
+# ──────────────────────────────────────────────────────────────
+# 일괄 생성 (/api/dev/drafts/batch)
+# ──────────────────────────────────────────────────────────────
+
+
+class DevClass(BaseModel):
+    grade: int
+    class_no: int
+    total: int = Field(..., description="반 학생 수")
+    completed: int = Field(..., description="설문 완료 학생 수")
+    targets: int = Field(..., description="초안이 없는 완료자 수 — 일괄 생성 대상")
+
+
+class BatchClass(BaseModel):
+    school: str = Field(..., min_length=1)
+    grade: int
+    class_no: int
+
+
+class BatchRequest(BaseModel):
+    classes: list[BatchClass] = Field(..., min_length=1, max_length=500)
+    concurrency: int = Field(
+        2, ge=1, le=20, description="동시 codex 실행 수. 상한은 ChatGPT 계정 사용량 한도가 정한다"
+    )
+
+
+class BatchStatus(BaseModel):
+    label: str
+    total: int
+    done: int
+    failed: int
+    running: bool
+    cancelled: bool
+    started_at: datetime | None
+    finished_at: datetime | None
+    errors: list[str] = Field(..., description="최근 텍스트 생성 실패(최대 10개)")
