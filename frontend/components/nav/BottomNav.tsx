@@ -2,37 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, Home, MapPin, User } from "lucide-react";
-import { useSessionStore } from "@/store/useSessionStore";
+import { Sprout, Home, MapPin } from "lucide-react";
 
 interface TabDef {
   href: string;
   label: string;
   icon: typeof Home;
-  // 활성 여부 판단 — 프로필 탭은 동적 id(/profile/[id])라 prefix로 비교한다.
+  // 하위 스캔 화면에서도 성장 탭을 활성화한다.
   isActive: (pathname: string) => boolean;
 }
 
-// 하단 탭 4개 — 설문 완료 후 진입하는 (tabs) 그룹 전용.
-export function BottomNav() {
+// 하단 탭 3개 — 설문 완료 후 진입하는 (tabs) 그룹 전용.
+export function BottomNav({ basePath = "" }: { basePath?: string }) {
   const pathname = usePathname();
-  const studentId = useSessionStore((s) => s.studentId);
 
   const tabs: TabDef[] = [
-    { href: "/home", label: "홈", icon: Home, isActive: (p) => p === "/home" },
-    { href: "/booths", label: "부스", icon: MapPin, isActive: (p) => p === "/booths" },
-    {
-      href: "/tendency",
-      label: "자신의 성향",
-      icon: Compass,
-      isActive: (p) => p === "/tendency",
-    },
-    {
-      href: studentId ? `/profile/${studentId}` : "/login",
-      label: "프로필",
-      icon: User,
-      isActive: (p) => p.startsWith("/profile/"),
-    },
+    { href: `${basePath}/booths`, label: "부스", icon: MapPin, isActive: (p) => p === `${basePath}/booths` },
+    { href: `${basePath}/home`, label: "홈", icon: Home, isActive: (p) => p === `${basePath}/home` },
+    { href: `${basePath}/growth`, label: "성장", icon: Sprout, isActive: (p) => p.startsWith(`${basePath}/growth`) },
   ];
 
   return (

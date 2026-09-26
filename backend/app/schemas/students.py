@@ -99,9 +99,19 @@ class ProfileSummary(BaseModel):
     """
 
     has_completed: bool
+    share_path: str | None = None
     completed_session_id: UUID | None = None
     retry_enabled: bool
     student: StudentInfo | None = None
+    persona: PersonaSummary | None = None
+    card: CardSummary | None = None
+    booths: list[ProfileBoothStatus] = Field(default_factory=list)
+    competencies: list[ProfileCompetencyScore] = Field(default_factory=list)
+
+
+class PublicProfileSummary(BaseModel):
+    """공개 페이지 전용. 학생 개인정보와 세션/관리 필드는 포함하지 않는다."""
+
     persona: PersonaSummary | None = None
     card: CardSummary | None = None
     booths: list[ProfileBoothStatus] = Field(default_factory=list)

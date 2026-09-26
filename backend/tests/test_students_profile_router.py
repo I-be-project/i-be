@@ -72,6 +72,7 @@ async def test_me_with_no_session_returns_not_completed() -> None:
         body = res.json()
         assert body == {
             "has_completed": False,
+            "share_path": None,
             "completed_session_id": None,
             "retry_enabled": False,
             "student": {

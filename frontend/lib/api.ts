@@ -93,6 +93,7 @@ export interface ProfileCompetencyScore {
 }
 
 export interface ProfileSummary {
+  share_path?: string | null;
   completed_session_id?: string | null;
   has_completed: boolean;
   retry_enabled: boolean;
@@ -245,6 +246,19 @@ export function getMyProfile(token: string): Promise<ProfileSummary> {
   return request<ProfileSummary>("/api/students/me", {
     method: "GET",
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export interface PublicProfileSummary {
+  persona: ProfilePersona | null;
+  card: ProfileCard | null;
+  booths: ProfileBoothStatus[];
+  competencies: ProfileCompetencyScore[];
+}
+
+export function getPublicProfile(code: string): Promise<PublicProfileSummary> {
+  return request(`/api/students/shared/${encodeURIComponent(code)}`, {
+    method: "GET", cache: "no-store",
   });
 }
 
@@ -569,6 +583,12 @@ export function purgeAdminTestStudents(
   return request<AdminTestPurgeResponse>("/api/admin/students/test", {
     method: "DELETE",
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function fetchAdminTestProfilePath(token: string, studentId: string): Promise<{ path: string }> {
+  return request(`/api/admin/students/test/${encodeURIComponent(studentId)}/profile`, {
+    method: "GET", headers: { Authorization: `Bearer ${token}` },
   });
 }
 

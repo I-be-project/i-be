@@ -1,61 +1,38 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
-import { Map } from "lucide-react";
-import { HanmadangBackground } from "@/components/tabs/HanmadangBackground";
-
-// 부스맵 에셋 경로를 한곳에 모아둔다 — 나중에 이 파일만 public/에 넣으면 바로 완성된다.
-const BOOTH_MAP_IMAGE_SRC = "/booth-map.webp";
+import Link from "next/link";
+import { User, ArrowUpRight } from "lucide-react";
+import { TabPage, ProfileFeedback } from "@/components/tabs/TabPage";
+import { BoothList, VisitSummary } from "@/components/tabs/BoothList";
+import { useProfileView, MyPageLink } from "@/components/tabs/ProfileView";
 
 export default function HomePage() {
-  // 에셋이 아직 없으면 next/image가 404를 내므로, 실패 시 플레이스홀더로 전환한다.
-  const [mapFailed, setMapFailed] = useState(false);
-
-  return (
-    <main className="relative flex min-h-[100dvh] flex-col px-5 pb-28 pt-8 font-sans">
-      <HanmadangBackground />
-
-      <div className="relative z-10 flex flex-col gap-6">
-        <Image
-          src="/logo-hanmadang.png"
-          alt="제12회 청소년 나Be한마당"
-          width={720}
-          height={523}
-          priority
-          className="h-16 w-auto self-start"
-        />
-
-        <div>
-          <h1 className="text-[28px] font-extrabold leading-tight text-hm-blue">부스맵</h1>
-          <p className="mt-1.5 text-sm font-bold text-hm-blue/60">
-            한마당 현장에서 돌아볼 부스들을 지도로 확인해봐.
-          </p>
-        </div>
-
-        <section className="hm-card overflow-hidden">
-          {mapFailed ? (
-            <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
-              <Map className="h-9 w-9 text-hm-teal" />
-              <p className="text-sm font-bold text-hm-blue">지도 준비 중이에요.</p>
-              <p className="text-xs font-bold text-hm-blue/50">
-                한마당 당일 부스맵이 여기에 표시될 거야.
-              </p>
-            </div>
-          ) : (
-            <div className="relative aspect-[4/3] w-full bg-hm-tint">
-              <Image
-                src={BOOTH_MAP_IMAGE_SRC}
-                alt="나Be한마당 부스맵"
-                fill
-                sizes="(min-width: 672px) 672px, 100vw"
-                className="object-cover"
-                onError={() => setMapFailed(true)}
-              />
-            </div>
-          )}
-        </section>
-      </div>
-    </main>
-  );
+  const { profile, readOnly, basePath, ...feedback } = useProfileView();
+  const visited = (profile?.booths ?? []).filter((b) => b.visited).sort((a, b) => (b.visited_at ?? "").localeCompare(a.visited_at ?? ""));
+  return <TabPage title={readOnly ? "공유된 한마당" : "나의 한마당"} description={readOnly ? `${profile?.persona?.name ?? "탐험대원"}의 페이지 · 보기 전용` : undefined} action={readOnly ? <MyPageLink /> : undefined}>
+    <ProfileFeedback {...feedback} />
+    {!feedback.loading && !feedback.error && profile && <>
+      <section aria-label="페르소나 카드" className="hm-card overflow-hidden p-4 sm:p-5">
+        <p className="mb-4 text-xs font-extrabold tracking-wide text-hm-blue/60">{readOnly ? "PERSONA · 페르소나" : "MY PERSONA · 나의 페르소나"}</p>
+        {profile.card?.card_image_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={profile.card.card_image_url} alt={`${readOnly ? "페이지 주인" : profile.student?.name ?? "나"}의 페르소나 카드`} className="h-auto w-full rounded-xl" />
+        ) : profile.persona ? <div className="flex items-center gap-4">
+          <div className="aspect-[3/4] w-[32%] shrink-0 overflow-hidden rounded-xl bg-hm-tint">
+            {profile.student?.photo_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={profile.student.photo_url} alt="내 사진" className="h-full w-full object-cover" />
+            ) : <User className="h-full w-full p-6 text-hm-pattern" />}
+          </div>
+          <div className="min-w-0"><p className="text-xs text-hm-blue/60">{profile.student?.school || "나Be한마당 탐험대원"}</p><p className="mt-1 font-bold text-hm-blue">{profile.student?.name}</p><h2 className="mt-3 break-keep text-xl font-extrabold text-hm-blue">{profile.persona.name}</h2><p className="mt-2 text-xs leading-relaxed text-hm-blue/70">{profile.persona.tagline}</p></div>
+        </div> : <div className="py-6 text-center"><h2 className="text-lg font-extrabold text-hm-blue">{(readOnly || profile.has_completed) ? "페르소나 카드를 준비하고 있어" : "나만의 페르소나를 만나볼까?"}</h2><p className="mt-2 text-sm text-hm-blue/65">{(readOnly || profile.has_completed) ? "완성되면 여기에 표시될 거야." : "탐험을 마치면 이곳에 내 카드가 생겨."}</p>{!readOnly && !profile.has_completed && <Link href="/explore" className="mt-4 inline-block rounded-full bg-hm-blue px-5 py-2 text-sm font-bold text-white">탐험하러 가기</Link>}</div>}
+        {!!profile.persona?.fields.length && <div className="mt-4 flex flex-wrap gap-2 border-t border-hm-pattern pt-3">{profile.persona.fields.map((field) => <span key={field} className="rounded-full bg-hm-tint px-3 py-1 text-xs font-bold text-hm-blue">{field}</span>)}</div>}
+      </section>
+      <section className="mt-3 flex flex-col gap-4">
+        <div className="flex items-center justify-between"><h2 className="text-xl font-extrabold text-hm-blue">{readOnly ? "참여 기록" : "나의 참여 기록"}</h2><Link href={`${basePath}/growth`} className="flex items-center gap-1 text-xs font-bold text-hm-blue">성장 보기<ArrowUpRight size={15} /></Link></div>
+        <VisitSummary booths={visited} />
+        {visited.length ? <BoothList booths={visited} showDate /> : <div className="hm-card p-6 text-center text-sm text-hm-blue/70"><p>아직 참여한 부스가 없어.</p><Link href={`${basePath}/booths`} className="mt-3 inline-block font-extrabold text-hm-blue">첫 부스 찾아보기 →</Link></div>}
+      </section>
+    </>}
+  </TabPage>;
 }
