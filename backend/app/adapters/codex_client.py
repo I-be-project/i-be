@@ -92,20 +92,23 @@ class CodexClient:
         codex는 결정적 도구가 아니라 에이전트다 — 정상 종료(exit 0)하고도 이미지를
         만들지 않는 경우가 실제로 관측된다. 파일 부재로 확실히 판별되므로 1회 재시도한다.
         """
+        reply = ""
         for attempt in range(2):
-            image = await self._image_attempt(prompt, photo, model)
+            image, reply = await self._image_attempt(prompt, photo, model)
             if image is not None:
                 return image
-            logger.warning("codex.image.no_output", attempt=attempt + 1)
+            logger.warning("codex.image.no_output", attempt=attempt + 1, reply=reply[:200])
+        # codex의 마지막 답변을 사유로 올린다 — "얼굴이 가려져 생성 불가"처럼
+        # 원본 사진 문제인 경우가 많아, 검수자가 재생성 대신 사진을 확인해야 한다.
         raise ExternalServiceError(
-            "codex가 이미지를 지정 경로에 저장하지 않았습니다 (재시도 후에도).",
+            f"codex가 이미지를 만들지 않았습니다: {reply.strip()[:300] or '(응답 없음)'}",
             details={"attempts": 2},
         )
 
     async def _image_attempt(
         self, prompt: str, photo: bytes | None, model: str | None
-    ) -> bytes | None:
-        """이미지 생성 1회 시도. codex가 파일을 남기지 않았으면 None."""
+    ) -> tuple[bytes | None, str]:
+        """이미지 생성 1회 시도 → (이미지, codex 답변). 파일을 남기지 않았으면 이미지는 None."""
         with TemporaryDirectory() as tmp:
             work = Path(tmp)
             out_path = work / _IMAGE_FILENAME
@@ -120,7 +123,7 @@ class CodexClient:
                 attach = ("-i", str(photo_path))
 
             # 쓰기 권한이 필요하다(생성 이미지를 out.png로 복사) → workspace-write.
-            await self._run(
+            reply = await self._run(
                 [
                     "exec",
                     "--sandbox",
@@ -136,7 +139,7 @@ class CodexClient:
                 f"저장 후 파일 경로만 한 줄로 답해라.",
             )
 
-            return out_path.read_bytes() if out_path.exists() else None
+            return (out_path.read_bytes() if out_path.exists() else None), reply
 
     async def _run(self, args: list[str], prompt: str) -> str:
         """codex 서브프로세스 1회 실행. stdout 반환, 실패는 ExternalServiceError.
@@ -166,6 +169,10 @@ class CodexClient:
             stdout, stderr = await asyncio.wait_for(
                 proc.communicate(prompt.encode()), timeout=self._timeout
             )
+        except asyncio.CancelledError:
+            # 일괄 생성 중단 — 부모 태스크만 끝나고 codex가 고아로 계속 돌지 않게.
+            self._kill_group(proc)
+            raise
         except TimeoutError as exc:
             self._kill_group(proc)
             raise ExternalServiceError(

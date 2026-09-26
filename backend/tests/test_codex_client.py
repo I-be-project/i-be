@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import stat
 from io import BytesIO
@@ -115,7 +116,7 @@ async def test_generate_image_retries_once_then_fails(tmp_path: Path) -> None:
         binary=_fake_binary(tmp_path, f"echo x >> {count}; exit 0"), timeout_seconds=10
     )
 
-    with pytest.raises(ExternalServiceError, match="저장하지 않았습니다"):
+    with pytest.raises(ExternalServiceError, match="만들지 않았습니다"):
         await client.generate_image("프롬프트", photo=_PNG_BYTES)
 
     assert len(count.read_text().split()) == 2  # 최초 1회 + 재시도 1회
@@ -189,3 +190,39 @@ def test_env_default_binary_is_plain_codex() -> None:
 
     assert Settings().codex_bin == "codex"
     assert os.sep not in Settings().codex_bin
+
+
+async def test_image_refusal_reason_is_surfaced(tmp_path: Path) -> None:
+    """codex가 이미지 대신 거절 사유만 답하면 그 사유가 오류 메시지에 담겨야 한다."""
+    client = CodexClient(
+        binary=_fake_binary(tmp_path, "echo '얼굴이 손에 가려져 생성할 수 없습니다.'"),
+        timeout_seconds=10,
+    )
+
+    with pytest.raises(ExternalServiceError, match="얼굴이 손에 가려져"):
+        await client.generate_image("프롬프트", photo=_JPEG_BYTES)
+
+
+async def test_cancel_kills_the_process(tmp_path: Path) -> None:
+    """일괄 생성을 중단하면 codex 프로세스도 함께 죽어야 한다(고아로 남아 사용량을 쓰지 않게)."""
+    pid_file = tmp_path / "pid"
+    client = CodexClient(
+        binary=_fake_binary(tmp_path, f"echo $$ > {pid_file}; sleep 30"), timeout_seconds=60
+    )
+    task = asyncio.create_task(client.generate_json("프롬프트", {"type": "object"}))
+    for _ in range(100):  # 가짜 codex가 뜰 때까지
+        if pid_file.exists() and pid_file.read_text().strip():
+            break
+        await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    pid = int(pid_file.read_text())
+    for _ in range(40):  # SIGKILL 반영까지 잠깐 기다린다
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return
+        await asyncio.sleep(0.05)
+    pytest.fail("codex 프로세스가 살아 있다")
