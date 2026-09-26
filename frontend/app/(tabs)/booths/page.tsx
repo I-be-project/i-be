@@ -18,14 +18,14 @@ export default function BoothsPage() {
   const booths = profile?.booths ?? [];
   const recommended = recommendBooths(booths, profile?.persona ?? null);
   const filtered = booths.filter((b) => (zone === "all" || b.zone === zone) && `${b.name} ${b.description ?? ""}`.toLowerCase().includes(query.trim().toLowerCase()));
-  return <TabPage title="부스 탐험" description={readOnly ? "페이지 주인의 관심 분야와 부스 추천을 살펴봐." : "지도로 찾아보고, 나에게 맞는 체험을 만나봐."} action={readOnly ? <MyPageLink /> : undefined}>
+  return <TabPage title="부스 탐험" description={readOnly ? undefined : "지도로 찾아보고, 나에게 맞는 체험을 만나봐."} action={readOnly ? <MyPageLink /> : undefined}>
     <section className="hm-card overflow-hidden" aria-label="부스 맵">
       <h2 className="flex items-center gap-2 px-5 pt-5 text-lg font-extrabold text-hm-blue"><Map size={20} />부스 맵</h2>
       {mapFailed ? <div className="flex min-h-48 flex-col items-center justify-center gap-2 p-6 text-center text-hm-blue"><Map size={36} className="text-hm-pattern" /><p className="text-sm font-bold">지도를 준비하고 있어</p><p className="text-xs text-hm-blue/60">아래 목록에서 체험할 부스를 먼저 찾아봐.</p></div> : <div className="relative aspect-[4/3] w-full"><Image src="/booth-map.webp" alt="나Be한마당 부스 배치도" fill sizes="(min-width: 672px) 632px, 100vw" className="object-contain p-3" onError={() => setMapFailed(true)} /></div>}
     </section>
     <ProfileFeedback {...feedback} />
     {!feedback.loading && !feedback.error && profile && <>
-      <section className="flex flex-col gap-3"><h2 className="text-xl font-extrabold text-hm-blue">{readOnly ? "페이지 주인을 위한 부스 추천" : "나를 위한 부스 추천"}</h2>
+      <section className="flex flex-col gap-3"><h2 className="text-xl font-extrabold text-hm-blue">{readOnly ? (profile.display_name ? `${profile.display_name}님을 위한 부스 추천` : "추천 부스") : "나를 위한 부스 추천"}</h2>
         {recommended.length ? <><p className="text-xs leading-relaxed text-hm-blue/70">{profile.persona?.fields.join(" · ")} · {readOnly ? "페이지 주인의 분야와 관심 키워드에 맞는 부스야." : "내 분야와 관심 키워드에 맞는 부스야."}</p><BoothList booths={recommended} /></> : <div className="hm-card p-5 text-sm leading-relaxed text-hm-blue/70">{!profile.persona ? <>페르소나가 완성되면 관심 분야에 맞는 부스를 추천해줄게. <Link href={`${basePath}/home`} className="font-bold underline">{readOnly ? "페르소나 보기" : "내 카드 보기"}</Link></> : "현재 내 관심 분야와 일치하는 부스가 없어. 전체 목록에서 새로운 관심사를 찾아봐!"}</div>}
       </section>
       <section className="flex flex-col gap-3"><h2 className="text-xl font-extrabold text-hm-blue">전체 부스 <span className="text-sm text-hm-blue/50">{booths.length}</span></h2>

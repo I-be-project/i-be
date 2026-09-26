@@ -12,7 +12,7 @@ export default function GrowthPage() {
   const scores = profile?.competencies;
   const chartData = toChartData(scores);
   const empty = !hasAnyScore(scores);
-  return <TabPage title={readOnly ? "함께 보는 성장" : "나의 성장"} description={readOnly ? `${profile?.persona?.name ?? "탐험대원"}의 참여 기록 · 보기 전용` : undefined} action={readOnly ? <MyPageLink /> : undefined}>
+  return <TabPage title={readOnly ? "함께 보는 성장" : "나의 성장"} action={readOnly ? <MyPageLink /> : undefined}>
     <ProfileFeedback {...feedback} />
     {!feedback.loading && !feedback.error && profile && <section className="hm-card px-2 py-5 sm:px-5">
       <div className="px-3"><p className="text-xs font-bold text-hm-teal">{readOnly ? "체험으로 쌓은 가능성" : "체험으로 발견한 나"}</p><h2 className="mt-1 text-xl font-extrabold text-hm-blue">{readOnly ? "역량 지도" : "나의 역량 지도"}</h2></div>

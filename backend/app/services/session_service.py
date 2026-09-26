@@ -240,11 +240,12 @@ class SessionService:
         record = await self._students.get_by_id(student_id)
         if record is None or record.kind != "test" or record.deleted_at is not None:
             raise NotFoundError("공유 페이지를 찾을 수 없습니다.")
-        # 비공개 프로필을 재사용하지 않는다. 원본 사진 URL·이름·학적 정보를 만들지 않는다.
+        # 표시 이름만 공개한다. 원본 사진 URL·성별·학적 정보는 응답에 넣지 않는다.
         booths, competencies = await self._list_booth_statuses(student_id)
         latest = await self._sessions.get_latest_completed_for_student(student_id)
         persona = await self._personas.get_by_session(latest.id) if latest else None
         return PublicProfileSummary(
+            display_name=record.name,
             persona=PersonaSummary(
                 name=persona.name,
                 tagline=persona.tagline,

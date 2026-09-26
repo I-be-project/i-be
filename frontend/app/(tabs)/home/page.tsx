@@ -9,7 +9,7 @@ import { useProfileView, MyPageLink } from "@/components/tabs/ProfileView";
 export default function HomePage() {
   const { profile, readOnly, basePath, ...feedback } = useProfileView();
   const visited = (profile?.booths ?? []).filter((b) => b.visited).sort((a, b) => (b.visited_at ?? "").localeCompare(a.visited_at ?? ""));
-  return <TabPage title={readOnly ? "공유된 한마당" : "나의 한마당"} description={readOnly ? `${profile?.persona?.name ?? "탐험대원"}의 페이지 · 보기 전용` : undefined} action={readOnly ? <MyPageLink /> : undefined}>
+  return <TabPage title={readOnly ? "공유된 한마당" : "나의 한마당"} action={readOnly ? <MyPageLink /> : undefined}>
     <ProfileFeedback {...feedback} />
     {!feedback.loading && !feedback.error && profile && <>
       <section aria-label="페르소나 카드" className="hm-card overflow-hidden p-4 sm:p-5">

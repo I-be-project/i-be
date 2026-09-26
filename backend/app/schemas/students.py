@@ -110,8 +110,9 @@ class ProfileSummary(BaseModel):
 
 
 class PublicProfileSummary(BaseModel):
-    """공개 페이지 전용. 학생 개인정보와 세션/관리 필드는 포함하지 않는다."""
+    """공개 페이지 전용. 표시 이름 외 학생 정보와 세션/관리 필드는 제외한다."""
 
+    display_name: str
     persona: PersonaSummary | None = None
     card: CardSummary | None = None
     booths: list[ProfileBoothStatus] = Field(default_factory=list)

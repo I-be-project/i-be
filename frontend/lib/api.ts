@@ -93,6 +93,7 @@ export interface ProfileCompetencyScore {
 }
 
 export interface ProfileSummary {
+  display_name?: string;
   share_path?: string | null;
   completed_session_id?: string | null;
   has_completed: boolean;
@@ -250,6 +251,7 @@ export function getMyProfile(token: string): Promise<ProfileSummary> {
 }
 
 export interface PublicProfileSummary {
+  display_name: string;
   persona: ProfilePersona | null;
   card: ProfileCard | null;
   booths: ProfileBoothStatus[];

@@ -93,7 +93,7 @@ async def test_anonymous_public_profile_includes_card_visits_and_scores_only():
         assert response.status_code == 200
         assert response.headers["cache-control"] == "no-store"
         body = response.json()
-        assert set(body) == {"persona", "card", "booths", "competencies"}
+        assert set(body) == {"display_name", "persona", "card", "booths", "competencies"}
         assert body["persona"]["name"] == persona.name
         assert "cards/public.png" in body["card"]["card_image_url"]
         assert body["booths"][0]["visited"] is True
@@ -101,7 +101,7 @@ async def test_anonymous_public_profile_includes_card_visits_and_scores_only():
             next(score for score in body["competencies"] if score["key"] == "creativity")["score"]
             == 1
         )
-        assert student.name not in response.text
+        assert body["display_name"] == student.name
         assert student.school not in response.text
         assert "private/student-photo" not in response.text
         assert all(key != student.photo_key for key, _ in storage.calls)
