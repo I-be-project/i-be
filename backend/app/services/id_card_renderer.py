@@ -4,9 +4,8 @@
 headline(윗줄)·base_career(아랫줄)를 쓴다. 글자는 AI가 아니라 여기서 그린다 —
 한글이 깨지지 않고, 문구를 고쳐도 이미지를 다시 만들 필요가 없다.
 
-인물 배치: AI는 매번 얼굴 크기·위치를 다르게 그린다. 얼굴을 찾아(OpenCV Haar cascade)
-기준 카드와 같은 크기·위치가 되도록 확대·이동해 모든 카드의 인물 배치를 통일한다.
-기준값(FACE_*)은 디자인 레퍼런스 카드에 같은 검출기를 돌려 잰 값이다.
+인물 배치는 이미지 생성 프롬프트(future_photo_prompt)가 정한다. 여기서는 생성 이미지를
+폭에 맞춰 위쪽 기준으로 채울 뿐이라(아래쪽 약 13%가 잘림), 이미지 좌표가 곧 카드 좌표다.
 
 비율은 세로 신용카드(54x86mm). 폭 1024px ≈ 480dpi.
 """
@@ -18,8 +17,6 @@ from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 
-import cv2
-import numpy as np
 import qrcode  # type: ignore[import-untyped]  # 타입 스텁 없음
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
@@ -40,11 +37,6 @@ ROW_DARKEST = 0.70  # 가장 짙은 지점
 ROW_ALPHA = 170  # 가장 짙을 때 불투명도(0~255)
 FADE_TOP = 0.745  # 여기부터 흰색이 차오른다
 
-# 얼굴 박스(Haar 검출 영역, 이마~턱·볼~볼) 기준.
-FACE_W = 0.39  # 카드 폭 대비
-FACE_CX = 0.5  # 얼굴 중심 x
-FACE_TOP = 0.19  # 얼굴 박스 상단 y
-
 MARGIN = 0.05
 LOGO_TEXT = "나Be한마당"  # ponytail: 텍스트 로고. 로고 PNG가 오면 이미지로 교체
 QR_SIZE = 0.12  # 카드 폭 대비
@@ -60,10 +52,6 @@ WHITE = (255, 255, 255, 255)
 INK = (20, 20, 24, 255)
 SUB_INK = (55, 55, 62, 255)
 SHADOW = (0, 0, 0, 170)
-
-_CASCADE = cv2.CascadeClassifier(
-    cv2.data.haarcascades + "haarcascade_frontalface_default.xml"  # type: ignore[attr-defined]  # cv2.data 스텁 없음
-)
 
 
 @dataclass(frozen=True)
@@ -105,41 +93,6 @@ def _shadow_text(
         return
     draw.text((xy[0] + 2, xy[1] + 2), text, font=font, fill=SHADOW, anchor=anchor)
     draw.text(xy, text, font=font, fill=WHITE, anchor=anchor)
-
-
-def detect_face(img: Image.Image) -> tuple[int, int, int, int] | None:
-    """가장 큰 정면 얼굴 박스 (x, y, w, h). 못 찾으면 None."""
-    gray = cv2.cvtColor(np.asarray(img.convert("RGB")), cv2.COLOR_RGB2GRAY)
-    min_side = min(img.size) // 8  # 옷 주름 등 작은 오검출을 거른다
-    faces = _CASCADE.detectMultiScale(gray, 1.05, 5, minSize=(min_side, min_side))
-    if len(faces) == 0:
-        return None
-    x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
-    return int(x), int(y), int(w), int(h)
-
-
-def _place_person(img: Image.Image, size: tuple[int, int]) -> Image.Image:
-    """얼굴이 기준 크기·위치에 오도록 확대·이동해 size 영역을 채운다.
-
-    영역을 다 덮지 못할 만큼 작게 줄여야 하면(얼굴이 이미 기준보다 크게 생성됨)
-    덮는 최소 배율에서 멈춘다 — 빈 공간을 만들지 않는 대신 그 카드만 얼굴이 조금 크다.
-    얼굴을 못 찾으면 위쪽 기준으로 꽉 채운다.
-    """
-    w, h = size
-    face = detect_face(img)
-    if face is None:
-        return ImageOps.fit(img, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.0))
-
-    fx, fy, fw, _ = face
-    cover = max(w / img.width, h / img.height)
-    scale = max(FACE_W * CARD_W / fw, cover)
-    sw, sh = round(img.width * scale), round(img.height * scale)
-    # 목표 위치로 옮기되, 영역 밖으로 빈틈이 생기지 않게 가둔다.
-    ox = min(0, max(w - sw, round(FACE_CX * CARD_W - (fx + fw / 2) * scale)))
-    oy = min(0, max(h - sh, round(FACE_TOP * CARD_H - fy * scale)))
-    canvas = Image.new("RGBA", size)
-    canvas.paste(img.resize((sw, sh), Image.Resampling.LANCZOS), (ox, oy))
-    return canvas
 
 
 def _fallback_photo(size: tuple[int, int]) -> Image.Image:
@@ -196,7 +149,13 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
     if image_png is None:
         photo = _fallback_photo(photo_size)
     else:
-        photo = _place_person(Image.open(BytesIO(image_png)).convert("RGBA"), photo_size)
+        # 위쪽 기준으로 채운다 — 정수리 여백을 지키고 넘치는 부분은 아래(가슴)에서 뺀다.
+        photo = ImageOps.fit(
+            Image.open(BytesIO(image_png)).convert("RGBA"),
+            photo_size,
+            method=Image.Resampling.LANCZOS,
+            centering=(0.5, 0.0),
+        )
     on_light = image_png is None  # 폴백 카드는 흰 바탕 — 어두운 띠 없이 어두운 글씨
     if not on_light:
         photo.alpha_composite(_row_gradient(photo_size))
