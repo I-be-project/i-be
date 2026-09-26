@@ -325,6 +325,12 @@ export default function DevReviewPage() {
               <dd>{String(selected.raw.q8_reflection ?? "")}</dd>
               <dt className="text-muted-foreground">Q9 반영</dt>
               <dd>{String(selected.raw.q9_reflection ?? "")}</dd>
+              <dt className="text-muted-foreground">역량 키워드</dt>
+              <dd>
+                {Array.isArray(selected.raw.competencies)
+                  ? selected.raw.competencies.join(" · ")
+                  : "(없음 — 역량 추가 전 생성된 초안)"}
+              </dd>
             </dl>
 
             <div className="flex flex-wrap gap-2">
