@@ -230,3 +230,35 @@ async def test_batch_continues_past_a_failed_student() -> None:
     assert not progress.running
     assert sorted(service.images) == sorted([targets[0].session_id, targets[2].session_id])
     assert "codex 실행이 실패했습니다." in progress.errors[0]
+
+
+class _DeletingDrafts:
+    def __init__(self) -> None:
+        self.ids: list[UUID] = []
+
+    async def delete_drafts(self, draft_ids: list[UUID]) -> int:
+        self.ids = draft_ids
+        return len(draft_ids)
+
+
+async def _post_delete(repo: Any, body: dict[str, Any]) -> httpx.Response:
+    app = create_app()
+    app.dependency_overrides[get_draft_repo] = lambda: repo
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        return await client.post("/api/dev/drafts/delete", json=body)
+
+
+async def test_delete_drafts_dedupes_ids() -> None:
+    repo, a, b = _DeletingDrafts(), uuid4(), uuid4()
+    res = await _post_delete(repo, {"ids": [str(a), str(b), str(a)]})
+
+    assert res.status_code == 200
+    assert res.json() == {"deleted": 2}
+    assert repo.ids == [a, b]
+
+
+async def test_delete_drafts_rejects_empty_ids() -> None:
+    res = await _post_delete(_DeletingDrafts(), {"ids": []})
+
+    assert res.status_code == 422

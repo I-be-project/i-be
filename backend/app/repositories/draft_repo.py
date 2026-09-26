@@ -246,6 +246,34 @@ class DraftRepository(BaseRepository):
                 query, draft_id, text.name, text.base_career, text.headline, text.tagline, note
             )
 
+    async def delete_drafts(self, draft_ids: list[UUID]) -> int:
+        """초안 삭제 → 그 세션은 다시 일괄 생성 대상이 된다. 삭제한 초안 수 반환.
+
+        승인된 초안이면 확정본(personas, cards는 cascade)도 지운다 — 확정본만 남으면
+        학생 프로필에 옛 페르소나가 계속 보인다. 승인으로 만든 행(approved_at)만 대상.
+        S3 이미지·카드 파일은 지우지 않는다(사진 영구 보관).
+        """
+        async with self._pool.transaction() as conn:
+            await conn.execute(
+                """
+                delete from generated.personas p
+                using generated.persona_drafts d
+                where d.id = any($1::uuid[]) and d.status = 'approved'
+                  and p.session_id = d.session_id and p.approved_at is not null
+                """,
+                draft_ids,
+            )
+            deleted: int = await conn.fetchval(
+                """
+                with gone as (
+                    delete from generated.persona_drafts where id = any($1::uuid[]) returning 1
+                )
+                select count(*) from gone
+                """,
+                draft_ids,
+            )
+        return deleted
+
     async def reject(self, draft_id: UUID) -> None:
         query = """
             update generated.persona_drafts

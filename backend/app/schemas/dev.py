@@ -139,6 +139,14 @@ class DraftUpdate(BaseModel):
     note: str = Field("", max_length=1000)
 
 
+class DraftDeleteRequest(BaseModel):
+    ids: list[UUID] = Field(..., min_length=1, max_length=1000)
+
+
+class DraftDeleteResponse(BaseModel):
+    deleted: int
+
+
 class CardPreview(BaseModel):
     image_base64: str = Field(..., description="카드 PNG (base64)")
 

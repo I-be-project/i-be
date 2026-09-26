@@ -47,6 +47,8 @@ from app.schemas.dev import (
     DevClass,
     DevStudent,
     DevStudentList,
+    DraftDeleteRequest,
+    DraftDeleteResponse,
     DraftItem,
     DraftList,
     DraftUpdate,
@@ -341,6 +343,12 @@ async def approve_draft(
     """카드 PNG 합성 → S3 cards/ → generated.personas·cards 확정."""
     await service.approve(draft_id)
     return await _get_draft_item(draft_id, drafts, storage)
+
+
+@router.post("/drafts/delete", response_model=DraftDeleteResponse)
+async def delete_drafts(req: DraftDeleteRequest, drafts: DraftRepoDep) -> DraftDeleteResponse:
+    """초안 삭제 — 다시 만들기용. 승인된 초안은 확정본(personas·cards)도 함께 지운다."""
+    return DraftDeleteResponse(deleted=await drafts.delete_drafts(list(dict.fromkeys(req.ids))))
 
 
 @router.post("/drafts/{draft_id}/reject", response_model=DraftItem)
