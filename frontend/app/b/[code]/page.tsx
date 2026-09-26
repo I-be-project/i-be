@@ -14,6 +14,7 @@ import { AlertCircle, Check, Compass, MapPin } from "lucide-react";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { useSessionStore } from "@/store/useSessionStore";
+import { refreshStudentProfile } from "@/store/useStudentProfileStore";
 import {
   ApiError,
   checkInBooth,
@@ -51,11 +52,8 @@ export default function BoothCheckInPage({
   const router = useRouter();
   const hasHydrated = useSessionStore((s) => s.hasHydrated);
   const studentToken = useSessionStore((s) => s.studentToken);
-  const studentId = useSessionStore((s) => s.studentId);
-  // 인증을 마치면 프로필로 보낸다. /profile/[id]의 id는 표시용 세그먼트일 뿐이고
-  // 화면은 토큰으로 /students/me를 조회하므로, 저장된 id가 없어도 "me"로 열면 된다.
-  // (예전 localStorage 세션엔 studentId가 없어 홈으로 떨어지던 문제)
-  const doneHref = `/profile/${studentId ?? "me"}`;
+  // 인증을 마치면 갱신된 참여 역량을 확인한다.
+  const doneHref = "/growth";
 
   const [state, setState] = useState<PageState>({ kind: "loading" });
   const [checkingIn, setCheckingIn] = useState(false);
@@ -112,6 +110,7 @@ export default function BoothCheckInPage({
     setCheckingIn(true);
     try {
       const res = await checkInBooth(studentToken, code);
+      void refreshStudentProfile(studentToken);
       setJustRecorded(!res.already_visited);
       setState({
         kind: "ready",
@@ -246,7 +245,7 @@ export default function BoothCheckInPage({
             <div className="mt-auto pt-8">
               {state.booth.visited ? (
                 <CtaButton onClick={() => router.replace(doneHref)}>
-                  프로필로 가기
+                  성장 확인하기
                 </CtaButton>
               ) : (
                 <CtaButton onClick={handleCheckIn} disabled={checkingIn}>

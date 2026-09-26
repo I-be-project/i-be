@@ -45,6 +45,6 @@ export function HanmadangBackground() {
   );
 }
 
-// 탭 4개 공용 카드 클래스 — 포스터 톤(불투명 흰 종이 + 또렷한 테두리).
+// 탭 3개 공용 카드 클래스 — 포스터 톤(불투명 흰 종이 + 또렷한 테두리).
 // 각 페이지가 따로 선언하던 문자열을 여기로 모았다.
 export const tabCardClass = "hm-card p-6";

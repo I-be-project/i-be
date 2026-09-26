@@ -121,6 +121,16 @@ async def purge_test_students(
     return await admin.purge_test_students()
 
 
+@router.get("/students/test/{student_id}/profile")
+async def get_test_student_profile(
+    student_id: UUID,
+    _admin: CurrentAdminDep,
+    admin: AdminServiceDep,
+) -> dict[str, str]:
+    """학생 로그인 계정을 변경하지 않고 테스트 계정의 공개 페이지 주소 조회."""
+    return {"path": await admin.get_test_profile_path(student_id)}
+
+
 @router.get("/progress/classes", response_model=list[AdminClassProgress])
 async def class_progress(
     school: str,

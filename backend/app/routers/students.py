@@ -4,14 +4,26 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File, Response, UploadFile
 
 from app.core.errors import DomainError
 from app.deps import AuthServiceDep, CurrentStudentDep, SessionServiceDep
 from app.schemas.auth import PhotoUploadResponse
-from app.schemas.students import ProfileSummary, UpdateProfileRequest
+from app.schemas.students import ProfileSummary, PublicProfileSummary, UpdateProfileRequest
 
 router = APIRouter(prefix="/api/students", tags=["students"])
+
+
+@router.get("/shared/{code}", response_model=PublicProfileSummary)
+async def get_shared_profile(
+    code: str,
+    sessions: SessionServiceDep,
+    response: Response,
+) -> PublicProfileSummary:
+    """로그인 없이 테스트 계정의 공개 항목만 조회한다."""
+    response.headers["Cache-Control"] = "no-store"
+    return await sessions.get_public_profile(code)
+
 
 # 학생 사진으로 허용하는 MIME 타입.
 _ALLOWED_PHOTO_TYPES = frozenset({"image/jpeg", "image/png", "image/webp"})
