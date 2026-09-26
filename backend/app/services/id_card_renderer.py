@@ -24,34 +24,33 @@ _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 _FONT_DIR = _ASSETS / "fonts"
 # 생성 이미지가 없을 때(사진 없음·얼굴 없는 사진으로 codex 거절·검수자가 폴백 선택) 쓰는 캐릭터.
 FALLBACK_IMAGE = _ASSETS / "card" / "fallback.png"
+# 행사 전용 로고(frontend/public/logo-hanmadang.png와 같은 파일).
+LOGO_IMAGE = _ASSETS / "card" / "logo.png"
 
 CARD_W = 1024
 CARD_H = round(CARD_W * 86 / 54)  # 1631
 
-# ─── 레이아웃 (카드 대비 비율, 레퍼런스 카드 실측) ─────────────
-PHOTO_BOTTOM = 0.82  # 사진이 내려오는 끝. 그 아래는 흰 영역
-# 이름·학교 줄: 카드 전체 폭에 위→아래로 짙어지는 어두운 그라데이션을 깔고,
-# 그 아래에서 흰색으로 스며들게 해 사진 → 이름 줄 → 하단 흰 영역을 끊김 없이 잇는다.
-ROW_FADE_TOP = 0.58  # 어두운 그라데이션 시작(투명)
-ROW_DARKEST = 0.70  # 가장 짙은 지점
-ROW_ALPHA = 170  # 가장 짙을 때 불투명도(0~255)
-FADE_TOP = 0.745  # 여기부터 흰색이 차오른다
+# ─── 레이아웃 — 디자인 시안 카드 실측값(카드 폭·높이 대비 비율) ──────────
+LOGO_X, LOGO_Y, LOGO_W = 0.053, 0.037, 0.171
+QR_RIGHT, QR_Y, QR_W = 0.052, 0.041, 0.11
 
-MARGIN = 0.05
-LOGO_TEXT = "나Be한마당"  # ponytail: 텍스트 로고. 로고 PNG가 오면 이미지로 교체
-QR_SIZE = 0.12  # 카드 폭 대비
+# 이름·학교 줄 뒤: 전체 폭 검은 그라데이션(위 투명 → 아래 진함) 위에 흰 글씨.
+# 그 아래에서 흰색이 차올라 사진 → 이름 줄 → 하단 흰 영역이 끊김 없이 이어진다.
+ROW_FADE_TOP = 0.56
+ROW_DARKEST = 0.715
+ROW_ALPHA = 205  # 가장 짙을 때 불투명도(0~255)
+WHITE_FADE_TOP = 0.755
+PHOTO_BOTTOM = 0.80  # 여기부터 완전한 흰 영역
 
-NAME_X = 0.07
-NAME_Y = 0.705
-SCHOOL_Y = 0.686
-CLASS_Y = 0.724
-HEADLINE_Y = 0.858
-CAREER_Y = 0.928
+NAME_X, NAME_Y, NAME_SIZE = 0.059, 0.716, 0.116
+SCHOOL_RIGHT, SCHOOL_Y, CLASS_Y, SCHOOL_SIZE = 0.076, 0.705, 0.739, 0.038
+HEADLINE_Y, HEADLINE_SIZE = 0.854, 0.066
+CAREER_Y, CAREER_SIZE = 0.925, 0.135
 
+INK = (17, 17, 17, 255)
+SUB_INK = (51, 51, 51, 255)
 WHITE = (255, 255, 255, 255)
-INK = (20, 20, 24, 255)
-SUB_INK = (55, 55, 62, 255)
-SHADOW = (0, 0, 0, 170)
+SHADOW = (0, 0, 0, 120)
 
 
 @dataclass(frozen=True)
@@ -78,21 +77,10 @@ def _fit_font(text: str, weight: str, size: int, max_width: float) -> ImageFont.
     return _font(weight, size)
 
 
-def _shadow_text(
-    draw: ImageDraw.ImageDraw,
-    xy: tuple[float, float],
-    text: str,
-    font: ImageFont.FreeTypeFont,
-    anchor: str,
-    *,
-    on_light: bool = False,
-) -> None:
-    """사진 위 흰 글씨(그림자 포함). 흰 바탕(폴백 카드) 위에선 그림자 없는 어두운 글씨."""
-    if on_light:
-        draw.text(xy, text, font=font, fill=SUB_INK, anchor=anchor)
-        return
-    draw.text((xy[0] + 2, xy[1] + 2), text, font=font, fill=SHADOW, anchor=anchor)
-    draw.text(xy, text, font=font, fill=WHITE, anchor=anchor)
+@lru_cache(maxsize=1)
+def _logo(width: int) -> Image.Image:
+    logo = Image.open(LOGO_IMAGE).convert("RGBA")
+    return logo.resize((width, round(logo.height * width / logo.width)), Image.Resampling.LANCZOS)
 
 
 def _fallback_photo(size: tuple[int, int]) -> Image.Image:
@@ -108,27 +96,29 @@ def _fallback_photo(size: tuple[int, int]) -> Image.Image:
     return canvas
 
 
-def _row_gradient(size: tuple[int, int]) -> Image.Image:
-    """이름·학교 줄 뒤 전체 폭 어두운 그라데이션 — 흰 글씨가 어떤 사진 위에서도 읽히게."""
+def _gradient(
+    size: tuple[int, int], top: int, full: int, rgb: tuple[int, int, int], alpha: int
+) -> Image.Image:
+    """top(투명)에서 full(alpha)까지 짙어지고 그 아래는 유지되는 전체 폭 세로 그라데이션."""
     w, h = size
-    layer = Image.new("RGBA", size, (0, 0, 0, 0))
+    layer = Image.new("RGBA", size, (*rgb, 0))
     draw = ImageDraw.Draw(layer)
-    top, darkest = round(CARD_H * ROW_FADE_TOP), round(CARD_H * ROW_DARKEST)
     for y in range(top, h):
-        t = min(1.0, (y - top) / (darkest - top))
-        draw.line([(0, y), (w, y)], fill=(12, 12, 18, int(ROW_ALPHA * t**1.3)))
+        t = min(1.0, (y - top) / (full - top))
+        draw.line([(0, y), (w, y)], fill=(*rgb, int(alpha * t**1.3)))
     return layer
 
 
-def _white_fade(size: tuple[int, int], start: int) -> Image.Image:
-    """start부터 아래로 흰색이 차오른다 — 사진이 하단 흰 영역으로 자연스럽게 이어지게."""
-    w, h = size
-    layer = Image.new("RGBA", size, (255, 255, 255, 0))
-    draw = ImageDraw.Draw(layer)
-    for y in range(start, h):
-        alpha = int(255 * ((y - start) / (h - start)) ** 1.2)
-        draw.line([(0, y), (w, y)], fill=(255, 255, 255, alpha))
-    return layer
+def _white_text(
+    draw: ImageDraw.ImageDraw,
+    xy: tuple[float, float],
+    text: str,
+    font: ImageFont.FreeTypeFont,
+    anchor: str,
+) -> None:
+    """그라데이션 위 흰 글씨. 옅은 그림자로 밝은 사진 위에서도 윤곽을 잡는다."""
+    draw.text((xy[0] + 2, xy[1] + 2), text, font=font, fill=SHADOW, anchor=anchor)
+    draw.text(xy, text, font=font, fill=WHITE, anchor=anchor)
 
 
 def _qr(data: str, size: int) -> Image.Image:
@@ -143,69 +133,61 @@ def _qr(data: str, size: int) -> Image.Image:
 def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
     """인물 이미지(없으면 폴백 캐릭터) + 카드 문구 → 카드 PNG bytes."""
     W, H = CARD_W, CARD_H
-    photo_size = (W, round(H * PHOTO_BOTTOM))
+    photo_h = round(H * PHOTO_BOTTOM)
     card = Image.new("RGBA", (W, H), WHITE)
 
+    # ── 인물 + 이름 줄 그라데이션 + 하단 흰 페이드 ──
     if image_png is None:
-        photo = _fallback_photo(photo_size)
+        photo = _fallback_photo((W, photo_h))
     else:
         # 위쪽 기준으로 채운다 — 정수리 여백을 지키고 넘치는 부분은 아래(가슴)에서 뺀다.
         photo = ImageOps.fit(
             Image.open(BytesIO(image_png)).convert("RGBA"),
-            photo_size,
+            (W, photo_h),
             method=Image.Resampling.LANCZOS,
             centering=(0.5, 0.0),
         )
-    on_light = image_png is None  # 폴백 카드는 흰 바탕 — 어두운 띠 없이 어두운 글씨
-    if not on_light:
-        photo.alpha_composite(_row_gradient(photo_size))
-    photo.alpha_composite(_white_fade(photo_size, round(H * FADE_TOP)))
-    card.alpha_composite(photo)
-
-    draw = ImageDraw.Draw(card)
-    margin = round(W * MARGIN)
-    _shadow_text(
-        draw, (margin, margin), LOGO_TEXT, _font("Bold", round(W * 0.055)), "la", on_light=on_light
+    size = photo.size
+    photo.alpha_composite(
+        _gradient(size, round(H * ROW_FADE_TOP), round(H * ROW_DARKEST), (0, 0, 0), ROW_ALPHA)
     )
-    qr = round(W * QR_SIZE)
-    card.alpha_composite(_qr(content.qr_data, qr), (W - margin - qr, margin))
+    photo.alpha_composite(_gradient(size, round(H * WHITE_FADE_TOP), photo_h, (255, 255, 255), 255))
+    card.alpha_composite(photo)
+    draw = ImageDraw.Draw(card)
 
-    # 이름 — 좌측. 뒤의 전체 폭 그라데이션이 가독성을 맡는다.
-    _shadow_text(
+    # ── 헤더: 로고(좌) · QR(우) ──
+    card.alpha_composite(_logo(round(W * LOGO_W)), (round(W * LOGO_X), round(H * LOGO_Y)))
+    qr = round(W * QR_W)
+    card.alpha_composite(_qr(content.qr_data, qr), (W - round(W * QR_RIGHT) - qr, round(H * QR_Y)))
+
+    # ── 이름(좌) ──
+    _white_text(
         draw,
         (W * NAME_X, H * NAME_Y),
         content.student_name,
-        _fit_font(content.student_name, "Bold", round(W * 0.09), W * 0.45),
+        _fit_font(content.student_name, "SemiBold", round(W * NAME_SIZE), W * 0.5),
         "lm",
-        on_light=on_light,
     )
 
-    # 학교 / 학년·반·번호 — 우측 정렬.
-    right = W - round(W * 0.07)
-    _shadow_text(
-        draw,
-        (right, H * SCHOOL_Y),
-        content.school,
-        _fit_font(content.school, "SemiBold", round(W * 0.042), W * 0.5),
-        "rm",
-        on_light=on_light,
-    )
-    _shadow_text(
+    # ── 학교 / 학년·반·번호(우) — 두 줄 같은 굵기 ──
+    right = W - W * SCHOOL_RIGHT
+    school_font = _font("Regular", round(W * SCHOOL_SIZE))
+    _white_text(draw, (right, H * SCHOOL_Y), content.school, school_font, "rm")
+    _white_text(
         draw,
         (right, H * CLASS_Y),
         f"{content.grade}학년 {content.class_no}반 {content.student_no}번",
-        _font("SemiBold", round(W * 0.042)),
+        school_font,
         "rm",
-        on_light=on_light,
     )
 
-    # 하단: headline(윗줄) + base_career(아랫줄, 크게).
+    # ── 하단: headline(윗줄) + base_career(아랫줄, 크게) ──
     max_w = W * 0.9
     if content.headline:
         draw.text(
             (W / 2, H * HEADLINE_Y),
             content.headline,
-            font=_fit_font(content.headline, "SemiBold", round(W * 0.066), max_w),
+            font=_fit_font(content.headline, "Bold", round(W * HEADLINE_SIZE), max_w),
             fill=SUB_INK,
             anchor="mm",
         )
@@ -215,7 +197,7 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
     draw.text(
         (W / 2, career_y),
         content.base_career,
-        font=_fit_font(content.base_career, "Bold", round(W * 0.13), max_w),
+        font=_fit_font(content.base_career, "Black", round(W * CAREER_SIZE), max_w),
         fill=INK,
         anchor="mm",
     )
