@@ -232,3 +232,12 @@ export function startBatch(body: {
 export function cancelBatch(): Promise<BatchStatus> {
   return request("/api/dev/drafts/batch/cancel", { method: "POST" });
 }
+
+// 초안 삭제 — 다시 만들기용. 승인된 초안은 확정본(카드)도 함께 지워진다.
+export function deleteDrafts(ids: string[]): Promise<{ deleted: number }> {
+  return request("/api/dev/drafts/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
+}

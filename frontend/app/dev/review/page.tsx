@@ -7,12 +7,13 @@
 
 import { useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Check, ImageIcon, Loader2, RefreshCw, Save, Smile, X } from "lucide-react"
+import { ArrowLeft, Check, ImageIcon, Loader2, RefreshCw, Save, Smile, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import {
+  deleteDrafts,
   draftAction,
   listDrafts,
   previewDraftCard,
@@ -46,6 +47,9 @@ export default function DevReviewPage() {
   const [card, setCard] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // 목록 체크박스(일괄 삭제용). 상세에 띄운 초안(selectedId)과는 별개다.
+  const [checked, setChecked] = useState<Set<string>>(new Set())
+  const [refreshKey, setRefreshKey] = useState(0)
 
   const selected = drafts.find((d) => d.id === selectedId) ?? null
 
@@ -134,6 +138,34 @@ export default function DevReviewPage() {
   const regenImage = () => act("이미지 재생성", () => draftAction(id, "regenerate-image"))
   const useFallback = () => act("폴백 적용", () => draftAction(id, "use-fallback"))
 
+  // 삭제하면 그 학생은 다시 일괄 생성 대상이 된다.
+  const remove = async (ids: string[]) => {
+    const approved = drafts.filter((d) => ids.includes(d.id) && d.status === "approved").length
+    const warn = approved ? `\n승인된 ${approved}건은 확정된 카드도 함께 지워집니다.` : ""
+    if (!confirm(`초안 ${ids.length}건을 삭제할까요? 다시 생성할 수 있습니다.${warn}`)) return
+    setBusy("삭제")
+    setError(null)
+    try {
+      await deleteDrafts(ids)
+      setChecked(new Set())
+      await load()
+      setRefreshKey((k) => k + 1)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "삭제에 실패했습니다.")
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  const toggleCheck = (draftId: string, on: boolean) =>
+    setChecked((prev) => {
+      const next = new Set(prev)
+      if (on) next.add(draftId)
+      else next.delete(draftId)
+      return next
+    })
+  const allChecked = drafts.length > 0 && drafts.every((d) => checked.has(d.id))
+
   const field = (key: keyof DraftEdit, label: string) => (
     <label className="flex flex-col gap-1 text-sm">
       <span className="font-medium">{label}</span>
@@ -170,7 +202,10 @@ export default function DevReviewPage() {
               key={s}
               size="sm"
               variant={filter === s ? "default" : "outline"}
-              onClick={() => setFilter(s)}
+              onClick={() => {
+                setFilter(s)
+                setChecked(new Set())
+              }}
             >
               {STATUS_LABEL[s]} {counts ? counts[s] : ""}
             </Button>
@@ -178,14 +213,17 @@ export default function DevReviewPage() {
           <Button
             size="sm"
             variant={filter === undefined ? "default" : "outline"}
-            onClick={() => setFilter(undefined)}
+            onClick={() => {
+              setFilter(undefined)
+              setChecked(new Set())
+            }}
           >
             전체
           </Button>
         </div>
       </header>
 
-      <BatchPanel onProgress={load} />
+      <BatchPanel onProgress={load} refreshKey={refreshKey} />
 
       {error && (
         <p className="mb-4 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
@@ -194,29 +232,57 @@ export default function DevReviewPage() {
       )}
 
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
-        <ul className="flex max-h-[80vh] flex-col gap-1 overflow-y-auto rounded-lg border p-2">
-          {drafts.length === 0 && (
-            <li className="p-3 text-sm text-muted-foreground">초안이 없습니다.</li>
-          )}
-          {drafts.map((d) => (
-            <li key={d.id}>
-              <button
-                onClick={() => setSelectedId(d.id)}
-                className={`w-full rounded-md px-3 py-2 text-left text-sm hover:bg-muted ${
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between gap-2 px-1 text-sm">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={allChecked}
+                disabled={drafts.length === 0}
+                onChange={(e) => setChecked(e.target.checked ? new Set(drafts.map((d) => d.id)) : new Set())}
+              />
+              전체 {drafts.length}건
+            </label>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => remove([...checked])}
+              disabled={checked.size === 0 || !!busy}
+            >
+              <Trash2 /> 선택 삭제 {checked.size || ""}
+            </Button>
+          </div>
+          <ul className="flex max-h-[80vh] flex-col gap-1 overflow-y-auto rounded-lg border p-2">
+            {drafts.length === 0 && (
+              <li className="p-3 text-sm text-muted-foreground">초안이 없습니다.</li>
+            )}
+            {drafts.map((d) => (
+              <li
+                key={d.id}
+                className={`flex items-start gap-2 rounded-md px-2 py-2 hover:bg-muted ${
                   d.id === selectedId ? "bg-muted" : ""
                 }`}
               >
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">{d.student_name}</span>
-                  {!d.image_url && <span className="text-xs text-muted-foreground">폴백</span>}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {d.school} {d.grade}-{d.class_no}-{d.student_no} · {d.base_career}
-                </div>
-              </button>
-            </li>
-          ))}
-        </ul>
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  aria-label={`${d.student_name} 선택`}
+                  checked={checked.has(d.id)}
+                  onChange={(e) => toggleCheck(d.id, e.target.checked)}
+                />
+                <button onClick={() => setSelectedId(d.id)} className="flex-1 text-left text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium">{d.student_name}</span>
+                    {!d.image_url && <span className="text-xs text-muted-foreground">폴백</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {d.school} {d.grade}-{d.class_no}-{d.student_no} · {d.base_career}
+                  </div>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
 
         {selected && edit && (
           <section className="flex flex-col gap-6">
@@ -283,6 +349,9 @@ export default function DevReviewPage() {
               </Button>
               <Button variant="destructive" onClick={reject} disabled={!!busy}>
                 <X /> 반려
+              </Button>
+              <Button variant="ghost" onClick={() => remove([selected.id])} disabled={!!busy}>
+                <Trash2 /> 삭제
               </Button>
               {busy && (
                 <span className="inline-flex items-center gap-1.5 text-sm text-muted-foreground">

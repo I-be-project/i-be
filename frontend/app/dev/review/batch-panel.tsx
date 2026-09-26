@@ -25,7 +25,14 @@ const POLL_MS = 3000
 
 const keyOf = (c: BatchClass) => `${c.school}|${c.grade}|${c.class_no}`
 
-export function BatchPanel({ onProgress }: { onProgress: () => void }) {
+export function BatchPanel({
+  onProgress,
+  refreshKey,
+}: {
+  onProgress: () => void
+  // 바뀌면 반별 대상 수를 다시 받는다(초안 삭제 후 등).
+  refreshKey: number
+}) {
   const [schools, setSchools] = useState<string[]>([])
   const [school, setSchool] = useState<string | null>(null)
   const [classes, setClasses] = useState<DevClass[]>([])
@@ -45,11 +52,11 @@ export function BatchPanel({ onProgress }: { onProgress: () => void }) {
   const running = status?.running ?? false
   const done = status?.done ?? 0
 
-  // 학교를 고르거나 작업이 끝나면 반별 대상 수를 새로 받는다.
+  // 학교를 고르거나, 작업이 끝나거나, 초안이 지워지면 반별 대상 수를 새로 받는다.
   useEffect(() => {
     if (!school) return
     listClasses(school).then(setClasses).catch((e: Error) => setError(e.message))
-  }, [school, running])
+  }, [school, running, refreshKey])
 
   useEffect(() => {
     if (!running) return
