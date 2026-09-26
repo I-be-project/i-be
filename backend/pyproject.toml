@@ -19,6 +19,9 @@ dependencies = [
     "python-multipart>=0.0.29",
     "qrcode>=8.2",
     "structlog>=25.5.0",
+    # 카드 합성 시 얼굴 위치 보정(id_card_renderer). 5.x부터 Haar cascade 파일이 빠져
+    # 별도 모델 파일을 받아야 하므로, 파일이 포함된 4.x로 고정한다.
+    "opencv-python-headless>=4.10,<5",
 ]
 
 [dependency-groups]
