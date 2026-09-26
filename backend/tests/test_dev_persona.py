@@ -11,6 +11,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
+from app.core.career_pools import CAREER_POOLS
 from app.core.errors import ExternalServiceError
 from app.deps import get_codex_client, get_session_repo
 from app.main import create_app
@@ -60,7 +61,8 @@ def test_missing_stages_do_not_raise() -> None:
     assert inputs.pair_code == "IA"
     assert inputs.q7a_first is None
     assert inputs.q8_response is None
-    assert inputs.career_pool == []
+    # 풀을 안 주면 Pair Code 기본 풀로 채운다.
+    assert inputs.career_pool == CAREER_POOLS["IA"]
 
 
 def test_ignores_malformed_payload_values() -> None:
@@ -93,6 +95,7 @@ _CODEX_RESULT: dict[str, Any] = {
     "pool_extended": False,
     "q8_reflection": "작은 차이를 비교하는 방식",
     "q9_reflection": "처음 쓰는 사람",
+    "competencies": ["공감", "분석력", "창의성"],
 }
 
 

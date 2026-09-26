@@ -12,6 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.core.career_pools import CAREER_POOLS
+
 
 @dataclass(frozen=True, slots=True)
 class PersonaPromptInputs:
@@ -75,7 +77,7 @@ def build_persona_inputs(
 ) -> PersonaPromptInputs:
     """stage → payload 맵을 프롬프트 슬롯으로 변환.
 
-    career_pool은 DB에 저장되지 않으므로(프론트 Q7-B 응답에만 존재) 호출 측에서 받는다.
+    career_pool을 주면 그대로 쓰고, 비어 있으면 Pair Code의 기본 풀(CAREER_POOLS)로 채운다.
     누락된 stage는 조용히 비운다 — 진행 중 세션도 그대로 미리보기할 수 있어야 한다.
     """
     q1to6 = answers.get("q1to6", {})
@@ -91,10 +93,12 @@ def build_persona_inputs(
         else {}
     )
 
+    pair_code = _text(q1to6.get("pairCode")) or ""
+
     return PersonaPromptInputs(
         riasec_scores=scores,
-        pair_code=_text(q1to6.get("pairCode")) or "",
-        career_pool=[c for c in career_pool if c.strip()],
+        pair_code=pair_code,
+        career_pool=[c for c in career_pool if c.strip()] or CAREER_POOLS.get(pair_code, []),
         q7a_first=_text(q7a.get("first")),
         q7a_second=_text(q7a.get("second")),
         q7b_first=_subfield_title(q7b.get("first")),
