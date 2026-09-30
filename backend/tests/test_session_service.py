@@ -25,9 +25,16 @@ from app.services.session_service import ANSWER_STAGES, SessionService
 class FakeStudentRepo:
     def __init__(self, student: StudentRecord | None = None) -> None:
         self.student = student
+        self.card_code = "AB23CD45"
 
     async def get_by_id(self, student_id: UUID) -> StudentRecord | None:
         return self.student
+
+    async def get_by_card_code(self, code: str) -> StudentRecord | None:
+        return self.student if code == self.card_code else None
+
+    async def ensure_card_code(self, student_id: UUID) -> str:
+        return self.card_code
 
 
 class FakeSessionRepo:

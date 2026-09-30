@@ -24,6 +24,7 @@ from app.adapters.storage_client import StorageClient
 from app.config import get_settings
 from app.repositories.draft_repo import DraftRecord, DraftRepository
 from app.repositories.session_repo import SessionRepository
+from app.repositories.student_repo import StudentRepository
 from app.services.draft_service import DraftService
 
 _PAGE = 500
@@ -49,7 +50,8 @@ async def run(args: argparse.Namespace) -> int:
         storage=StorageClient.from_settings(settings),
         sessions=SessionRepository(pool),
         drafts=drafts,
-        frontend_origin=settings.frontend_origin,
+        students=StudentRepository(pool),
+        qr_origin=settings.card_qr_origin,
     )
     try:
         targets = await _approved(drafts)

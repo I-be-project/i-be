@@ -15,7 +15,8 @@ from uuid import UUID
 
 import asyncpg
 
-from app.core.errors import ConflictError
+from app.core.card_code import generate_card_code
+from app.core.errors import ConflictError, NotFoundError
 from app.repositories.base import BaseRepository
 
 # 이름 비교 정규화 — 공백 전부 제거 + 소문자화. 마이그레이션 0012의 유니크 인덱스
@@ -187,6 +188,48 @@ class StudentRepository(BaseRepository):
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(query, student_id)
         return _to_record(row) if row is not None else None
+
+    async def get_by_card_code(self, code: str) -> StudentRecord | None:
+        """카드 QR 코드로 살아있는 학생 조회. 없으면 None."""
+        query = f"""
+            select {_COLUMNS}
+            from pii.students
+            where card_code = $1
+              and deleted_at is null
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query, code)
+        return _to_record(row) if row is not None else None
+
+    async def ensure_card_code(self, student_id: UUID) -> str:
+        """학생의 카드 QR 코드. 없으면 발급해 저장하고, 있으면 그대로 돌려준다.
+
+        인쇄된 코드는 바꿀 수 없으므로 null일 때만 채운다(동시 발급이 겹쳐도 먼저 쓴 값이 남는다).
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(
+                "select card_code from pii.students where id = $1", student_id
+            )
+            if row is None:
+                raise NotFoundError("학생을 찾을 수 없습니다.")
+            if row["card_code"] is not None:
+                return str(row["card_code"])
+            # 31^8 조합이라 충돌은 사실상 없지만, 나더라도 새 코드로 다시 시도한다.
+            for _ in range(5):
+                try:
+                    code = await conn.fetchval(
+                        """
+                        update pii.students set card_code = coalesce(card_code, $2)
+                        where id = $1
+                        returning card_code
+                        """,
+                        student_id,
+                        generate_card_code(),
+                    )
+                except asyncpg.UniqueViolationError:
+                    continue
+                return str(code)
+        raise ConflictError("카드 코드를 발급하지 못했습니다. 다시 시도해주세요.")
 
     async def get_by_name(self, name: str, *, kinds: tuple[str, ...]) -> StudentRecord | None:
         """이름으로 학교 없는 계정을 조회한다. 없으면 None.
