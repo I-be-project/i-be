@@ -1,0 +1,6 @@
+[
+  {
+    "student_id": "REPLACE_WITH_STUDENT_UUID",
+    "student_token": "REPLACE_WITH_VALID_STUDENT_JWT"
+  }
+]

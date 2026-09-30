@@ -1,0 +1,3 @@
+accounts*.json
+!accounts.example.json
+results/
