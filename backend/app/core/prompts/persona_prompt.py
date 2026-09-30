@@ -13,6 +13,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from app.core.competencies import COMPETENCY_LABELS
+
 DEFAULT_SYSTEM_PROMPT = """당신은 중·고등학생의 진로 탐색을 돕는 Career Persona 콘텐츠 작성자다.
 
 목표:
@@ -129,6 +131,13 @@ Persona 이름은 가능하면 한국어 8~20자 수준으로 간결하게 작�
 - 학생의 입력에 없는 거대한 사회적 목적을 새롭게 만들지 않는다.
 - 가능하면 45~90자 내외로 작성한다.
 
+[competencies — 카드 키워드]
+
+- 아래 10개 역량 중 이 Persona의 핵심 활동에 가장 필요한 역량 3개를 고른다.
+  {COMPETENCIES}
+- 목록의 표기를 그대로 쓰고, 서로 다른 3개를 관련이 큰 순서로 나열한다.
+- Q8의 행동 방식과 base_career의 실제 업무에서 근거를 찾는다.
+
 [출력 전 자체 점검]
 
 다음을 모두 확인한다.
@@ -146,7 +155,7 @@ Persona 이름은 가능하면 한국어 8~20자 수준으로 간결하게 작�
 
 하나의 가장 자연스러운 Persona만 생성한다.
 내부 판단 과정은 출력하지 않는다.
-지정된 JSON 형식만 반환한다."""
+지정된 JSON 형식만 반환한다.""".replace("{COMPETENCIES}", ", ".join(COMPETENCY_LABELS.values()))
 
 
 # 13장 권장 출력 계약. codex --output-schema에 그대로 넘긴다.
@@ -160,6 +169,12 @@ PERSONA_OUTPUT_SCHEMA: dict[str, Any] = {
         "pool_extended": {"type": "boolean"},
         "q8_reflection": {"type": "string"},
         "q9_reflection": {"type": "string"},
+        "competencies": {
+            "type": "array",
+            "items": {"type": "string", "enum": list(COMPETENCY_LABELS.values())},
+            "minItems": 3,
+            "maxItems": 3,
+        },
     },
     "required": [
         "persona_name",
@@ -169,6 +184,7 @@ PERSONA_OUTPUT_SCHEMA: dict[str, Any] = {
         "pool_extended",
         "q8_reflection",
         "q9_reflection",
+        "competencies",
     ],
     "additionalProperties": False,
 }

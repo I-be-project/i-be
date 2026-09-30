@@ -31,6 +31,8 @@ export interface StudentAnswers {
   status: string | null;
   riasec_scores: Record<string, number>;
   pair_code: string;
+  // Pair Code 기본 Career Pool — 화면 편집 초깃값.
+  career_pool: string[];
   q7a_first: string | null;
   q7a_second: string | null;
   q7b_first: string | null;
@@ -109,4 +111,133 @@ export function generateFuturePhoto(body: {
     },
     GENERATE_TIMEOUT_MS
   );
+}
+
+// ── 검수 (/dev/review) ─────────────────────────────────────────
+// 초안은 scripts/batch_drafts.py가 로컬 codex로 만든다. 여기선 확인·수정·승인만.
+
+export type DraftStatus = "pending" | "approved" | "rejected";
+
+export interface Draft {
+  id: string;
+  student_id: string;
+  status: DraftStatus;
+  student_name: string;
+  school: string;
+  grade: number;
+  class_no: number;
+  student_no: number;
+  name: string;
+  base_career: string;
+  headline: string;
+  tagline: string;
+  source_career_pool: boolean | null;
+  pool_extended: boolean | null;
+  raw: Record<string, unknown>;
+  photo_url: string | null;
+  image_url: string | null;
+  error: string | null;
+  note: string;
+}
+
+export interface DraftEdit {
+  name: string;
+  base_career: string;
+  headline: string;
+  tagline: string;
+  note: string;
+}
+
+export function listDrafts(
+  status?: DraftStatus
+): Promise<{ drafts: Draft[]; counts: Record<DraftStatus, number> }> {
+  const query = status ? `?status=${status}&limit=500` : "?limit=500";
+  return request(`/api/dev/drafts${query}`, { method: "GET" });
+}
+
+export function updateDraft(id: string, edit: DraftEdit): Promise<Draft> {
+  return request(`/api/dev/drafts/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(edit),
+  });
+}
+
+export function draftAction(
+  id: string,
+  action: "regenerate-text" | "regenerate-image" | "use-fallback" | "approve" | "reject"
+): Promise<Draft> {
+  return request(`/api/dev/drafts/${id}/${action}`, { method: "POST" }, GENERATE_TIMEOUT_MS);
+}
+
+export function previewDraftCard(id: string): Promise<{ image_base64: string }> {
+  return request(`/api/dev/drafts/${id}/card`, { method: "GET" }, 60_000);
+}
+
+// ── 일괄 생성 (/api/dev/drafts/batch) ───────────────────────────
+// 백엔드 백그라운드 태스크로 돈다 — 시작 후 getBatch()로 진행률을 폴링한다.
+
+export interface DevClass {
+  grade: number;
+  class_no: number;
+  total: number;
+  completed: number;
+  // 초안이 없는 완료자 수 — 일괄 생성 대상.
+  targets: number;
+}
+
+export interface BatchStatus {
+  label: string;
+  total: number;
+  done: number;
+  failed: number;
+  running: boolean;
+  cancelled: boolean;
+  started_at: string | null;
+  finished_at: string | null;
+  errors: string[];
+}
+
+export interface BatchClass {
+  school: string;
+  grade: number;
+  class_no: number;
+}
+
+export function listSchools(): Promise<string[]> {
+  return request("/api/dev/schools", { method: "GET" });
+}
+
+export function listClasses(school: string): Promise<DevClass[]> {
+  return request(`/api/dev/schools/classes?school=${encodeURIComponent(school)}`, {
+    method: "GET",
+  });
+}
+
+export function getBatch(): Promise<BatchStatus> {
+  return request("/api/dev/drafts/batch", { method: "GET" });
+}
+
+export function startBatch(body: {
+  classes: BatchClass[];
+  concurrency: number;
+}): Promise<BatchStatus> {
+  return request("/api/dev/drafts/batch", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+}
+
+export function cancelBatch(): Promise<BatchStatus> {
+  return request("/api/dev/drafts/batch/cancel", { method: "POST" });
+}
+
+// 초안 삭제 — 다시 만들기용. 승인된 초안은 확정본(카드)도 함께 지워진다.
+export function deleteDrafts(ids: string[]): Promise<{ deleted: number }> {
+  return request("/api/dev/drafts/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids }),
+  });
 }

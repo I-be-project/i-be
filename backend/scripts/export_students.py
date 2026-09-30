@@ -145,7 +145,7 @@ def run(args: argparse.Namespace, *, transport: httpx.BaseTransport | None = Non
                 if photo_url and not args.no_photos:
                     dest = _photo_path(out, student)
                     if client.download(str(photo_url), dest):
-                        record["photo_file"] = str(dest.relative_to(out))
+                        record["photo_file"] = dest.relative_to(out).as_posix()
                         photo_count += 1
 
                 if args.detail:

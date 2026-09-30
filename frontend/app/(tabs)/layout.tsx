@@ -5,9 +5,10 @@ import { useRouter } from "next/navigation";
 import { useSessionStore } from "@/store/useSessionStore";
 import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { BottomNav } from "@/components/nav/BottomNav";
+import { OwnProfileProvider } from "@/components/tabs/ProfileView";
 
-// 설문 완료 후 진입하는 4탭(홈/부스/자신의 성향/프로필) 공용 레이아웃.
-// route group이라 URL(/home, /booths, /tendency, /profile/[id])엔 안 드러난다.
+// 설문 완료 후 진입하는 3탭(부스/홈/성장) 공용 레이아웃.
+// route group이라 URL(/booths, /home, /growth)엔 안 드러난다.
 // 탭을 오가도 이 레이아웃은 리마운트되지 않으므로(템플릿과 달리) 하단 네비가 유지된다.
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -27,9 +28,9 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
   // 스크롤 컨테이너를 만들면 AppFrame의 min-h-[100dvh]와 중첩되며 fixed 하단바 아래에
   // 틈이 뜨고, 스크롤 영역이 이중으로 생기는 문제가 있어 이 구조로 단순화했다.
   return (
-    <>
+    <OwnProfileProvider>
       {children}
       <BottomNav />
-    </>
+    </OwnProfileProvider>
   );
 }

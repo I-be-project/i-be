@@ -49,6 +49,7 @@ import {
   fetchAdminSchools,
   fetchAdminStudentPhotoUrl,
   fetchAdminStudents,
+  fetchAdminTestProfilePath,
   issueAdminTestToken,
   purgeAdminTestStudents,
   type AdminStudentItem,
@@ -487,6 +488,23 @@ export function StudentListView() {
   // 테스트 계정은 학생 로그인 화면으로 들어올 수 없으므로 여기서 토큰을 발급받아
   // 관리자 화면과 학생 화면이 공유하는 세션 store에 바로 채워 넣고 이동한다.
   // 토큰 발급 자체가 관리자 전용(백엔드 CurrentAdminDep)이라 관리자 UI에서만 연결한다.
+  async function handleViewTestProfile(studentId: string) {
+    const token = getToken();
+    if (!token) { router.replace(loginPath); return; }
+    setTestStartError(null);
+    try {
+      const { path } = await fetchAdminTestProfilePath(token, studentId);
+      router.push(path);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearToken();
+        router.replace(loginPath);
+        return;
+      }
+      setTestStartError(err instanceof ApiError ? err.message : "개인 페이지를 열지 못했습니다.");
+    }
+  }
+
   async function handleStartAsTestStudent(studentId: string) {
     const token = getToken();
     if (!token) {
@@ -937,6 +955,15 @@ export function StudentListView() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         {s.kind === "test" && (
+                          <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewTestProfile(s.id)}
+                          >
+                            개인 페이지 보기
+                          </Button>
                           <Button
                             type="button"
                             variant="outline"
@@ -945,6 +972,7 @@ export function StudentListView() {
                           >
                             이 계정으로 테스트 시작
                           </Button>
+                          </div>
                         )}
                       </TableCell>
                     )}

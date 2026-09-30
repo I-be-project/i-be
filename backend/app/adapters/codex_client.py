@@ -17,8 +17,12 @@ import contextlib
 import json
 import os
 import signal
+import subprocess
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from threading import Event
+from time import monotonic
 from typing import Any
 
 from app.core.errors import ExternalServiceError
@@ -92,20 +96,23 @@ class CodexClient:
         codex는 결정적 도구가 아니라 에이전트다 — 정상 종료(exit 0)하고도 이미지를
         만들지 않는 경우가 실제로 관측된다. 파일 부재로 확실히 판별되므로 1회 재시도한다.
         """
+        reply = ""
         for attempt in range(2):
-            image = await self._image_attempt(prompt, photo, model)
+            image, reply = await self._image_attempt(prompt, photo, model)
             if image is not None:
                 return image
-            logger.warning("codex.image.no_output", attempt=attempt + 1)
+            logger.warning("codex.image.no_output", attempt=attempt + 1, reply=reply[:200])
+        # codex의 마지막 답변을 사유로 올린다 — "얼굴이 가려져 생성 불가"처럼
+        # 원본 사진 문제인 경우가 많아, 검수자가 재생성 대신 사진을 확인해야 한다.
         raise ExternalServiceError(
-            "codex가 이미지를 지정 경로에 저장하지 않았습니다 (재시도 후에도).",
+            f"codex가 이미지를 만들지 않았습니다: {reply.strip()[:300] or '(응답 없음)'}",
             details={"attempts": 2},
         )
 
     async def _image_attempt(
         self, prompt: str, photo: bytes | None, model: str | None
-    ) -> bytes | None:
-        """이미지 생성 1회 시도. codex가 파일을 남기지 않았으면 None."""
+    ) -> tuple[bytes | None, str]:
+        """이미지 생성 1회 시도 → (이미지, codex 답변). 파일을 남기지 않았으면 이미지는 None."""
         with TemporaryDirectory() as tmp:
             work = Path(tmp)
             out_path = work / _IMAGE_FILENAME
@@ -120,7 +127,7 @@ class CodexClient:
                 attach = ("-i", str(photo_path))
 
             # 쓰기 권한이 필요하다(생성 이미지를 out.png로 복사) → workspace-write.
-            await self._run(
+            reply = await self._run(
                 [
                     "exec",
                     "--sandbox",
@@ -136,7 +143,7 @@ class CodexClient:
                 f"저장 후 파일 경로만 한 줄로 답해라.",
             )
 
-            return out_path.read_bytes() if out_path.exists() else None
+            return (out_path.read_bytes() if out_path.exists() else None), reply
 
     async def _run(self, args: list[str], prompt: str) -> str:
         """codex 서브프로세스 1회 실행. stdout 반환, 실패는 ExternalServiceError.
@@ -145,48 +152,99 @@ class CodexClient:
         뒤따르는 positional 프롬프트를 이미지 파일로 삼켜버리고, `-`로 시작하는
         프롬프트가 플래그로 해석되는 문제도 함께 피한다.
         """
+        # Windows의 uvicorn --reload는 subprocess를 지원하지 않는 Selector 루프를
+        # 사용한다. 프로세스 I/O를 작업 스레드로 옮겨 이벤트 루프 종류에 의존하지 않는다.
+        cancelled = Event()
+        worker = asyncio.create_task(asyncio.to_thread(self._run_sync, args, prompt, cancelled))
         try:
-            # start_new_session으로 자체 프로세스 그룹을 준다. codex는 셸 명령을 자식으로
-            # 띄우는 에이전트라, 부모만 kill하면 자식이 stdout 파이프를 붙든 채 살아남아
-            # proc.wait()가 그 자식이 끝날 때까지 블록된다 — 타임아웃이 무력해진다.
-            proc = await asyncio.create_subprocess_exec(
-                self._binary,
-                *args,
-                stdin=asyncio.subprocess.PIPE,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-                start_new_session=True,
+            return await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            cancelled.set()
+            # 임시 입력 파일을 지우기 전에 프로세스 종료와 파이프 정리를 끝낸다.
+            with contextlib.suppress(ExternalServiceError):
+                await asyncio.shield(worker)
+            raise
+
+    def _run_sync(self, args: list[str], prompt: str, cancelled: Event) -> str:
+        if cancelled.is_set():
+            return ""
+        creationflags = 0
+        if sys.platform == "win32":
+            creationflags = subprocess.CREATE_NO_WINDOW
+        try:
+            proc = subprocess.Popen(
+                [self._binary, *args],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                start_new_session=sys.platform != "win32",
+                creationflags=creationflags,
             )
-        except (OSError, FileNotFoundError) as exc:
+        except FileNotFoundError as exc:
             raise ExternalServiceError(
                 f"codex 실행 파일을 찾지 못했습니다: {self._binary}", details={"reason": str(exc)}
             ) from exc
-
-        try:
-            stdout, stderr = await asyncio.wait_for(
-                proc.communicate(prompt.encode()), timeout=self._timeout
-            )
-        except TimeoutError as exc:
-            self._kill_group(proc)
+        except OSError as exc:
             raise ExternalServiceError(
-                "codex 실행이 시간 내에 끝나지 않았습니다.",
-                details={"timeout_seconds": self._timeout},
+                f"codex 실행 파일을 시작하지 못했습니다: {self._binary}",
+                details={"reason": str(exc)},
             ) from exc
+
+        deadline = monotonic() + self._timeout
+        input_bytes: bytes | None = prompt.encode("utf-8")
+        try:
+            while True:
+                if cancelled.is_set():
+                    return ""
+                remaining = deadline - monotonic()
+                if remaining <= 0:
+                    raise ExternalServiceError(
+                        "codex 실행이 시간 내에 끝나지 않았습니다.",
+                        details={"timeout_seconds": self._timeout},
+                    )
+                try:
+                    stdout, stderr = proc.communicate(input_bytes, timeout=min(remaining, 0.2))
+                    break
+                except subprocess.TimeoutExpired:
+                    # communicate는 재호출 시 이전 출력과 쓰지 못한 stdin을 보존한다.
+                    input_bytes = None
+        finally:
+            # 부모뿐 아니라 파이프를 물고 있는 하위 프로세스도 종료한다.
+            self._kill_group(proc)
+            try:
+                proc.communicate(timeout=5)
+            except subprocess.TimeoutExpired:
+                logger.warning("codex.cleanup.timeout", pid=proc.pid)
 
         if proc.returncode != 0:
             raise ExternalServiceError(
                 "codex 실행이 실패했습니다.",
-                details={"exit_code": proc.returncode, "stderr": stderr.decode()[-500:]},
+                details={
+                    "exit_code": proc.returncode,
+                    "stderr": stderr.decode("utf-8", errors="replace")[-500:],
+                },
             )
         logger.info("codex.done", exit_code=proc.returncode)
-        return stdout.decode()
+        return stdout.decode("utf-8", errors="replace")
 
     @staticmethod
-    def _kill_group(proc: asyncio.subprocess.Process) -> None:
-        """codex와 그 자식들을 통째로 종료한다.
-
-        수거(reap)는 asyncio 자식 워처에 맡긴다 — 여기서 await하면 파이프를 물고 있는
-        자식 때문에 다시 블록될 수 있어, 타임아웃을 건 의미가 사라진다.
-        """
-        with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
-            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    def _kill_group(proc: subprocess.Popen[bytes]) -> None:
+        """codex와 그 자식들을 OS에 맞게 종료한다."""
+        if sys.platform == "win32":
+            if proc.poll() is not None:
+                return
+            with contextlib.suppress(OSError, subprocess.TimeoutExpired):
+                subprocess.run(
+                    ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=10,
+                    check=False,
+                    creationflags=subprocess.CREATE_NO_WINDOW,
+                )
+        else:
+            with contextlib.suppress(ProcessLookupError, PermissionError, OSError):
+                os.killpg(proc.pid, signal.SIGKILL)
+        if proc.poll() is None:
+            with contextlib.suppress(OSError):
+                proc.kill()

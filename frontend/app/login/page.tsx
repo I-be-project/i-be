@@ -104,11 +104,11 @@ function LoginForm() {
       }
       // 같은 학생의 재로그인이면 진행상황이 보존된다(setAuth). 진행 중이던 설문이
       // 있거나 이미 완료했으면 그 화면으로 바로 이어가고(완료 시 공개 대기 화면),
-      // 아직 시작 전(신규/다른 학생)이면 프로필로 간다.
+      // 아직 시작 전(신규/다른 학생)이면 홈으로 간다.
       const s = useSessionStore.getState();
       const screen = resumeScreen(s);
       if (screen === "explore" && !s.retakingSurvey) {
-        router.push(`/profile/${res.student_id}`);
+        router.push("/home");
       } else {
         router.replace(resumePath(s));
       }

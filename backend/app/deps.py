@@ -23,6 +23,7 @@ from app.core.security import TokenKind, decode_token
 from app.repositories.booth_repo import BoothRepository
 from app.repositories.booth_visit_repo import BoothVisitRepository
 from app.repositories.card_repo import CardRepository
+from app.repositories.draft_repo import DraftRepository
 from app.repositories.persona_repo import PersonaRepository
 from app.repositories.session_repo import SessionRepository
 from app.repositories.settings_repo import SettingsRepository
@@ -31,6 +32,7 @@ from app.services.admin_service import AdminService
 from app.services.auth_service import AuthService
 from app.services.booth_service import BoothService
 from app.services.booth_visit_service import BoothVisitService
+from app.services.draft_service import DraftService
 from app.services.operator_service import OperatorService
 from app.services.session_service import SessionService
 
@@ -58,6 +60,13 @@ def get_codex_client(settings: SettingsDep) -> CodexClient:
 
 
 CodexClientDep = Annotated[CodexClient, Depends(get_codex_client)]
+
+
+def get_draft_repo(pool: DBPoolDep) -> DraftRepository:
+    return DraftRepository(pool)
+
+
+DraftRepoDep = Annotated[DraftRepository, Depends(get_draft_repo)]
 
 
 def get_storage_client(settings: SettingsDep) -> StorageClient:
@@ -261,3 +270,23 @@ def get_booth_visit_service(
 
 
 BoothVisitServiceDep = Annotated[BoothVisitService, Depends(get_booth_visit_service)]
+
+
+def get_draft_service(
+    codex: CodexClientDep,
+    storage: StorageClientDep,
+    sessions: Annotated[SessionRepository, Depends(get_session_repo)],
+    drafts: DraftRepoDep,
+    settings: SettingsDep,
+) -> DraftService:
+    """dev 전용 — 페르소나·카드 초안 생성/승인."""
+    return DraftService(
+        codex=codex,
+        storage=storage,
+        sessions=sessions,
+        drafts=drafts,
+        frontend_origin=settings.frontend_origin,
+    )
+
+
+DraftServiceDep = Annotated[DraftService, Depends(get_draft_service)]
