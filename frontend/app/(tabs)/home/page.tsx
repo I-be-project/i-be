@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { User, ArrowUpRight } from "lucide-react";
 import { TabPage, ProfileFeedback } from "@/components/tabs/TabPage";
-import { BoothList, VisitSummary } from "@/components/tabs/BoothList";
+import { VisitSummary, VisitTimeline } from "@/components/tabs/BoothList";
 import { useProfileView, MyPageLink } from "@/components/tabs/ProfileView";
 
 export default function HomePage() {
@@ -31,7 +31,7 @@ export default function HomePage() {
       <section className="mt-3 flex flex-col gap-4">
         <div className="flex items-center justify-between"><h2 className="text-xl font-extrabold text-hm-blue">{readOnly ? "참여 기록" : "나의 참여 기록"}</h2><Link href={`${basePath}/growth`} className="flex items-center gap-1 text-xs font-bold text-hm-blue">성장 보기<ArrowUpRight size={15} /></Link></div>
         <VisitSummary booths={visited} />
-        {visited.length ? <BoothList booths={visited} showDate /> : <div className="hm-card p-6 text-center text-sm text-hm-blue/70"><p>아직 참여한 부스가 없어.</p><Link href={`${basePath}/booths`} className="mt-3 inline-block font-extrabold text-hm-blue">첫 부스 찾아보기 →</Link></div>}
+        {visited.length ? <VisitTimeline booths={visited} /> : <div className="hm-card p-6 text-center text-sm text-hm-blue/70"><p>아직 참여한 부스가 없어.</p><Link href={`${basePath}/booths`} className="mt-3 inline-block font-extrabold text-hm-blue">첫 부스 찾아보기 →</Link></div>}
       </section>
     </>}
   </TabPage>;
