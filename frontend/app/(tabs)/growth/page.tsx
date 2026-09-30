@@ -18,8 +18,9 @@ export default function GrowthPage() {
   return <TabPage action={readOnly ? <MyPageLink /> : undefined}>
     <ProfileFeedback {...feedback} />
     {!feedback.loading && !feedback.error && profile && <>
-    <section className="hm-card px-2 py-5 sm:px-5">
+    <section className="hm-card px-2 pt-5 pb-3 sm:px-5">
       <p className="px-4 text-left text-xs font-extrabold tracking-wide text-hm-blue/60">{empty ? (readOnly ? "아직 참여한 부스의 역량 기록이 없어." : "첫 부스에 참여하고 QR을 찍어봐. 나의 역량 지도가 채워질 거야!") : "참여한 부스의 역량이 쌓인 기록이야"}</p>
+      <div className="relative">
       <div className="h-[320px] w-full sm:h-[400px]" role="img" aria-label={empty ? "아직 참여 기록이 없는 역량 차트" : chartData.map((d) => `${d.label} ${d.score}점`).join(", ")}>
         <ResponsiveContainer width="100%" height="100%" className="pointer-events-none">
           <RadarChart accessibilityLayer={false} data={chartData} outerRadius="80%" margin={{ top: 20, right: 24, bottom: 20, left: 24 }}>
@@ -44,10 +45,11 @@ export default function GrowthPage() {
           </RadarChart>
         </ResponsiveContainer>
       </div>
-      <div className="flex justify-end px-2">
+      <div className="absolute right-2 bottom-2">
         <button type="button" aria-pressed={showCounts} onClick={() => setShowCounts((visible) => !visible)} className="rounded-full bg-hm-tint px-3 py-1.5 text-[11px] font-bold text-hm-blue hover:bg-hm-pattern focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hm-blue">
           {showCounts ? "개수 숨기기" : "개수 보기"}
         </button>
+      </div>
       </div>
     </section>
       <section className="flex flex-col gap-4">
