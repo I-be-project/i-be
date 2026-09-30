@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { Camera, ArrowUpRight } from "lucide-react";
 import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, ResponsiveContainer } from "recharts";
 import { TabPage, ProfileFeedback } from "@/components/tabs/TabPage";
 import { useProfileView, MyPageLink } from "@/components/tabs/ProfileView";
@@ -26,8 +24,5 @@ export default function GrowthPage() {
       </div>
       <p className="px-4 text-center text-xs leading-relaxed text-hm-blue/65">{empty ? (readOnly ? "아직 참여한 부스의 역량 기록이 없어." : "첫 부스에 참여하고 QR을 찍어봐. 나의 역량 지도가 채워질 거야!") : "참여한 부스의 역량이 쌓인 기록이야. 다양한 체험으로 지도를 넓혀봐."}</p>
     </section>}
-    {!readOnly && <Link href="/growth/scan" className="hm-card group flex min-h-40 flex-col items-center justify-center gap-3 p-6 text-hm-blue transition-colors hover:bg-hm-tint focus-visible:outline-2 focus-visible:outline-hm-blue">
-      <Camera size={42} strokeWidth={1.7} /><span className="flex items-center gap-2 text-lg font-extrabold">QR 스캔<ArrowUpRight size={18} /></span><span className="text-xs text-hm-blue/65">부스의 QR을 찍고 참여 기록을 남겨봐</span>
-    </Link>}
   </TabPage>;
 }

@@ -12,7 +12,7 @@ export function VisitSummary({ booths }: { booths: ProfileBoothStatus[] }) {
 }
 
 export function BoothList({ booths, showDate = false }: { booths: ProfileBoothStatus[]; showDate?: boolean }) {
-  return <div className="flex flex-col gap-3">{booths.map((booth) => <article key={booth.id} className="hm-card px-4 py-4">
+  return <div className="flex flex-col gap-3">{booths.map((booth) => <article key={booth.id} className={`hm-card px-4 py-4 ${booth.visited && !showDate ? "opacity-50" : ""}`}>
     <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
       <span className="rounded-full bg-hm-tint px-2.5 py-1 text-hm-blue">{ZONE_LABELS[booth.zone ?? ""]}</span>
       {showDate && booth.visited_at ? <time dateTime={booth.visited_at} className="text-hm-blue/55">{new Date(booth.visited_at).toLocaleString("ko-KR", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })}</time> : booth.visited && <span className="flex items-center gap-1 text-hm-teal"><Check size={13} />참여 완료</span>}
