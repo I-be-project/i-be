@@ -47,6 +47,7 @@ NAME_X, NAME_Y, NAME_SIZE = 0.059, 0.716, 0.116
 SCHOOL_RIGHT, SCHOOL_Y, CLASS_Y, SCHOOL_SIZE = 0.076, 0.705, 0.739, 0.038
 HEADLINE_Y, HEADLINE_SIZE = 0.854, 0.066
 CAREER_Y, CAREER_SIZE = 0.925, 0.135
+CAREER_FONT = "Paperlogy-8ExtraBold.ttf"
 
 INK = (17, 17, 17, 255)
 SUB_INK = (51, 51, 51, 255)
@@ -67,15 +68,15 @@ class IdCardContent:
 
 
 @lru_cache(maxsize=16)
-def _font(weight: str, size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(str(_FONT_DIR / f"Pretendard-{weight}.otf"), size)
+def _font(name: str, size: int) -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(str(_FONT_DIR / name), size)
 
 
-def _fit_font(text: str, weight: str, size: int, max_width: float) -> ImageFont.FreeTypeFont:
+def _fit_font(text: str, name: str, size: int, max_width: float) -> ImageFont.FreeTypeFont:
     """폭을 넘으면 넘지 않을 때까지 글자 크기를 줄인다(직업명 길이가 제각각이라)."""
-    while size > 12 and _font(weight, size).getlength(text) > max_width:
+    while size > 12 and _font(name, size).getlength(text) > max_width:
         size -= 2
-    return _font(weight, size)
+    return _font(name, size)
 
 
 @lru_cache(maxsize=1)
@@ -168,13 +169,13 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
         draw,
         (W * NAME_X, H * NAME_Y),
         content.student_name,
-        _fit_font(content.student_name, "SemiBold", round(W * NAME_SIZE), W * 0.5),
+        _fit_font(content.student_name, "Paperlogy-6SemiBold.ttf", round(W * NAME_SIZE), W * 0.5),
         "lm",
     )
 
     # ── 학교 / 학년·반·번호(우) — 두 줄 같은 굵기 ──
     right = W - W * SCHOOL_RIGHT
-    school_font = _font("Regular", round(W * SCHOOL_SIZE))
+    school_font = _font("Paperlogy-4Regular.ttf", round(W * SCHOOL_SIZE))
     _white_text(draw, (right, H * SCHOOL_Y), content.school, school_font, "rm")
     _white_text(
         draw,
@@ -190,7 +191,9 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
         draw.text(
             (W / 2, H * HEADLINE_Y),
             content.headline,
-            font=_fit_font(content.headline, "Bold", round(W * HEADLINE_SIZE), max_w),
+            font=_fit_font(
+                content.headline, "Paperlogy-6SemiBold.ttf", round(W * HEADLINE_SIZE), max_w
+            ),
             fill=SUB_INK,
             anchor="mm",
         )
@@ -200,7 +203,7 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
     draw.text(
         (W / 2, career_y),
         content.base_career,
-        font=_fit_font(content.base_career, "Black", round(W * CAREER_SIZE), max_w),
+        font=_fit_font(content.base_career, CAREER_FONT, round(W * CAREER_SIZE), max_w),
         fill=INK,
         anchor="mm",
     )
