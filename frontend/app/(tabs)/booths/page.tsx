@@ -10,13 +10,14 @@ import { mockRecommendedBooths } from "@/lib/mock/recommendedBooths";
 import { recommendBooths } from "@/lib/boothRecommendations";
 import { ZONE_SHORT, type BoothZone } from "@/lib/competencies";
 import { cn } from "@/lib/utils";
+import { COMPETENCY_ZONE_COLOR } from "@/lib/zoneColors";
 
 const FILTER_COLORS = {
   recommended: { active: "bg-hm-blue text-white", inactive: "bg-white text-hm-blue" },
   F: { active: "bg-hm-blue text-white", inactive: "bg-white text-hm-blue" },
   L: { active: "bg-hm-coral text-white", inactive: "bg-white text-hm-coral" },
   Y: { active: "bg-hm-teal text-white", inactive: "bg-white text-hm-teal" },
-  C: { active: "bg-hm-blue text-white", inactive: "bg-white text-hm-blue" },
+  C: { active: "text-white", inactive: "bg-white" },
 } as const;
 
 export default function BoothsPage() {
@@ -36,7 +37,7 @@ export default function BoothsPage() {
     {!feedback.loading && !feedback.error && profile && <>
       <section className="flex flex-col gap-3"><h2 className="text-xl font-extrabold text-hm-blue">부스 <span className="text-sm text-hm-blue/50">{booths.length}</span></h2>
         <label className="flex items-center gap-2 rounded-2xl border border-hm-pattern bg-white px-4 py-3 text-hm-blue"><Search size={18} /><input aria-label="부스 이름 또는 체험 검색" placeholder="어떤 체험을 찾고 있어?" value={query} onChange={(e) => setQuery(e.target.value)} className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-hm-blue/45" /></label>
-        <div className="flex flex-wrap gap-2" aria-label="부스 필터">{(["recommended", "F", "L", "Y", "C"] as const).map((value) => <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)} className={cn("rounded-full px-4 py-2 text-xs font-bold", filter === value ? FILTER_COLORS[value].active : FILTER_COLORS[value].inactive)}>{value === "recommended" ? "추천" : ZONE_SHORT[value]}</button>)}</div>
+        <div className="flex flex-wrap gap-2" aria-label="부스 필터">{(["recommended", "F", "L", "Y", "C"] as const).map((value) => <button key={value} style={value === "C" ? (filter === value ? { backgroundColor: COMPETENCY_ZONE_COLOR } : { color: COMPETENCY_ZONE_COLOR }) : undefined} aria-pressed={filter === value} onClick={() => setFilter(value)} className={cn("rounded-full px-4 py-2 text-xs font-bold", filter === value ? FILTER_COLORS[value].active : FILTER_COLORS[value].inactive)}>{value === "recommended" ? "추천" : ZONE_SHORT[value]}</button>)}</div>
         <div className="min-h-[100dvh]">
           {filtered.length ? <BoothList booths={filtered} showZone={filter === "recommended"} personaKeywords={profile.persona?.keywords} /> : <p className="hm-card p-6 text-center text-sm text-hm-blue/70">{source.length ? "검색 조건에 맞는 부스가 없어." : "등록된 부스가 아직 없어."}</p>}
         </div>
