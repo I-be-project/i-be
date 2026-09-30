@@ -1,6 +1,7 @@
 import { Check } from "lucide-react";
 import type { ProfileBoothStatus } from "@/lib/api";
 import { competencyLabel, countVisitedByZone, ZONE_LABELS, ZONE_SHORT } from "@/lib/competencies";
+import { cn } from "@/lib/utils";
 
 export function VisitSummary({ booths, title }: { booths: ProfileBoothStatus[]; title?: string }) {
   return <section className="hm-card px-5 pt-5 pb-3" aria-label="부스 참여 요약">
@@ -31,7 +32,8 @@ export function VisitTimeline({ booths }: { booths: ProfileBoothStatus[] }) {
   </li>)}</ol>;
 }
 
-export function BoothList({ booths, showZone = true }: { booths: ProfileBoothStatus[]; showZone?: boolean }) {
+export function BoothList({ booths, showZone = true, personaKeywords = [] }: { booths: ProfileBoothStatus[]; showZone?: boolean; personaKeywords?: string[] }) {
+  const highlightedLabels = new Set(personaKeywords.map((keyword) => competencyLabel(keyword.trim().replace(/^#/, ""))));
   return <div className="flex flex-col gap-3">{booths.map((booth) => <article key={booth.id} className={`hm-card px-4 py-4 ${booth.visited ? "opacity-50" : ""}`}>
     {showZone && <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
       <span className="rounded-full bg-hm-tint px-2.5 py-1 text-hm-blue">{booth.zone === "F" || booth.zone === "L" || booth.zone === "Y" ? ZONE_SHORT[booth.zone] : ZONE_LABELS[booth.zone ?? ""]}</span>
@@ -42,6 +44,13 @@ export function BoothList({ booths, showZone = true }: { booths: ProfileBoothSta
       {!showZone && booth.visited && <span className="flex shrink-0 items-center gap-1 pt-1 text-[11px] font-bold text-hm-teal"><Check size={13} />참여 완료</span>}
     </div>
     {booth.description && <p className="mt-1 text-xs leading-relaxed text-hm-blue/65">{booth.description}</p>}
-    {!!booth.competencies?.length && <div className="mt-3 flex flex-wrap gap-1.5 border-t border-hm-pattern pt-2">{booth.competencies.map((key) => <span key={key} className="rounded-md bg-hm-tint px-2 py-1 text-[11px] font-bold text-hm-blue/75">{competencyLabel(key)}</span>)}</div>}
+    {!!booth.competencies?.length && <div className="mt-3 flex flex-wrap gap-1.5 border-t border-hm-pattern pt-2">{booth.competencies.map((key) => {
+      const label = competencyLabel(key);
+      const highlighted = highlightedLabels.has(label);
+      return <span key={key} className={cn("inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px]", highlighted ? "bg-hm-blue font-extrabold text-white" : "bg-hm-tint font-bold text-hm-blue/75")}>
+        {highlighted && <span className="sr-only">페르소나와 일치하는 키워드: </span>}
+        {label}
+      </span>;
+    })}</div>}
   </article>)}</div>;
 }
