@@ -2,11 +2,12 @@ import { Check } from "lucide-react";
 import type { ProfileBoothStatus } from "@/lib/api";
 import { competencyLabel, countVisitedByZone, ZONE_LABELS, ZONE_SHORT } from "@/lib/competencies";
 
-export function VisitSummary({ booths }: { booths: ProfileBoothStatus[] }) {
-  return <section className="hm-card p-5" aria-label="부스 참여 요약">
-    <p className="py-4 font-bold text-hm-blue"><strong className="mr-2 text-5xl">{booths.length}</strong>개 부스 참여</p>
-    <div className="mt-3 flex divide-x divide-hm-pattern border-t border-hm-pattern pt-3">
-      {countVisitedByZone(booths).map(({ zone, count }) => <div key={zone} className="flex flex-1 flex-col items-center"><strong className={`text-xl ${zone === "L" ? "text-hm-coral" : zone === "Y" ? "text-hm-teal" : "text-hm-blue"}`}>{count}</strong><span className="text-[11px] font-bold text-hm-blue/60">{ZONE_SHORT[zone]}</span></div>)}
+export function VisitSummary({ booths, title }: { booths: ProfileBoothStatus[]; title?: string }) {
+  return <section className="hm-card px-5 pt-5 pb-3" aria-label="부스 참여 요약">
+    {title && <h2 className="text-xs font-extrabold tracking-wide text-hm-blue/60">{title}</h2>}
+    <p className="pt-3 pb-2 text-left font-bold text-hm-blue"><strong className="mr-1 text-3xl">{booths.length}</strong>개 부스 참여</p>
+    <div className="mt-1 flex divide-x divide-hm-pattern border-t border-hm-pattern pt-2">
+      {countVisitedByZone(booths).map(({ zone, count }) => <div key={zone} className="flex flex-1 flex-col items-center"><strong className={`text-xl leading-tight ${zone === "L" ? "text-hm-coral" : zone === "Y" ? "text-hm-teal" : "text-hm-blue"}`}>{count}</strong><span className="text-[11px] leading-tight font-bold text-hm-blue/60">{ZONE_SHORT[zone]}</span></div>)}
     </div>
   </section>;
 }
@@ -30,13 +31,16 @@ export function VisitTimeline({ booths }: { booths: ProfileBoothStatus[] }) {
   </li>)}</ol>;
 }
 
-export function BoothList({ booths }: { booths: ProfileBoothStatus[] }) {
+export function BoothList({ booths, showZone = true }: { booths: ProfileBoothStatus[]; showZone?: boolean }) {
   return <div className="flex flex-col gap-3">{booths.map((booth) => <article key={booth.id} className={`hm-card px-4 py-4 ${booth.visited ? "opacity-50" : ""}`}>
-    <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
-      <span className="rounded-full bg-hm-tint px-2.5 py-1 text-hm-blue">{ZONE_LABELS[booth.zone ?? ""]}</span>
-      {booth.visited && <span className="flex items-center gap-1 text-hm-teal"><Check size={13} />참여 완료</span>}
+    {showZone && <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold">
+      <span className="rounded-full bg-hm-tint px-2.5 py-1 text-hm-blue">{booth.zone === "F" || booth.zone === "L" || booth.zone === "Y" ? ZONE_SHORT[booth.zone] : ZONE_LABELS[booth.zone ?? ""]}</span>
+      {booth.visited && <span className="ml-auto flex items-center gap-1 text-hm-teal"><Check size={13} />참여 완료</span>}
+    </div>}
+    <div className="flex items-start justify-between gap-3">
+      <h3 className="min-w-0 break-keep text-base font-extrabold text-hm-blue">{booth.name}</h3>
+      {!showZone && booth.visited && <span className="flex shrink-0 items-center gap-1 pt-1 text-[11px] font-bold text-hm-teal"><Check size={13} />참여 완료</span>}
     </div>
-    <h3 className="break-keep text-base font-extrabold text-hm-blue">{booth.name}</h3>
     {booth.description && <p className="mt-1 text-xs leading-relaxed text-hm-blue/65">{booth.description}</p>}
     {!!booth.competencies?.length && <div className="mt-3 flex flex-wrap gap-1.5 border-t border-hm-pattern pt-2">{booth.competencies.map((key) => <span key={key} className="rounded-md bg-hm-tint px-2 py-1 text-[11px] font-bold text-hm-blue/75">{competencyLabel(key)}</span>)}</div>}
   </article>)}</div>;
