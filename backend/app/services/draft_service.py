@@ -157,9 +157,17 @@ class DraftService:
     async def approve(self, draft_id: UUID) -> str:
         """카드 합성 → S3 cards/ → 확정본 기록. 카드 S3 키 반환."""
         draft = await self._require(draft_id)
-        png = await self.render_card(draft)
-        key = await self._storage.upload_card_image(
-            f"{draft.student_id}/{draft.id}.png", png, content_type="image/png"
-        )
+        key = await self.upload_card(draft)
         await self._drafts.approve(draft, card_key=key)
         return key
+
+    async def upload_card(self, draft: DraftRecord) -> str:
+        """카드 합성 → S3 cards/. 키가 초안마다 고정이라 다시 부르면 같은 파일을 덮어쓴다.
+
+        배치 상수(id_card_renderer)를 바꾼 뒤 승인된 카드를 다시 만들 때도 이 경로를 쓴다
+        (scripts/rerender_cards.py). DB의 card_image_key는 그대로라 따로 고칠 게 없다.
+        """
+        png = await self.render_card(draft)
+        return await self._storage.upload_card_image(
+            f"{draft.student_id}/{draft.id}.png", png, content_type="image/png"
+        )

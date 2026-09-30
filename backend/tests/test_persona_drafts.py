@@ -162,6 +162,29 @@ async def test_generate_image_saves_new_key() -> None:
     assert drafts.saved["image_key"].startswith(f"ai-images/{drafts.draft.student_id}/")
 
 
+class _CardDraft(_Draft):
+    image_key = None  # 폴백 캐릭터로 합성 — 다운로드 없이 렌더러만 탄다
+    student_name, school, grade, class_no, student_no = "홍길동", "대전중학교", 2, 3, 14
+    headline, base_career = "하늘을 설계하는", "드론 전문가"
+
+
+class _CardStorage(_Storage):
+    async def upload_card_image(self, path: str, data: bytes, *, content_type: str) -> str:
+        self.uploaded.append(path)
+        return f"cards/{path}"
+
+
+async def test_upload_card_reuses_fixed_key_so_rerender_overwrites() -> None:
+    draft, storage = _CardDraft(), _CardStorage()
+    service = _service(_Drafts(draft), _Codex(), storage)
+
+    first = await service.upload_card(draft)  # type: ignore[arg-type]  # 테스트 stub
+    second = await service.upload_card(draft)  # type: ignore[arg-type]
+
+    assert first == second == f"cards/{draft.student_id}/{draft.id}.png"
+    assert len(storage.uploaded) == 2
+
+
 async def test_generate_image_failure_records_error_instead_of_raising() -> None:
     drafts = _Drafts(_Draft())
     codex = _Codex(ExternalServiceError("codex 실행이 실패했습니다."))
