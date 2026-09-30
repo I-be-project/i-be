@@ -18,7 +18,7 @@ from io import BytesIO
 from pathlib import Path
 
 import qrcode  # type: ignore[import-untyped]  # 타입 스텁 없음
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 _FONT_DIR = _ASSETS / "fonts"
@@ -34,13 +34,14 @@ CARD_H = round(CARD_W * 86 / 54)  # 1631
 LOGO_X, LOGO_Y, LOGO_W = 0.053, 0.037, 0.171
 QR_RIGHT, QR_Y, QR_W = 0.052, 0.041, 0.132  # QR_W: 0.11의 1.2배
 
-# 이름·학교 줄 뒤: 전체 폭 검은 그라데이션(위 투명 → 아래 진함) 위에 흰 글씨.
+# 이름·학교 줄 뒤: 아래로 갈수록 흐려지는 블러(BLUR_TOP 선명 → BLUR_FULL부터 최대 블러).
 # 그 아래에서 흰색이 차올라 사진 → 이름 줄 → 하단 흰 영역이 끊김 없이 이어진다.
-ROW_FADE_TOP = 0.56
-ROW_DARKEST = 0.715
-ROW_ALPHA = 205  # 가장 짙을 때 불투명도(0~255)
-WHITE_FADE_TOP = 0.755
-PHOTO_BOTTOM = 0.80  # 여기부터 완전한 흰 영역
+BLUR_TOP = 0.66
+BLUR_FULL = 0.80
+BLUR_RADIUS = 28  # px, 최대 블러 세기
+# 흰 페이드는 길게 — 짧으면 어두운 옷과 흰 영역 사이에 경계선이 보인다.
+WHITE_FADE_TOP = 0.74
+PHOTO_BOTTOM = 0.83  # 여기부터 완전한 흰 영역 (headline 윗선 ≈ 0.833 아래로 내리지 않는다)
 
 NAME_X, NAME_Y, NAME_SIZE = 0.059, 0.716, 0.116
 SCHOOL_RIGHT, SCHOOL_Y, CLASS_Y, SCHOOL_SIZE = 0.076, 0.705, 0.739, 0.038
@@ -105,7 +106,7 @@ def _gradient(
     draw = ImageDraw.Draw(layer)
     for y in range(top, h):
         t = min(1.0, (y - top) / (full - top))
-        draw.line([(0, y), (w, y)], fill=(*rgb, int(alpha * t**1.3)))
+        draw.line([(0, y), (w, y)], fill=(*rgb, int(alpha * t * t * (3 - 2 * t))))
     return layer
 
 
@@ -148,8 +149,10 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
             centering=(0.5, 0.0),
         )
     size = photo.size
-    photo.alpha_composite(
-        _gradient(size, round(H * ROW_FADE_TOP), round(H * ROW_DARKEST), (0, 0, 0), ROW_ALPHA)
+    # 블러본을 세로 마스크(위 투명 → 아래 불투명)로 섞어 아래로 갈수록 흐려지게 한다.
+    blur_mask = _gradient(size, round(H * BLUR_TOP), round(H * BLUR_FULL), (0, 0, 0), 255)
+    photo = Image.composite(
+        photo.filter(ImageFilter.GaussianBlur(BLUR_RADIUS)), photo, blur_mask.getchannel("A")
     )
     photo.alpha_composite(_gradient(size, round(H * WHITE_FADE_TOP), photo_h, (255, 255, 255), 255))
     card.alpha_composite(photo)
