@@ -41,6 +41,7 @@ class BoothService:
             code=record.code,
             name=record.name,
             description=record.description,
+            detail=record.detail,
             zone=record.zone,
             competencies=list(record.competencies),
             qr_url=self._qr_url(record.code),
@@ -56,6 +57,7 @@ class BoothService:
                     name=req.name,
                     description=req.description,
                     zone=req.zone,
+                    detail=req.detail,
                 )
             except asyncpg.UniqueViolationError:
                 continue
@@ -98,11 +100,14 @@ class BoothService:
         name = req.name if "name" in provided else current.name
         assert name is not None  # BoothUpdateRequest 검증기가 명시적 null을 이미 거부한다
         description = req.description if "description" in provided else current.description
+        detail = req.detail if "detail" in provided else current.detail
         zone = req.zone if "zone" in provided else current.zone
         assert zone is not None  # BoothUpdateRequest 검증기가 명시적 null을 이미 거부한다
         competencies = req.competencies if "competencies" in provided else None
 
-        updated = await self._booths.update(booth_id, name=name, description=description, zone=zone)
+        updated = await self._booths.update(
+            booth_id, name=name, description=description, zone=zone, detail=detail
+        )
         if updated is None:
             raise NotFoundError("부스를 찾을 수 없습니다.")
         if competencies is None:
