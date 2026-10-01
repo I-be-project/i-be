@@ -12,8 +12,13 @@ from uuid import UUID, uuid4
 from app.adapters.codex_client import CodexClient
 from app.adapters.storage_client import StorageClient
 from app.core.errors import NotFoundError
+from app.core.images import crop_top
 from app.core.logging import get_logger
-from app.core.prompts.future_photo_prompt import DEFAULT_FUTURE_PHOTO_PROMPT
+from app.core.prompts.future_photo_prompt import (
+    DEFAULT_FUTURE_PHOTO_PROMPT,
+    LAYOUT_REFERENCE_IMAGE,
+    PHOTO_RATIO,
+)
 from app.core.prompts.persona_prompt import (
     DEFAULT_SYSTEM_PROMPT,
     PERSONA_OUTPUT_SCHEMA,
@@ -21,6 +26,7 @@ from app.core.prompts.persona_prompt import (
 )
 from app.repositories.draft_repo import DraftRecord, DraftRepository, DraftText
 from app.repositories.session_repo import SessionRepository
+from app.repositories.student_repo import StudentRepository
 from app.services.dev_service import build_persona_inputs
 from app.services.id_card_renderer import IdCardContent, render_id_card
 
@@ -52,9 +58,9 @@ def to_draft_text(result: dict[str, Any]) -> DraftText:
     )
 
 
-def card_qr_data(frontend_origin: str, student_id: UUID) -> str:
-    # ponytail: 임시 QR 내용. 인쇄 후엔 못 고치니 확정되면 여기만 바꾼다.
-    return f"{frontend_origin.rstrip('/')}/profile/{student_id}"
+def card_qr_data(qr_origin: str, card_code: str) -> str:
+    # 공개 페이지(/p/<code>)로 연결. 짧게 둬야 QR이 성겨 인쇄 카드에서 읽힌다.
+    return f"{qr_origin.rstrip('/')}/p/{card_code}"
 
 
 class DraftService:
@@ -65,13 +71,15 @@ class DraftService:
         storage: StorageClient,
         sessions: SessionRepository,
         drafts: DraftRepository,
-        frontend_origin: str,
+        students: StudentRepository,
+        qr_origin: str,
     ) -> None:
         self._codex = codex
         self._storage = storage
         self._sessions = sessions
+        self._students = students
         self._drafts = drafts
-        self._frontend_origin = frontend_origin
+        self._qr_origin = qr_origin
 
     async def _require(self, draft_id: UUID) -> DraftRecord:
         draft = await self._drafts.get(draft_id)
@@ -116,7 +124,10 @@ class DraftService:
             return
         try:
             photo = await self._storage.download(draft.photo_key)
-            image = await self._codex.generate_image(DEFAULT_FUTURE_PHOTO_PROMPT, photo=photo)
+            image = await self._codex.generate_image(
+                DEFAULT_FUTURE_PHOTO_PROMPT, photo=photo, layout=LAYOUT_REFERENCE_IMAGE.read_bytes()
+            )
+            image = crop_top(image, PHOTO_RATIO)
             # 재생성마다 새 키 — 이전 이미지를 덮어쓰지 않고 남긴다(사진 영구 보관).
             key = await self._storage.upload_generated_image(
                 f"{draft.student_id}/{draft_id}-{uuid4().hex[:8]}.png",
@@ -147,19 +158,34 @@ class DraftService:
                 student_no=draft.student_no,
                 headline=draft.headline,
                 base_career=draft.base_career,
-                qr_data=card_qr_data(self._frontend_origin, draft.student_id),
+                qr_data=await self.card_qr_url(draft.student_id),
             ),
         )
 
-    async def preview_card(self, draft_id: UUID) -> bytes:
-        return await self.render_card(await self._require(draft_id))
+    async def card_qr_url(self, student_id: UUID) -> str:
+        """카드 QR에 담기는 공개 페이지 주소. 코드가 없으면 이때 발급된다."""
+        code = await self._students.ensure_card_code(student_id)
+        return card_qr_data(self._qr_origin, code)
+
+    async def preview_card(self, draft_id: UUID) -> tuple[bytes, str]:
+        """(카드 PNG, QR 주소). 검수 화면이 QR 링크를 직접 열어볼 수 있게 함께 준다."""
+        draft = await self._require(draft_id)
+        return await self.render_card(draft), await self.card_qr_url(draft.student_id)
 
     async def approve(self, draft_id: UUID) -> str:
         """카드 합성 → S3 cards/ → 확정본 기록. 카드 S3 키 반환."""
         draft = await self._require(draft_id)
-        png = await self.render_card(draft)
-        key = await self._storage.upload_card_image(
-            f"{draft.student_id}/{draft.id}.png", png, content_type="image/png"
-        )
+        key = await self.upload_card(draft)
         await self._drafts.approve(draft, card_key=key)
         return key
+
+    async def upload_card(self, draft: DraftRecord) -> str:
+        """카드 합성 → S3 cards/. 키가 초안마다 고정이라 다시 부르면 같은 파일을 덮어쓴다.
+
+        배치 상수(id_card_renderer)를 바꾼 뒤 승인된 카드를 다시 만들 때도 이 경로를 쓴다
+        (scripts/rerender_cards.py). DB의 card_image_key는 그대로라 따로 고칠 게 없다.
+        """
+        png = await self.render_card(draft)
+        return await self._storage.upload_card_image(
+            f"{draft.student_id}/{draft.id}.png", png, content_type="image/png"
+        )

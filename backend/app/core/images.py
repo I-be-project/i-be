@@ -51,3 +51,21 @@ def inspect_image(data: bytes, *, min_bytes: int = 100) -> ImageInfo:
         width=width,
         height=height,
     )
+
+
+def crop_top(data: bytes, ratio: float) -> bytes:
+    """폭 유지, 위를 기준으로 세로를 잘라 폭/높이 = ratio로 맞춘 PNG. 이미 더 넓으면 좌우를 자른다.
+
+    생성 모델이 요청한 비율과 다르게 줘도(예: 2:3) 저장본 비율을 고정하려는 용도.
+    머리 위 여백이 구도의 기준이라 위를 남기고 아래(가슴)를 버린다.
+    """
+    with Image.open(BytesIO(data)) as im:
+        w, h = im.size
+        if w / h > ratio:  # 가로로 넓다 → 좌우 가운데 기준
+            nw = round(h * ratio)
+            box = ((w - nw) // 2, 0, (w - nw) // 2 + nw, h)
+        else:
+            box = (0, 0, w, round(w / ratio))
+        out = BytesIO()
+        im.crop(box).save(out, format="PNG")
+    return out.getvalue()

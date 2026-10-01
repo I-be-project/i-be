@@ -138,10 +138,18 @@ class _Codex:
     def __init__(self, error: Exception | None = None) -> None:
         self._error = error
 
-    async def generate_image(self, prompt: str, *, photo: bytes | None = None) -> bytes:
+    async def generate_image(
+        self, prompt: str, *, photo: bytes | None = None, layout: bytes | None = None
+    ) -> bytes:
+        self.layout = layout
         if self._error:
             raise self._error
         return _png()
+
+
+class _Students:
+    async def ensure_card_code(self, student_id: UUID) -> str:
+        return "AB23CD45"
 
 
 def _service(drafts: _Drafts, codex: _Codex, storage: _Storage) -> DraftService:
@@ -150,7 +158,8 @@ def _service(drafts: _Drafts, codex: _Codex, storage: _Storage) -> DraftService:
         storage=storage,  # type: ignore[arg-type]
         sessions=None,  # type: ignore[arg-type]
         drafts=drafts,  # type: ignore[arg-type]
-        frontend_origin="http://localhost:4000",
+        students=_Students(),  # type: ignore[arg-type]
+        qr_origin="http://localhost:4000",
     )
 
 
@@ -160,6 +169,45 @@ async def test_generate_image_saves_new_key() -> None:
 
     assert drafts.saved["error"] is None
     assert drafts.saved["image_key"].startswith(f"ai-images/{drafts.draft.student_id}/")
+
+
+class _CardDraft(_Draft):
+    image_key = None  # 폴백 캐릭터로 합성 — 다운로드 없이 렌더러만 탄다
+    student_name, school, grade, class_no, student_no = "홍길동", "대전중학교", 2, 3, 14
+    headline, base_career = "하늘을 설계하는", "드론 전문가"
+
+
+class _CardStorage(_Storage):
+    async def upload_card_image(self, path: str, data: bytes, *, content_type: str) -> str:
+        self.uploaded.append(path)
+        return f"cards/{path}"
+
+
+async def test_upload_card_reuses_fixed_key_so_rerender_overwrites() -> None:
+    draft, storage = _CardDraft(), _CardStorage()
+    service = _service(_Drafts(draft), _Codex(), storage)
+
+    first = await service.upload_card(draft)  # type: ignore[arg-type]  # 테스트 stub
+    second = await service.upload_card(draft)  # type: ignore[arg-type]
+
+    assert first == second == f"cards/{draft.student_id}/{draft.id}.png"
+    assert len(storage.uploaded) == 2
+
+
+async def test_generate_image_attaches_layout_and_stores_4x5() -> None:
+    """구도 기준 사진을 함께 넣고, 모델이 2:3으로 줘도 저장본은 4:5여야 한다."""
+    drafts, storage, codex = _Drafts(_Draft()), _Storage(), _Codex()
+    stored: list[bytes] = []
+
+    async def upload(path: str, data: bytes, *, content_type: str) -> str:
+        stored.append(data)
+        return f"ai-images/{path}"
+
+    storage.upload_generated_image = upload  # type: ignore[method-assign]  # 업로드 바이트 캡처
+    await _service(drafts, codex, storage).generate_image(drafts.draft.id)
+
+    assert codex.layout  # 두 번째 첨부로 기준 사진이 들어갔다
+    assert Image.open(BytesIO(stored[0])).size == (1024, 1280)
 
 
 async def test_generate_image_failure_records_error_instead_of_raising() -> None:
@@ -262,3 +310,19 @@ async def test_delete_drafts_rejects_empty_ids() -> None:
     res = await _post_delete(_DeletingDrafts(), {"ids": []})
 
     assert res.status_code == 422
+
+
+def test_card_qr_points_to_short_public_path() -> None:
+    from app.services.draft_service import card_qr_data
+
+    assert card_qr_data("https://i-be.kr/", "AB23CD45") == "https://i-be.kr/p/AB23CD45"
+
+
+async def test_preview_card_returns_qr_url_for_review_screen() -> None:
+    draft = _CardDraft()
+    service = _service(_Drafts(draft), _Codex(), _CardStorage())  # type: ignore[arg-type]
+
+    png, qr_url = await service.preview_card(draft.id)
+
+    assert png.startswith(b"\x89PNG")
+    assert qr_url == "http://localhost:4000/p/AB23CD45"

@@ -277,6 +277,7 @@ def get_draft_service(
     storage: StorageClientDep,
     sessions: Annotated[SessionRepository, Depends(get_session_repo)],
     drafts: DraftRepoDep,
+    students: StudentRepoDep,
     settings: SettingsDep,
 ) -> DraftService:
     """dev 전용 — 페르소나·카드 초안 생성/승인."""
@@ -285,7 +286,8 @@ def get_draft_service(
         storage=storage,
         sessions=sessions,
         drafts=drafts,
-        frontend_origin=settings.frontend_origin,
+        students=students,
+        qr_origin=settings.card_qr_origin,
     )
 
 

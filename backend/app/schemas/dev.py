@@ -150,6 +150,7 @@ class DraftDeleteResponse(BaseModel):
 
 class CardPreview(BaseModel):
     image_base64: str = Field(..., description="카드 PNG (base64)")
+    qr_url: str = Field(..., description="카드 QR에 담긴 공개 페이지 주소")
 
 
 # ──────────────────────────────────────────────────────────────

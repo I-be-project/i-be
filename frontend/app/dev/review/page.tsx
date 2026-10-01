@@ -45,6 +45,7 @@ export default function DevReviewPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [edit, setEdit] = useState<DraftEdit | null>(null)
   const [card, setCard] = useState<string | null>(null)
+  const [qrUrl, setQrUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // 목록 체크박스(일괄 삭제용). 상세에 띄운 초안(selectedId)과는 별개다.
@@ -73,8 +74,11 @@ export default function DevReviewPage() {
 
   const refreshCard = useCallback(async (d: Draft) => {
     setCard(null)
+    setQrUrl(null)
     try {
-      setCard((await previewDraftCard(d.id)).image_base64)
+      const preview = await previewDraftCard(d.id)
+      setCard(preview.image_base64)
+      setQrUrl(preview.qr_url)
     } catch (e) {
       setError(e instanceof Error ? e.message : "카드 미리보기에 실패했습니다.")
     }
@@ -315,6 +319,16 @@ export default function DevReviewPage() {
             </div>
 
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg border p-4 text-sm">
+              <dt className="text-muted-foreground">QR 링크</dt>
+              <dd className="break-all">
+                {qrUrl ? (
+                  <a href={qrUrl} target="_blank" rel="noreferrer" className="text-primary underline">
+                    {qrUrl}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </dd>
               <dt className="text-muted-foreground">상태</dt>
               <dd>{STATUS_LABEL[selected.status]}</dd>
               <dt className="text-muted-foreground">Career Pool 내</dt>

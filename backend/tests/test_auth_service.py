@@ -41,6 +41,12 @@ class FakeStudentRepo:
         self.progress_status: dict[UUID, str] = {}
         self.cleanup: set[str] = set()
 
+    async def get_by_card_code(self, code: str) -> StudentRecord | None:
+        return next((r for r in self._by_id.values() if f"C{r.id.hex[:7].upper()}" == code), None)
+
+    async def ensure_card_code(self, student_id: UUID) -> str:
+        return f"C{student_id.hex[:7].upper()}"
+
     @staticmethod
     def _key(
         school: str, grade: int, class_no: int, student_no: int, name: str

@@ -55,14 +55,31 @@ def test_code_is_stable_scoped_and_tamper_resistant():
 
 
 @pytest.mark.parametrize("kind", ["student", "guest", "test"])
-async def test_only_test_accounts_receive_share_path(kind):
+async def test_every_account_receives_short_share_path(kind):
     student = replace(_student(), kind=kind)
     service, _, _ = _build(latest=None, student=student)
     profile = await service.get_profile_summary(student.id)
-    if kind == "test":
-        assert profile.share_path == f"/p/{profile_share_code(student.id, get_settings())}/home"
-    else:
-        assert profile.share_path is None
+    assert profile.share_path == "/p/AB23CD45/home"
+
+
+@pytest.mark.parametrize("kind", ["student", "guest", "test"])
+async def test_card_code_opens_public_profile_for_every_account(kind):
+    student = replace(_student(), kind=kind)
+    service, _, _ = _build(latest=None, student=student)
+    profile = await service.get_public_profile("AB23CD45")
+    assert profile.display_name == student.name
+    with pytest.raises(NotFoundError):
+        await service.get_public_profile("ZZ23CD45")  # 형식은 맞지만 없는 코드
+
+
+def test_card_code_format():
+    from app.core.card_code import generate_card_code, is_card_code
+
+    code = generate_card_code()
+    assert len(code) == 8 and is_card_code(code)
+    # 예전 서명 코드·혼동 문자(0/O/1/I/L)·소문자는 짧은 코드로 보지 않는다.
+    for other in [profile_share_code(uuid4(), get_settings()), "AB23CD4O", "ab23cd45", "AB23CD4"]:
+        assert not is_card_code(other)
 
 
 async def test_anonymous_public_profile_includes_card_visits_and_scores_only():
@@ -111,12 +128,17 @@ async def test_anonymous_public_profile_includes_card_visits_and_scores_only():
         assert (await client.post(f"/api/students/shared/{code}")).status_code == 405
 
 
-@pytest.mark.parametrize("kind,deleted", [("student", False), ("guest", False), ("test", True)])
-async def test_valid_signature_does_not_publish_regular_or_deleted_accounts(kind, deleted):
-    student = replace(_student(), kind=kind, deleted_at=datetime.now(UTC) if deleted else None)
+async def test_old_signed_code_still_opens_but_not_for_deleted_accounts():
+    student = replace(_student(), kind="student")
     service, _, _ = _build(latest=None, student=student)
+    code = profile_share_code(student.id, get_settings())
+    assert (await service.get_public_profile(code)).display_name == student.name
+
+    service._students.student = replace(student, deleted_at=datetime.now(UTC))
     with pytest.raises(NotFoundError):
-        await service.get_public_profile(profile_share_code(student.id, get_settings()))
+        await service.get_public_profile(code)
+    with pytest.raises(NotFoundError):
+        await service.get_public_profile("AB23CD45")
 
 
 async def test_invalid_link_and_deleted_record_return_404_without_login():
