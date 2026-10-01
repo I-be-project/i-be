@@ -681,6 +681,7 @@ export interface AdminBooth {
   code: string;
   name: string;
   description: string | null;
+  detail: string | null;
   zone: BoothZone;
   competencies: string[];
   qr_url: string;
@@ -690,15 +691,17 @@ export interface AdminBooth {
 export interface AdminBoothCreatePayload {
   name: string;
   description: string | null;
+  detail: string | null;
   zone: BoothZone;
   competencies: string[];
 }
 
 // 보내지 않은 필드는 서버가 기존 값을 유지한다.
-// description에 null을 명시하면 설명이 지워진다.
+// description·detail에 null을 명시하면 그 설명이 지워진다.
 export interface AdminBoothUpdatePayload {
   name?: string;
   description?: string | null;
+  detail?: string | null;
   zone?: BoothZone;
   competencies?: string[];
 }

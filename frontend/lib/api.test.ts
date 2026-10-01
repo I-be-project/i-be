@@ -395,6 +395,7 @@ describe("부스 관리 API", () => {
     await createAdminBooth("tok123", {
       name: "드론 체험",
       description: null,
+      detail: null,
       zone: "",
       competencies: [],
     });
@@ -405,6 +406,7 @@ describe("부스 관리 API", () => {
     expect(JSON.parse(init.body as string)).toEqual({
       name: "드론 체험",
       description: null,
+      detail: null,
       zone: "",
       competencies: [],
     });
