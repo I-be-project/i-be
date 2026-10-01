@@ -50,6 +50,7 @@ def _check_competencies(value: list[str]) -> list[str]:
 class BoothCreateRequest(BaseModel):
     name: str = Field(..., min_length=1, max_length=100, description="부스 이름")
     description: str | None = Field(None, max_length=500, description="부스 설명(선택)")
+    detail: str | None = Field(None, max_length=2000, description="부스 상세 설명(선택)")
     zone: BoothZone = Field("", description="F·L·Y·C 중 하나. 생략하면 빈 값")
     competencies: list[str] = Field(
         default_factory=list, max_length=10, description="연결할 역량 키 목록"
@@ -60,7 +61,7 @@ class BoothCreateRequest(BaseModel):
     def _check_name(cls, value: str) -> str:
         return _normalize_name(value)
 
-    @field_validator("description")
+    @field_validator("description", "detail")
     @classmethod
     def _check_description(cls, value: str | None) -> str | None:
         return _normalize_description(value)
@@ -74,7 +75,7 @@ class BoothCreateRequest(BaseModel):
 class BoothUpdateRequest(BaseModel):
     """부분 수정 — 보내지 않은 필드는 기존 값을 유지한다.
 
-    description에 null을 명시하면 설명이 지워진다(서비스가 model_fields_set으로 구분).
+    description·detail에 null을 명시하면 그 설명이 지워진다(서비스가 model_fields_set으로 구분).
     name은 비워둘 수 없는 값이라 명시적 null(예: {"name": null})은 검증 단계에서 거부한다
     (Pydantic v2는 필드를 아예 안 보내면 field_validator를 건너뛰지만, 명시적 null에는 실행한다).
     code는 인쇄물에 박혀 있어 변경할 수 없으므로 필드 자체를 두지 않는다.
@@ -83,6 +84,7 @@ class BoothUpdateRequest(BaseModel):
 
     name: str | None = Field(None, min_length=1, max_length=100)
     description: str | None = Field(None, max_length=500)
+    detail: str | None = Field(None, max_length=2000)
     zone: BoothZone | None = Field(None, description="보내지 않으면 기존 값 유지")
     competencies: list[str] | None = Field(
         None, max_length=10, description="보내지 않으면 기존 값 유지. 빈 목록을 보내면 전부 지운다"
@@ -95,7 +97,7 @@ class BoothUpdateRequest(BaseModel):
             raise ValueError("부스 이름은 비울 수 없어요.")
         return _normalize_name(value)
 
-    @field_validator("description")
+    @field_validator("description", "detail")
     @classmethod
     def _check_description(cls, value: str | None) -> str | None:
         return _normalize_description(value)
@@ -120,6 +122,7 @@ class BoothResponse(BaseModel):
     code: str = Field(..., description="6자 부스 코드 — 발급 후 불변")
     name: str
     description: str | None = None
+    detail: str | None = None
     zone: BoothZone = ""
     competencies: list[str] = Field(default_factory=list)
     qr_url: str = Field(..., description="QR에 담을 링크 (FRONTEND_ORIGIN 기준)")

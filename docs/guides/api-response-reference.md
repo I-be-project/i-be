@@ -48,7 +48,7 @@
 | GET | `/api/admin/booths` | 관리자/운영진 | 200 | `BoothResponse[]` | 전체 부스 목록(등록 순). 부스는 수십 개 규모라 페이지네이션을 두지 않는다. |
 | POST | `/api/admin/booths` | 관리자 | 201 | `BoothResponse` | 부스 생성 — 6자 code를 자동 발급하고 QR 링크까지 만들어 반환한다. |
 | GET | `/api/admin/booths/stats` | 관리자/운영진 | 200 | `BoothStatsResponse` | 부스별 참여인원. 이 라우터의 /{booth_id}는 PATCH·DELETE뿐이라 경로 충돌이 없다. |
-| PATCH | `/api/admin/booths/{booth_id}` | 관리자 | 200 | `BoothResponse` | 이름·설명 수정. code는 요청 스키마에 없어 변경할 수 없다. |
+| PATCH | `/api/admin/booths/{booth_id}` | 관리자 | 200 | `BoothResponse` | 이름·설명·상세 설명·존·역량 수정. code는 요청 스키마에 없어 변경할 수 없다. |
 | DELETE | `/api/admin/booths/{booth_id}` | 관리자 | 200 | `BoothDeleteResponse` | 부스 삭제. 인쇄된 QR은 이후 무효가 된다. |
 | GET | `/api/booths/{code}` | 학생 | 200 | `StudentBoothResponse` | QR로 들어온 부스 정보 + 이 학생의 방문 여부. 카드 발급 전이면 403. |
 | POST | `/api/booths/{code}/visit` | 학생 | 200 | `BoothVisitResponse` | 방문 기록. 같은 부스를 다시 찍어도 에러가 아니라 already_visited=true로 200. |
@@ -447,6 +447,7 @@
 | `code` | string | 없음 | 6자 부스 코드 — 발급 후 불변 |
 | `name` | string | 없음 |  |
 | `description` | string 또는 null | 있음 |  |
+| `detail` | string 또는 null | 있음 | 부스 상세 설명(긴 본문) |
 | `zone` | "F" / "L" / "Y" / "C" / "" | 있음 |  |
 | `competencies` | string[] | 있음 |  |
 | `qr_url` | string | 없음 | QR에 담을 링크 (FRONTEND_ORIGIN 기준) |
@@ -458,6 +459,7 @@
   "code": "<string>",
   "name": "<string>",
   "description": "<string>",
+  "detail": "<string>",
   "zone": "F",
   "competencies": [
     "<string>"

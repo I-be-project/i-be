@@ -91,6 +91,7 @@ export function BoothListView() {
   async function handleSubmit(values: {
     name: string;
     description: string | null;
+    detail: string | null;
     zone: BoothZone;
     competencies: string[];
   }) {
@@ -223,6 +224,7 @@ export function BoothListView() {
                 <TableRow>
                   <TableHead>이름</TableHead>
                   <TableHead>설명</TableHead>
+                  <TableHead>상세 설명</TableHead>
                   <TableHead>코드</TableHead>
                   <TableHead>존</TableHead>
                   <TableHead className="text-right">
@@ -236,6 +238,14 @@ export function BoothListView() {
                     <TableCell className="font-medium">{booth.name}</TableCell>
                     <TableCell className="text-muted-foreground">
                       {booth.description ?? "—"}
+                    </TableCell>
+                    <TableCell className="max-w-xs text-muted-foreground">
+                      <p
+                        className="line-clamp-2 whitespace-pre-line"
+                        title={booth.detail ?? undefined}
+                      >
+                        {booth.detail ?? "—"}
+                      </p>
                     </TableCell>
                     <TableCell className="font-mono">{booth.code}</TableCell>
                     <TableCell>{ZONE_LABELS[booth.zone]}</TableCell>

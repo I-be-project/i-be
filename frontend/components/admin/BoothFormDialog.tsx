@@ -29,6 +29,7 @@ interface BoothFormDialogProps {
   onSubmit: (values: {
     name: string;
     description: string | null;
+    detail: string | null;
     zone: BoothZone;
     competencies: string[];
   }) => void;
@@ -76,6 +77,7 @@ interface BoothFormBodyProps {
   onSubmit: (values: {
     name: string;
     description: string | null;
+    detail: string | null;
     zone: BoothZone;
     competencies: string[];
   }) => void;
@@ -91,6 +93,7 @@ function BoothFormBody({
 }: BoothFormBodyProps) {
   const [name, setName] = useState(booth?.name ?? "");
   const [description, setDescription] = useState(booth?.description ?? "");
+  const [detail, setDetail] = useState(booth?.detail ?? "");
   const [zone, setZone] = useState<BoothZone>(booth?.zone ?? "");
   const [competencies, setCompetencies] = useState<string[]>(booth?.competencies ?? []);
 
@@ -101,6 +104,7 @@ function BoothFormBody({
     onSubmit({
       name: trimmedName,
       description: description.trim() || null,
+      detail: detail.trim() || null,
       zone,
       competencies,
     });
@@ -151,6 +155,21 @@ function BoothFormBody({
             placeholder="부스에서 무엇을 하는지 한 줄로"
             disabled={submitting}
             onChange={(e) => setDescription(e.target.value)}
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label htmlFor="booth-detail" className="text-sm font-medium">
+            상세 설명 <span className="text-muted-foreground">(선택)</span>
+          </label>
+          <Textarea
+            id="booth-detail"
+            value={detail}
+            maxLength={2000}
+            rows={6}
+            placeholder="부스에서 하는 활동을 자세히"
+            disabled={submitting}
+            onChange={(e) => setDetail(e.target.value)}
           />
         </div>
 
