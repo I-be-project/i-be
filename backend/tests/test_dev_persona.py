@@ -11,7 +11,7 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.core.career_pools import CAREER_POOLS
+from app.core.career_pools import CAREER_POOLS, POOL_GUIDE
 from app.core.errors import ExternalServiceError
 from app.deps import get_codex_client, get_session_repo
 from app.main import create_app
@@ -65,6 +65,14 @@ def test_missing_stages_do_not_raise() -> None:
     assert inputs.career_pool == CAREER_POOLS["IA"]
 
 
+def test_career_direction_pool_parses_every_pair() -> None:
+    """30개 Pair 블록이 모두 잡히고, 마지막 블록 뒤 사용 원칙이 CE에 섞이지 않아야 한다."""
+    assert len(CAREER_POOLS) == 30
+    assert all(lines[0].startswith("anchor_jobs:") for lines in CAREER_POOLS.values())
+    assert CAREER_POOLS["CE"][-1].startswith("avoid_inference:")
+    assert "[Prompt v17 적용 시 사용 방식]" in POOL_GUIDE
+
+
 def test_ignores_malformed_payload_values() -> None:
     """프론트가 형태를 바꿔도 500이 아니라 빈 슬롯으로 수렴해야 한다."""
     inputs = build_persona_inputs(
@@ -88,14 +96,16 @@ def test_ignores_malformed_payload_values() -> None:
 # ──────────────────────────────────────────────────────────────
 
 _CODEX_RESULT: dict[str, Any] = {
-    "persona_name": "처음 쓰는 사람의 불편을 발견하는 UX 디자이너",
-    "base_career": "UX 디자이너",
+    "career_name": "UX 디자이너",
+    "persona_name": "처음 쓰는 사람의 불편을 먼저 보는 UX 디자이너",
+    "persona_anchor": "처음 쓰는 사람이 멈추는 지점",
+    "target": "처음 쓰는 사람",
+    "desired_impact": "편안하게 쓰는 순간",
+    "value_attitude": "작은 차이를 놓치지 않는 태도",
+    "problem_solving": "비교하며 차근차근 맞춰 보기",
+    "career_reason": "관찰과 비교가 사용자 경험 설계와 이어진다.",
+    "career_required_competencies": ["공감", "분석력", "창의성"],
     "short_description": "처음 사용하는 사람이 멈추는 지점을 관찰하고 화면 흐름을 다시 설계해요.",
-    "source_career_pool": True,
-    "pool_extended": False,
-    "q8_reflection": "작은 차이를 비교하는 방식",
-    "q9_reflection": "처음 쓰는 사람",
-    "competencies": ["공감", "분석력", "창의성"],
 }
 
 
@@ -157,14 +167,14 @@ def _body(**over: Any) -> dict[str, Any]:
     }
 
 
-async def test_persona_returns_v1_output_contract() -> None:
+async def test_persona_returns_v40_output_contract() -> None:
     codex = _StubCodex()
     res = await _post(_build_app(_StubSessions(), codex), "/api/dev/persona", _body())
 
     assert res.status_code == 200
     data = res.json()
-    assert data["base_career"] == "UX 디자이너"
-    assert data["source_career_pool"] is True
+    assert data["career_name"] == "UX 디자이너"
+    assert data["career_required_competencies"] == ["공감", "분석력", "창의성"]
     assert data["elapsed_seconds"] >= 0
 
 
@@ -182,6 +192,8 @@ async def test_persona_prompt_carries_edited_system_prompt_and_answers() -> None
     assert "pair_code: IA" in codex.prompt
     assert "처음 쓰는 사람의 편안함" in codex.prompt
     assert "- UX 디자이너" in codex.prompt
+    # Q1~Q6은 ID가 아니라 질문·선택지 문구로 들어가야 한다.
+    assert "지도와 주변 풍경을 비교해 지금 위치를 짐작한다." in codex.prompt
 
 
 async def test_persona_404_when_student_has_no_session() -> None:

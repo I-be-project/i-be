@@ -1,0 +1,389 @@
+i-be Career Direction Pool — CURRENT FINAL
+Base: Career Direction Pool v4.0 · 2026-10-01
+Current use: Career Persona Prompt v17 기준 참고 사전
+
+[현재 사용 원칙]
+- 이 파일은 최종 직업 후보 목록이나 정답표가 아니라 Career Direction Dictionary다.
+- Pair는 학생의 가치·태도·성격을 규정하지 않는다.
+- 학생 개인의 가치·태도·Target·Desired Impact·Means는 반드시 Q1~Q9 원문에서 추출한다.
+- work_modes / career_worlds / core_tasks는 현실적인 직업세계와 업무 연결을 확인하는 참고축이다.
+- anchor_jobs / adjacent_roles / discovery_roles / student_aliases는 실제 직업명과 인접 역할을 탐색하기 위한 어휘 사전이다.
+- 배열 순서는 추천도·적합도 순위가 아니다.
+- Prompt v17에서는 Target + Desired Impact + Means가 충분히 특정 직업을 가리키면 구체적인 실제 직업까지 내려갈 수 있다.
+- 반대로 Career Pool에 있는 직업이라고 해서 우선 선택하지 않으며, 근거가 부족하면 더 넓은 역할명에 머문다.
+- Pool 밖 직업도 학생 원문과 Pair 방향으로 설명 가능하고 실제 존재하는 직업·직무라면 사용할 수 있다.
+
+========================================================================
+[RI]
+anchor_jobs: 로봇공학자 · 기계공학자 · 컴퓨터 하드웨어 개발자 · 전기공학자 · 토목공학자 · 조경 설계사
+original_future_role: 자율주행차 엔지니어
+work_modes: 설계, 조립, 제작, 시험, 원리 파악, 고장 원인 탐색
+career_worlds: 기계·로봇·하드웨어·설비·인프라
+adjacent_roles: 장비 개발자, 제품설계자, 설비 엔지니어, 현장 기술개발자
+discovery_roles: 자율주행차 엔지니어, 로봇 시스템 엔지니어
+student_aliases: 기계 엔지니어, 장비 개발자, 제품설계자
+core_tasks: 실물 장치의 구조를 이해하고 설계·제작·시험해 작동을 개선
+avoid_inference: 기계를 좋아한다/손재주가 좋다고 자동 단정하지 않음
+
+========================================================================
+[RA]
+anchor_jobs: 플로리스트 · 음향 엔지니어 · 사진작가 · 테일러 · 보석 공예가 · 가구 복원사
+original_future_role: 실내정원 디자이너
+work_modes: 손으로 만들기, 형태 다듬기, 재료 조합, 감각 표현, 기능과 미감 조율
+career_worlds: 공예·제품·공간·사진·음향·패션
+adjacent_roles: 산업디자이너, 제품 디자이너, 무대·공간 제작자
+discovery_roles: 실내정원 디자이너, 친환경 제작 디자이너
+student_aliases: 제품 디자이너, 공예 디자이너, 공간 제작자
+core_tasks: 재료를 직접 다루며 형태와 쓰임을 동시에 만드는 일
+avoid_inference: 예술적 감성이 뛰어나다고 자동 추론하지 않음
+
+========================================================================
+[RS]
+anchor_jobs: 방사선치료사 · 레저 안전요원 · 반려동물 훈련사 · 사육사 · 바리스타
+original_future_role: 의료 로봇 운영자
+work_modes: 직접 돕기, 현장 대응, 안전 확인, 돌봄, 반복 훈련, 도구 사용
+career_worlds: 안전·돌봄·동물·현장서비스·의료지원
+adjacent_roles: 현장 안전요원, 동물케어 전문가, 재활 보조 전문가
+discovery_roles: 의료 로봇 운영자, 재활 장비 코디네이터
+student_aliases: 안전 전문가, 동물 돌봄 전문가, 현장 케어 전문가
+core_tasks: 사람·동물의 상태를 직접 살피고 필요한 행동과 도구로 지원
+avoid_inference: 친절하거나 봉사정신이 강하다고 자동 단정하지 않음
+
+========================================================================
+[RE]
+anchor_jobs: 축구선수 · 야구선수 · 프로골퍼
+original_future_role: 스포츠 데이터 코치
+work_modes: 즉시 실행, 성과 확인, 반복 훈련, 판단, 경쟁·도전, 현장 운영
+career_worlds: 스포츠·퍼포먼스·현장 실행
+adjacent_roles: 스포츠 코치, 현장 운영 매니저, 퍼포먼스 코디네이터
+discovery_roles: 스포츠 데이터 코치, 퍼포먼스 분석가
+student_aliases: 현장 매니저, 스포츠 코치, 퍼포먼스 분석가
+core_tasks: 상황을 빠르게 판단하고 실제 움직임과 성과로 연결
+avoid_inference: 스포츠 자체를 좋아한다고 자동 추론하지 않음
+
+========================================================================
+[RC]
+anchor_jobs: 항공정비사 · 자동차정비사 · 전기설비 기술자 · 건축가 · 항공기 조종사 · 제빵사
+original_future_role: 전기차 정비사
+work_modes: 정확한 순서, 점검, 유지보수, 오류 확인, 규칙 준수, 실제 조작
+career_worlds: 정비·설비·운송·건축·정밀 제작
+adjacent_roles: 설비 엔지니어, 정비 엔지니어, 품질 점검 전문가
+discovery_roles: 전기차 정비사, 스마트 설비 엔지니어
+student_aliases: 설비 엔지니어, 정비 엔지니어
+core_tasks: 실제 시스템이 안전하고 정확하게 작동하도록 점검·조정·수리
+avoid_inference: 특정 기계나 자동차 관심을 자동 추론하지 않음
+
+========================================================================
+[IR]
+anchor_jobs: 항공우주공학자 · 의공학자 · 환경공학자 · 천문학자 · 수의사 · 과학수사 분석가
+original_future_role: 탄소포집 엔지니어
+work_modes: 관찰, 가설, 탐색, 현장 조사, 실험, 원인 추적
+career_worlds: 과학·공학·환경·의료·수사
+adjacent_roles: 현장 연구자, 과학수사 분석가, 환경 조사 연구원
+discovery_roles: 탄소포집 엔지니어, 첨단 분석 연구원
+student_aliases: 과학수사 분석가, 현장 연구자, 공학 연구원
+core_tasks: 보이지 않는 원인과 원리를 관찰·실험·추론으로 밝혀냄
+avoid_inference: 과학 과목 성적이나 특정 학문 선호를 자동 추론하지 않음
+
+========================================================================
+[IA]
+anchor_jobs: UX/UI 디자이너 · 인류학자·고고학자 · 정치학자
+original_future_role: AI UX 디자이너
+work_modes: 사람 관찰, 맥락 해석, 조사, 의미 발견, 경험 시각화
+career_worlds: 사용자경험·문화연구·사회연구·디자인
+adjacent_roles: UX 리서처, 서비스 리서처, 디자인 리서처
+discovery_roles: AI UX 디자이너, 인간-AI 상호작용 연구자
+student_aliases: UX 리서처, 경험 디자이너
+core_tasks: 사람의 행동과 맥락을 조사해 이해하기 쉬운 경험과 구조로 번역
+avoid_inference: 그림을 잘 그리거나 예술성이 높다고 자동 추론하지 않음
+
+========================================================================
+[IS]
+anchor_jobs: 질병 역학연구원 · 사회학자 · 약사 · 정신건강의학과 의사 · 응급의학과 의사 · 유전질환 상담사
+original_future_role: 디지털 헬스 연구원
+work_modes: 사람·사회 관찰, 비교, 원인 분석, 상담, 건강 문제 연구
+career_worlds: 보건·의료·사회연구·상담
+adjacent_roles: 보건 연구원, 건강 데이터 연구자, 갈등조정 전문가
+discovery_roles: 디지털 헬스 연구원, 공공보건 데이터 분석가
+student_aliases: 보건 연구원, 사회문제 연구자
+core_tasks: 사람에게 영향을 주는 문제의 원인과 패턴을 분석해 도움·예방 방법을 찾음
+avoid_inference: 의사가 되고 싶거나 사람을 좋아한다고 자동 추론하지 않음
+
+========================================================================
+[IE]
+anchor_jobs: 지속가능경영 전문가 · 기후정책 분석가 · 환경경제학자 · 조직심리 전문가 · 도시계획가 · 연구개발 책임자
+original_future_role: 탄소중립 컨설턴트
+work_modes: 복잡한 문제 분석, 전략 수립, 개선안 제안, 정책·조직 설계
+career_worlds: 정책·경영·도시·환경·조직전략
+adjacent_roles: 정책 분석가, 전략 기획자, 지속가능성 컨설턴트
+discovery_roles: 탄소중립 컨설턴트, 미래전략 분석가
+student_aliases: 전략 기획자, 정책 분석가
+core_tasks: 복잡한 정보를 분석해 조직·사회가 선택할 방향과 개선안을 설계
+avoid_inference: 리더십이 강하거나 경영을 좋아한다고 자동 추론하지 않음
+
+========================================================================
+[IC]
+anchor_jobs: 소프트웨어 개발자 · 운영전략 분석가 · 통계학자 · 데이터 과학자 · 생물정보학자
+original_future_role: AI 개발자
+work_modes: 정보 구조화, 비교, 모델링, 계산, 최적화, 시스템 설계
+career_worlds: 데이터·소프트웨어·분석·연구
+adjacent_roles: 데이터 분석가, 운영 분석가, 최적화 분석가
+discovery_roles: AI 개발자, 의사결정 데이터 과학자
+student_aliases: 데이터 분석가, 최적화 분석가, 소프트웨어 개발자
+core_tasks: 복잡한 정보와 규칙을 구조화해 패턴·효율·해결 방법을 찾음
+avoid_inference: 코딩을 좋아하거나 수학을 잘한다고 자동 추론하지 않음
+
+========================================================================
+[AR]
+anchor_jobs: 공예가 · 미술가 · 애니메이터 · 산업디자이너 · 패션디자이너 · 인테리어 디자이너
+original_future_role: 친환경 제품 디자이너
+work_modes: 형태 만들기, 시각화, 재료 탐색, 제작, 기능과 미감 통합
+career_worlds: 제품·공예·패션·공간·시각창작
+adjacent_roles: 제품 디자이너, 산업디자이너, 공간 디자이너
+discovery_roles: 친환경 제품 디자이너, 순환디자인 전문가
+student_aliases: 제품 디자이너, 산업디자이너
+core_tasks: 아이디어를 눈에 보이고 실제 사용할 수 있는 형태로 구현
+avoid_inference: 감성적/예술적 성격을 자동 단정하지 않음
+
+========================================================================
+[AI]
+anchor_jobs: 게임디자이너 · 기자 · 소설가·시인
+original_future_role: AI 콘텐츠 크리에이터
+work_modes: 탐구, 이야기 구성, 질문, 세계관 설계, 정보 재해석
+career_worlds: 게임·미디어·글쓰기·콘텐츠
+adjacent_roles: 콘텐츠 기획자, 게임 내러티브 디자이너, 탐사 콘텐츠 작가
+discovery_roles: AI 콘텐츠 크리에이터, 인터랙티브 스토리 디자이너
+student_aliases: 콘텐츠 기획자, 스토리 디자이너
+core_tasks: 새로운 정보와 질문을 이야기·콘텐츠·경험으로 재구성
+avoid_inference: 글쓰기를 잘하거나 문학을 좋아한다고 자동 추론하지 않음
+
+========================================================================
+[AS]
+anchor_jobs: 영화배우 · 성우 · 안무가
+original_future_role: 버추얼 퍼포머
+work_modes: 표현, 퍼포먼스, 감정 전달, 몸·목소리 사용, 관객 반응
+career_worlds: 공연·연기·음성·무대
+adjacent_roles: 퍼포먼스 크리에이터, 무대 표현 전문가
+discovery_roles: 버추얼 퍼포머, 모션 퍼포먼스 아티스트
+student_aliases: 퍼포머, 성우, 안무가
+core_tasks: 몸·목소리·움직임으로 아이디어와 감정을 사람에게 전달
+avoid_inference: 외향적이거나 무대 체질이라고 자동 단정하지 않음
+
+========================================================================
+[AE]
+anchor_jobs: 아트디렉터 · 영상감독 · 작곡가 · 음악가 · 아나운서 · 작가
+original_future_role: AI 콘텐츠 디렉터
+work_modes: 창작 방향 제시, 선택, 편집, 설득, 전체 분위기 조율
+career_worlds: 콘텐츠·영상·음악·미디어·크리에이티브 디렉션
+adjacent_roles: 콘텐츠 디렉터, 브랜드 크리에이티브 디렉터
+discovery_roles: AI 콘텐츠 디렉터, 멀티미디어 크리에이티브 디렉터
+student_aliases: 콘텐츠 디렉터, 크리에이티브 디렉터
+core_tasks: 여러 창작 요소를 하나의 방향과 메시지로 이끌어 결과물을 완성
+avoid_inference: 리더십·예술성·대중성을 자동 단정하지 않음
+
+========================================================================
+[AC]
+anchor_jobs: 그래픽디자이너 · 콘텐츠 편집자 · 영상편집자
+original_future_role: AI 콘텐츠 편집자
+work_modes: 선택, 배열, 편집, 시각화, 완성도 점검
+career_worlds: 그래픽·영상·편집·콘텐츠
+adjacent_roles: 콘텐츠 에디터, 비주얼 에디터, 편집 디자이너
+discovery_roles: AI 콘텐츠 편집자, 멀티모달 콘텐츠 에디터
+student_aliases: 콘텐츠 에디터, 편집 디자이너
+core_tasks: 흩어진 재료와 정보를 골라 순서·형태·맥락이 있는 콘텐츠로 완성
+avoid_inference: 미적 감각이 뛰어나다고 자동 단정하지 않음
+
+========================================================================
+[SR]
+anchor_jobs: 자연해설사 · 치과위생사 · 응급구조사 · 스포츠 트레이너 · 운동지도사
+original_future_role: 재활 로봇 코디네이터
+work_modes: 직접 돕기, 설명, 상태 확인, 함께 활동, 신체·현장 지원
+career_worlds: 건강·안전·교육·현장지원·체험
+adjacent_roles: 체험 교육자, 메이커 교육자, 재활 코치
+discovery_roles: 재활 로봇 코디네이터, 메이커 교육자
+student_aliases: 체험 교육자, 재활 코치
+core_tasks: 사람의 상태를 직접 살피고 함께 활동하며 필요한 도움과 경험을 제공
+avoid_inference: 자연·스포츠·의료 관심을 학생 관심으로 자동 역추론하지 않음
+
+========================================================================
+[SI]
+anchor_jobs: 기업교육 강사 · 임상·상담심리사 · 학교 심리상담사 · 영양사 · 물리치료사 · 언어치료사
+original_future_role: AI 교육 전문가
+work_modes: 상태 분석, 상담, 설명, 학습·회복 지원, 개인별 방법 조정
+career_worlds: 상담·교육·치료·학습지원
+adjacent_roles: 학습 설계자, 상담 전문가, 코칭 전문가
+discovery_roles: AI 교육 전문가, 개인화 학습 설계자
+student_aliases: 학습 설계자, 상담 전문가
+core_tasks: 사람의 상태와 필요를 이해해 배우거나 회복할 수 있는 맞춤 방법을 설계
+avoid_inference: 공감능력이 높다고 자동 단정하지 않음
+
+========================================================================
+[SA]
+anchor_jobs: 유아교사 · 중학교 교사 · 특수교사 · 예술강사 · 미술치료사 · 음악치료사
+original_future_role: AI 창작교육 강사
+work_modes: 가르치기, 표현 돕기, 창작 활동 설계, 참여 유도
+career_worlds: 교육·예술교육·창작·치료
+adjacent_roles: 창작 교육자, 워크숍 기획자, 예술교육자
+discovery_roles: AI 창작교육 강사, 디지털 창작교육자
+student_aliases: 창작 교육자, 예술교육자
+core_tasks: 사람이 직접 표현하고 만들어보며 배우는 경험을 설계하고 지원
+avoid_inference: 아이를 좋아하거나 예술적이라고 자동 추론하지 않음
+
+========================================================================
+[SE]
+anchor_jobs: 교장·교감 · 운동 프로그램 기획자 · 교육과정 기획자 · 스포츠코치 · 관광가이드 · 레크리에이션 강사
+original_future_role: 에듀테크 기획자
+work_modes: 사람 모으기, 의견 듣기, 역할 분배, 프로그램 구성, 실행 이끌기
+career_worlds: 교육·프로그램·운영·코칭·체험기획
+adjacent_roles: 퍼실리테이터, 프로그램 기획자, 프로젝트 매니저
+discovery_roles: 에듀테크 기획자, 참여형 프로그램 디자이너
+student_aliases: 프로그램 기획자, 퍼실리테이터
+core_tasks: 사람들의 의견과 역할을 조율해 모두가 참여할 수 있는 활동·프로그램을 실제로 움직임
+avoid_inference: 리더 성향이나 권위지향을 자동 단정하지 않음
+
+========================================================================
+[SC]
+anchor_jobs: 진로상담사 · 보호관찰관 · 특수체육 지도사 · 간호사
+original_future_role: 디지털 헬스 코디네이터
+work_modes: 상태 확인, 듣기, 기록, 필요한 도움 연결, 일정·자원 조정
+career_worlds: 상담·돌봄·케어·생활지원
+adjacent_roles: 청소년 상담사, 케어 코디네이터, 서비스 디자이너
+discovery_roles: 디지털 헬스 코디네이터, 청소년 마음건강 코디네이터
+student_aliases: 청소년 상담사, 케어 코디네이터
+core_tasks: 사람의 상태와 필요를 세심하게 확인하고 빠짐없이 필요한 지원과 구조로 연결
+avoid_inference: 배려심이 많다/간호·상담을 좋아한다고 자동 단정하지 않음
+
+========================================================================
+[ER]
+anchor_jobs: 스마트팜 경영자 · 목장 경영자 · 셰프
+original_future_role: 농업 로봇 운영자
+work_modes: 현장 운영, 생산, 자원 배치, 실행 결정, 결과 책임
+career_worlds: 농업·식품·현장사업·생산운영
+adjacent_roles: 스마트팜 운영자, 푸드 비즈니스 운영자, 생산 매니저
+discovery_roles: 농업 로봇 운영자, 스마트 생산 운영자
+student_aliases: 스마트팜 운영자, 생산 매니저
+core_tasks: 사람·재료·설비를 실제 생산과 결과로 이어지게 운영
+avoid_inference: 사업가 기질이나 농업 관심을 자동 추론하지 않음
+
+========================================================================
+[EI]
+anchor_jobs: 지속가능경영 책임자 · 건축설계 디렉터 · 기술연구소장
+original_future_role: 해상풍력 운영 관리자
+work_modes: 전체 흐름 보기, 기회 발견, 개선, 방향 설정, 실행 조율
+career_worlds: 전략·제품·서비스·기술기획·조직운영
+adjacent_roles: 제품 기획자, 서비스 기획자, 프로덕트 매니저, 기술 기획자
+discovery_roles: 해상풍력 운영 관리자, 미래제품 전략가
+student_aliases: 제품 기획자, 서비스 기획자, 프로덕트 매니저
+core_tasks: 복잡한 상황에서 개선 가능성을 찾아 사람과 자원을 움직여 실제 변화로 이어지게 함
+avoid_inference: 관리자·책임자가 되어야 한다고 자동 추론하지 않음
+
+========================================================================
+[EA]
+anchor_jobs: 캐스팅 디렉터 · 언론홍보 전문가 · SNS 홍보 전문가
+original_future_role: AI 콘텐츠 디렉터
+work_modes: 사람·콘텐츠 선택, 메시지 구성, 설득, 홍보, 관심 끌기
+career_worlds: 홍보·브랜드·콘텐츠·캐스팅
+adjacent_roles: 브랜드 기획자, 콘텐츠 마케터, 크리에이티브 디렉터
+discovery_roles: AI 콘텐츠 디렉터, 크리에이터 파트너십 매니저
+student_aliases: 브랜드 기획자, 콘텐츠 마케터
+core_tasks: 사람과 콘텐츠의 강점을 골라 메시지로 만들고 관심·참여를 끌어냄
+avoid_inference: 인기가 많거나 말재주가 좋다고 자동 단정하지 않음
+
+========================================================================
+[ES]
+anchor_jobs: 국회·지방의원 · 연예·스포츠 에이전트 · 모금 캠페인 기획자
+original_future_role: 지역사회 연결 기획자
+work_modes: 사람 연결, 제안, 협상, 캠페인, 공동목표 형성
+career_worlds: 공공·캠페인·에이전시·커뮤니티
+adjacent_roles: 커뮤니티 기획자, 퍼실리테이터, 캠페인 기획자
+discovery_roles: 지역사회 연결 기획자, 임팩트 커뮤니티 매니저
+student_aliases: 커뮤니티 기획자, 캠페인 기획자
+core_tasks: 서로 다른 사람과 이해관계를 연결해 함께 움직일 목표와 구조를 만듦
+avoid_inference: 정치적 관심이나 외향성을 자동 추론하지 않음
+
+========================================================================
+[EC]
+anchor_jobs: 마케팅 전문가 · 행사기획자 · IT 프로젝트 관리자 · 변호사 · 외식업 매니저 · 인사 전문가
+original_future_role: AI 프로젝트 매니저
+work_modes: 목표 설정, 일정·예산·사람 조율, 설득, 운영, 의사결정
+career_worlds: 비즈니스·행사·프로젝트·인사·법률·운영
+adjacent_roles: 프로젝트 매니저, 행사 기획자, 운영 매니저
+discovery_roles: AI 프로젝트 매니저, 디지털 프로젝트 리드
+student_aliases: 프로젝트 매니저, 운영 매니저
+core_tasks: 여러 사람·일정·자원을 목표에 맞춰 실제 결과가 나오도록 운영
+avoid_inference: 리더십이 강하거나 사업에 관심 있다고 자동 단정하지 않음
+
+========================================================================
+[CR]
+anchor_jobs: 전산 시스템 관리자 · 측량사 · 방송 기술자 · CNC 프로그래머 · 항공관제사
+original_future_role: 디지털 트윈 엔지니어
+work_modes: 정확한 절차, 시스템 점검, 조립·가공, 상태 확인, 실시간 통제
+career_worlds: 시스템·정밀기술·제작·운영·관제
+adjacent_roles: 제품설계자, 시스템 엔지니어, 장비 운영 엔지니어
+discovery_roles: 디지털 트윈 엔지니어, 스마트 제조 엔지니어
+student_aliases: 시스템 엔지니어, 제품설계자
+core_tasks: 복잡한 시스템과 부품이 정해진 구조와 순서대로 정확히 작동하도록 관리·설계
+avoid_inference: 컴퓨터나 기계를 좋아한다고 자동 추론하지 않음
+
+========================================================================
+[CI]
+anchor_jobs: 정보보안 분석가 · 데이터베이스 관리자 · 웹 개발자 · 보험계리사 · 아키비스트
+original_future_role: AI 보안 전문가
+work_modes: 정보 정리, 규칙 설계, 위험 확인, 기록 추적, 구조화
+career_worlds: 정보·보안·기록·웹·데이터관리
+adjacent_roles: 포렌식 분석가, 데이터 거버넌스 전문가, 정보구조 설계자
+discovery_roles: AI 보안 전문가, 디지털 포렌식 분석가
+student_aliases: 정보 분석가, 포렌식 분석가
+core_tasks: 흩어진 정보를 빠짐없이 구조화하고 오류·위험·맥락을 찾아 시스템을 신뢰할 수 있게 함
+avoid_inference: 코딩/보안을 좋아한다고 자동 추론하지 않음
+
+========================================================================
+[CA]
+anchor_jobs: 테크니컬 라이터 · 통번역사 · 출판 편집디자이너
+original_future_role: AI 콘텐츠 편집자
+work_modes: 정리, 번역, 편집, 정보 구조화, 정확한 표현
+career_worlds: 글·번역·출판·콘텐츠 편집
+adjacent_roles: 콘텐츠 에디터, 정보 디자이너, 기술 콘텐츠 작가
+discovery_roles: AI 콘텐츠 편집자, 지식 콘텐츠 설계자
+student_aliases: 콘텐츠 에디터, 정보 디자이너
+core_tasks: 복잡하거나 흩어진 정보를 정확하고 이해하기 쉬운 형태로 다시 구성
+avoid_inference: 언어감각이나 글쓰기 실력을 자동 단정하지 않음
+
+========================================================================
+[CS]
+anchor_jobs: 사서 · 스튜어디스·스튜어드 · 크루즈 승무원
+original_future_role: 디지털 유산 플래너
+work_modes: 기록 정리, 안내, 서비스, 상태 확인, 필요한 정보 제공
+career_worlds: 기록·서비스·안내·문화정보
+adjacent_roles: 콘텐츠 에디터, 문화정보 기획자, 서비스 코디네이터
+discovery_roles: 디지털 유산 플래너, 문화 아카이브 기획자
+student_aliases: 콘텐츠 에디터, 문화정보 기획자
+core_tasks: 사람과 기록·정보가 빠짐없이 연결되도록 정리하고 필요한 경험과 안내를 제공
+avoid_inference: 서비스직이나 도서관에 관심 있다고 자동 추론하지 않음
+
+========================================================================
+[CE]
+anchor_jobs: 수출입 통관 전문가 · 물류 전문가 · 회계사 · 예산 분석가 · 금융분석가 · 큐레이터
+original_future_role: 글로벌 공급망 분석가
+work_modes: 일정·비용·물류 정리, 규칙 적용, 자원 배치, 운영 계획
+career_worlds: 물류·재무·운영·유통·행정
+adjacent_roles: 공급망 분석가, 운영 기획자, 물류 기획자
+discovery_roles: 글로벌 공급망 분석가, 스마트 물류 분석가
+student_aliases: 물류 기획자, 공급망 분석가
+core_tasks: 돈·물품·일정·규칙을 정확히 맞춰 필요한 것이 필요한 곳에 도착하도록 운영
+avoid_inference: 돈이나 숫자를 좋아한다고 자동 추론하지 않음
+
+========================================================================
+[Prompt v17 적용 시 사용 방식]
+1. 학생의 Q1~Q9 원문에서 Value/Attitude · Target · Desired Impact · Means를 먼저 읽는다.
+2. Pair의 work_modes / career_worlds / core_tasks는 이 역할 패턴이 연결될 수 있는 넓은 직업세계와 실제 업무를 확인하는 참고축으로만 사용한다.
+3. anchor_jobs / adjacent_roles / discovery_roles / student_aliases는 직업명과 인접 역할을 탐색하는 어휘 사전으로 함께 참고한다. 순서에 우선순위는 없다.
+4. Target + Desired Impact + Means가 특정 실제 직업의 업무와 충분히 겹치면 구체적인 직업까지 내려갈 수 있다.
+5. 특정 분야까지 좁힐 근거가 부족하면 넓고 이해 가능한 실제 직무명에 머문다.
+6. Pool 밖 직업도 학생 원문과 Pair 방향으로 설명 가능하고 실제 존재하거나 널리 쓰이는 역할이면 사용할 수 있다.
+7. avoid_inference에 해당하는 관심·성격·능력을 Pair만으로 학생에게 덧씌우지 않는다.
+8. 최종 Persona는 직업명을 먼저 고른 뒤 수식하는 방식이 아니라, 학생의 역할 패턴과 직업세계를 통합해 한 번에 생성한다.
+
+[원본]
+기초 직업 목록과 original_future_role은 i-be 페어코드별 커리어풀 v3.2(2026-10-01)를 바탕으로 재구조화했다.
+본 v4.0의 adjacent/discovery/student_aliases와 메타데이터는 Persona 생성 목적의 편집 레이어이며 공식 RIASEC 직업분류가 아니다.

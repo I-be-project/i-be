@@ -44,15 +44,13 @@ def test_to_draft_text_maps_codex_output() -> None:
     text = to_draft_text(
         {
             "persona_name": "처음 쓰는 사람의 불편을 발견하는 UX 디자이너",
-            "base_career": "UX 디자이너",
+            "career_name": "UX 디자이너",
             "short_description": "설명",
-            "source_career_pool": True,
-            "pool_extended": False,
         }
     )
+    assert text.base_career == "UX 디자이너"
     assert text.headline == "처음 쓰는 사람의 불편을 발견하는"
     assert text.tagline == "설명"
-    assert text.source_career_pool is True
 
 
 # ──────────────────────────────────────────────────────────────

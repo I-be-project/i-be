@@ -47,14 +47,15 @@ def split_headline(name: str, base_career: str) -> str:
 
 def to_draft_text(result: dict[str, Any]) -> DraftText:
     name = str(result.get("persona_name", ""))
-    base_career = str(result.get("base_career", ""))
+    base_career = str(result.get("career_name", ""))
     return DraftText(
         name=name,
         base_career=base_career,
         headline=split_headline(name, base_career),
         tagline=str(result.get("short_description", "")),
-        source_career_pool=result.get("source_career_pool"),
-        pool_extended=result.get("pool_extended"),
+        # v40 출력엔 Pool 내 여부가 없다 — Pool은 정답표가 아니라 참고 사전이 됐다.
+        source_career_pool=None,
+        pool_extended=None,
     )
 
 
