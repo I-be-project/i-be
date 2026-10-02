@@ -137,9 +137,15 @@ class _Codex:
         self._error = error
 
     async def generate_image(
-        self, prompt: str, *, photo: bytes | None = None, layout: bytes | None = None
+        self,
+        prompt: str,
+        *,
+        photo: bytes | None = None,
+        layout: bytes | None = None,
+        background: bytes | None = None,
     ) -> bytes:
         self.layout = layout
+        self.background = background
         if self._error:
             raise self._error
         return _png()
@@ -192,7 +198,7 @@ async def test_upload_card_reuses_fixed_key_so_rerender_overwrites() -> None:
     assert len(storage.uploaded) == 2
 
 
-async def test_generate_image_attaches_layout_and_stores_4x5() -> None:
+async def test_generate_image_attaches_layout_background_and_stores_4x5() -> None:
     """구도 기준 사진을 함께 넣고, 모델이 2:3으로 줘도 저장본은 4:5여야 한다."""
     drafts, storage, codex = _Drafts(_Draft()), _Storage(), _Codex()
     stored: list[bytes] = []
@@ -205,6 +211,7 @@ async def test_generate_image_attaches_layout_and_stores_4x5() -> None:
     await _service(drafts, codex, storage).generate_image(drafts.draft.id)
 
     assert codex.layout  # 두 번째 첨부로 기준 사진이 들어갔다
+    assert codex.background  # 세 번째 첨부로 배경이 들어갔다
     assert Image.open(BytesIO(stored[0])).size == (1024, 1280)
 
 

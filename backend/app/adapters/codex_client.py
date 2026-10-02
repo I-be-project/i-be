@@ -92,19 +92,20 @@ class CodexClient:
         *,
         photo: bytes | None = None,
         layout: bytes | None = None,
+        background: bytes | None = None,
         model: str | None = None,
     ) -> bytes:
-        """프롬프트(+선택 입력 사진·구도 참고 이미지) → PNG bytes.
+        """프롬프트(+선택 입력 사진·구도 참고 이미지·배경) → PNG bytes.
 
         photo를 주면 `-i`로 첨부해 그 얼굴을 기준으로 생성한다.
-        layout을 주면 photo 다음 순서로 첨부한다 — 프롬프트가 "두 번째 이미지"로 가리킨다.
+        layout·background는 photo 다음 순서로 첨부한다 — 프롬프트가 "두/세 번째 이미지"로 가리킨다.
 
         codex는 결정적 도구가 아니라 에이전트다 — 정상 종료(exit 0)하고도 이미지를
         만들지 않는 경우가 실제로 관측된다. 파일 부재로 확실히 판별되므로 1회 재시도한다.
         """
         reply = ""
         for attempt in range(2):
-            image, reply = await self._image_attempt(prompt, photo, layout, model)
+            image, reply = await self._image_attempt(prompt, photo, layout, background, model)
             if image is not None:
                 return image
             logger.warning("codex.image.no_output", attempt=attempt + 1, reply=reply[:200])
@@ -116,7 +117,12 @@ class CodexClient:
         )
 
     async def _image_attempt(
-        self, prompt: str, photo: bytes | None, layout: bytes | None, model: str | None
+        self,
+        prompt: str,
+        photo: bytes | None,
+        layout: bytes | None,
+        background: bytes | None,
+        model: str | None,
     ) -> tuple[bytes | None, str]:
         """이미지 생성 1회 시도 → (이미지, codex 답변). 파일을 남기지 않았으면 이미지는 None."""
         with TemporaryDirectory() as tmp:
@@ -124,8 +130,8 @@ class CodexClient:
             out_path = work / _IMAGE_FILENAME
 
             attach: tuple[str, ...] = ()
-            # 순서가 곧 프롬프트의 "첫 번째/두 번째 이미지"다.
-            for stem, data in (("input", photo), ("layout", layout)):
+            # 순서가 곧 프롬프트의 "첫 번째/두 번째/세 번째 이미지"다.
+            for stem, data in (("input", photo), ("layout", layout), ("background", background)):
                 if data is None:
                     continue
                 # 확장자를 실제 포맷에 맞춘다. JPEG를 .png로 저장하면 codex가 확장자로

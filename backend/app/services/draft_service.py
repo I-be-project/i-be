@@ -15,6 +15,7 @@ from app.core.errors import NotFoundError
 from app.core.images import crop_top
 from app.core.logging import get_logger
 from app.core.prompts.future_photo_prompt import (
+    BACKGROUND_IMAGE,
     DEFAULT_FUTURE_PHOTO_PROMPT,
     LAYOUT_REFERENCE_IMAGE,
     PHOTO_RATIO,
@@ -126,7 +127,10 @@ class DraftService:
         try:
             photo = await self._storage.download(draft.photo_key)
             image = await self._codex.generate_image(
-                DEFAULT_FUTURE_PHOTO_PROMPT, photo=photo, layout=LAYOUT_REFERENCE_IMAGE.read_bytes()
+                DEFAULT_FUTURE_PHOTO_PROMPT,
+                photo=photo,
+                layout=LAYOUT_REFERENCE_IMAGE.read_bytes(),
+                background=BACKGROUND_IMAGE.read_bytes(),
             )
             image = crop_top(image, PHOTO_RATIO)
             # 재생성마다 새 키 — 이전 이미지를 덮어쓰지 않고 남긴다(사진 영구 보관).
