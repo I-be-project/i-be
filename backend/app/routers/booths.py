@@ -57,7 +57,7 @@ async def update_booth(
     _admin: CurrentAdminDep,
     booths: BoothServiceDep,
 ) -> BoothResponse:
-    """이름·설명 수정. code는 요청 스키마에 없어 변경할 수 없다."""
+    """이름·설명·상세 설명·존·역량 수정. code는 요청 스키마에 없어 변경할 수 없다."""
     return await booths.update(booth_id, req)
 
 

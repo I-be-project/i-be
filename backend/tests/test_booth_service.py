@@ -27,7 +27,13 @@ class FakeBoothRepo:
         self.attempted_codes: list[str] = []
 
     async def create(
-        self, *, code: str, name: str, description: str | None, zone: str
+        self,
+        *,
+        code: str,
+        name: str,
+        description: str | None,
+        zone: str,
+        detail: str | None = None,
     ) -> BoothRecord:
         self.attempted_codes.append(code)
         if self.collide_times > 0:
@@ -39,6 +45,7 @@ class FakeBoothRepo:
             code=code,
             name=name,
             description=description,
+            detail=detail,
             zone=zone,
             competencies=(),
             created_at=now,
@@ -57,7 +64,13 @@ class FakeBoothRepo:
         return sorted(self.rows.values(), key=lambda r: r.created_at)
 
     async def update(
-        self, booth_id: UUID, *, name: str, description: str | None, zone: str
+        self,
+        booth_id: UUID,
+        *,
+        name: str,
+        description: str | None,
+        zone: str,
+        detail: str | None = None,
     ) -> BoothRecord | None:
         current = self.rows.get(booth_id)
         if current is None:
@@ -68,6 +81,7 @@ class FakeBoothRepo:
             code=current.code,
             name=name,
             description=description,
+            detail=detail,
             zone=zone,
             competencies=current.competencies,
             created_at=current.created_at,
@@ -152,6 +166,19 @@ async def test_update_can_clear_description_with_explicit_null() -> None:
 
     assert updated.description is None
     assert updated.name == "드론 체험"
+
+
+async def test_detail_is_kept_on_partial_update_and_cleared_with_null() -> None:
+    repo = FakeBoothRepo()
+    service = _service(repo)
+    created = await service.create(BoothCreateRequest(name="드론 체험", detail="  상세 본문  "))
+    assert created.detail == "상세 본문"
+
+    renamed = await service.update(created.id, BoothUpdateRequest(name="드론 조종 체험"))
+    assert renamed.detail == "상세 본문"
+
+    cleared = await service.update(created.id, BoothUpdateRequest(detail=None))
+    assert cleared.detail is None
 
 
 def test_update_rejects_explicit_null_name() -> None:

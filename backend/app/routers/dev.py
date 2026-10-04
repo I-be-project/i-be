@@ -22,8 +22,13 @@ from fastapi import APIRouter, Depends, Query
 
 from app.adapters.storage_client import StorageClient
 from app.core.errors import NotFoundError
-from app.core.images import inspect_image
-from app.core.prompts.future_photo_prompt import DEFAULT_FUTURE_PHOTO_PROMPT
+from app.core.images import crop_top, inspect_image
+from app.core.prompts.future_photo_prompt import (
+    BACKGROUND_IMAGE,
+    DEFAULT_FUTURE_PHOTO_PROMPT,
+    LAYOUT_REFERENCE_IMAGE,
+    PHOTO_RATIO,
+)
 from app.core.prompts.persona_prompt import (
     DEFAULT_SYSTEM_PROMPT,
     PERSONA_OUTPUT_SCHEMA,
@@ -208,7 +213,14 @@ async def generate_future_photo(
     photo = await storage.download(student.photo_key)
 
     started = time.perf_counter()
-    image_bytes = await codex.generate_image(req.prompt, photo=photo, model=req.model)
+    image_bytes = await codex.generate_image(
+        req.prompt,
+        photo=photo,
+        layout=LAYOUT_REFERENCE_IMAGE.read_bytes(),
+        background=BACKGROUND_IMAGE.read_bytes(),
+        model=req.model,
+    )
+    image_bytes = crop_top(image_bytes, PHOTO_RATIO)
     elapsed = time.perf_counter() - started
 
     info = inspect_image(image_bytes)
@@ -332,8 +344,8 @@ async def use_fallback_image(
 @router.get("/drafts/{draft_id}/card", response_model=CardPreview)
 async def preview_draft_card(draft_id: UUID, service: DraftServiceDep) -> CardPreview:
     """현재 문구·이미지(없으면 폴백 캐릭터)로 합성한 카드 미리보기. 저장하지 않는다."""
-    png = await service.preview_card(draft_id)
-    return CardPreview(image_base64=base64.b64encode(png).decode("ascii"))
+    png, qr_url = await service.preview_card(draft_id)
+    return CardPreview(image_base64=base64.b64encode(png).decode("ascii"), qr_url=qr_url)
 
 
 @router.post("/drafts/{draft_id}/approve", response_model=DraftItem)

@@ -31,7 +31,7 @@ export interface StudentAnswers {
   status: string | null;
   riasec_scores: Record<string, number>;
   pair_code: string;
-  // Pair Code 기본 Career Pool — 화면 편집 초깃값.
+  // Pair Code 기본 Career Direction Pool 항목(줄 단위) — 화면 편집 초깃값.
   career_pool: string[];
   q7a_first: string | null;
   q7a_second: string | null;
@@ -46,17 +46,19 @@ export interface DefaultPrompts {
   future_photo_prompt: string;
 }
 
-// 「Persona 생성 데이터 구조 및 생성 규칙 v1」 13장 출력 계약.
-// source_career_pool·pool_extended·q8_reflection·q9_reflection은 학생에게 보여주는
-// 값이 아니라 QA·오류 추적용 내부 데이터다.
+// Career Persona Prompt v40 27장 출력 계약.
+// persona_name·career_name·short_description 외에는 학생에게 보여주지 않는 해석 근거다.
 export interface PersonaResult {
+  career_name: string;
   persona_name: string;
-  base_career: string;
+  persona_anchor: string;
+  target: string;
+  desired_impact: string;
+  value_attitude: string;
+  problem_solving: string;
+  career_reason: string;
+  career_required_competencies: string[];
   short_description: string;
-  source_career_pool: boolean;
-  pool_extended: boolean;
-  q8_reflection: string;
-  q9_reflection: string;
   user_prompt: string;
   elapsed_seconds: number;
 }
@@ -170,7 +172,7 @@ export function draftAction(
   return request(`/api/dev/drafts/${id}/${action}`, { method: "POST" }, GENERATE_TIMEOUT_MS);
 }
 
-export function previewDraftCard(id: string): Promise<{ image_base64: string }> {
+export function previewDraftCard(id: string): Promise<{ image_base64: string; qr_url: string }> {
   return request(`/api/dev/drafts/${id}/card`, { method: "GET" }, 60_000);
 }
 

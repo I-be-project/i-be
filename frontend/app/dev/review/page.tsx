@@ -5,7 +5,7 @@
 // 텍스트/이미지를 따로 재생성한 뒤 승인한다. 승인하면 카드 PNG가 S3에 저장되고
 // generated.personas·cards에 확정된다(학생 화면·인쇄는 확정본만 읽는다).
 
-import { useCallback, useEffect, useState } from "react"
+import { Fragment, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Check, ImageIcon, Loader2, RefreshCw, Save, Smile, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -45,6 +45,7 @@ export default function DevReviewPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [edit, setEdit] = useState<DraftEdit | null>(null)
   const [card, setCard] = useState<string | null>(null)
+  const [qrUrl, setQrUrl] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   // 목록 체크박스(일괄 삭제용). 상세에 띄운 초안(selectedId)과는 별개다.
@@ -73,8 +74,11 @@ export default function DevReviewPage() {
 
   const refreshCard = useCallback(async (d: Draft) => {
     setCard(null)
+    setQrUrl(null)
     try {
-      setCard((await previewDraftCard(d.id)).image_base64)
+      const preview = await previewDraftCard(d.id)
+      setCard(preview.image_base64)
+      setQrUrl(preview.qr_url)
     } catch (e) {
       setError(e instanceof Error ? e.message : "카드 미리보기에 실패했습니다.")
     }
@@ -315,21 +319,40 @@ export default function DevReviewPage() {
             </div>
 
             <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-lg border p-4 text-sm">
+              <dt className="text-muted-foreground">QR 링크</dt>
+              <dd className="break-all">
+                {qrUrl ? (
+                  <a href={qrUrl} target="_blank" rel="noreferrer" className="text-primary underline">
+                    {qrUrl}
+                  </a>
+                ) : (
+                  "—"
+                )}
+              </dd>
               <dt className="text-muted-foreground">상태</dt>
               <dd>{STATUS_LABEL[selected.status]}</dd>
-              <dt className="text-muted-foreground">Career Pool 내</dt>
-              <dd>{selected.source_career_pool ? "예" : "아니오"}</dd>
-              <dt className="text-muted-foreground">인접 확장</dt>
-              <dd>{selected.pool_extended ? "예" : "아니오"}</dd>
-              <dt className="text-muted-foreground">Q8 반영</dt>
-              <dd>{String(selected.raw.q8_reflection ?? "")}</dd>
-              <dt className="text-muted-foreground">Q9 반영</dt>
-              <dd>{String(selected.raw.q9_reflection ?? "")}</dd>
+              {(
+                [
+                  ["Anchor", "persona_anchor"],
+                  ["Target", "target"],
+                  ["Desired Impact", "desired_impact"],
+                  ["가치·태도", "value_attitude"],
+                  ["문제해결", "problem_solving"],
+                  ["Career 이유", "career_reason"],
+                ] as const
+              ).map(([label, key]) => (
+                <Fragment key={key}>
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd>{String(selected.raw[key] ?? "—")}</dd>
+                </Fragment>
+              ))}
               <dt className="text-muted-foreground">역량 키워드</dt>
               <dd>
-                {Array.isArray(selected.raw.competencies)
-                  ? selected.raw.competencies.join(" · ")
-                  : "(없음 — 역량 추가 전 생성된 초안)"}
+                {(() => {
+                  // v40 키, 없으면 v1 시절 초안의 키.
+                  const c = selected.raw.career_required_competencies ?? selected.raw.competencies
+                  return Array.isArray(c) ? c.join(" · ") : "(없음)"
+                })()}
               </dd>
             </dl>
 

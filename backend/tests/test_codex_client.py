@@ -165,6 +165,31 @@ async def test_generate_image_passes_photo_as_attachment(tmp_path: Path) -> None
     assert "workspace-write" in recorded
 
 
+async def test_layout_is_attached_after_photo(tmp_path: Path) -> None:
+    """프롬프트가 "첫 번째=학생, 두 번째=구도"로 가리키므로 첨부 순서가 바뀌면 안 된다."""
+    args_log = tmp_path / "args.txt"
+    client = CodexClient(
+        binary=_fake_binary(
+            tmp_path,
+            f'Path({str(args_log)!r}).write_text(" ".join(sys.argv[1:]), encoding="utf-8")',
+        ),
+        timeout_seconds=10,
+    )
+
+    with pytest.raises(ExternalServiceError):
+        await client.generate_image(
+            "프롬프트", photo=_JPEG_BYTES, layout=_PNG_BYTES, background=_JPEG_BYTES
+        )
+
+    recorded = args_log.read_text(encoding="utf-8")
+    assert recorded.count(" -i ") == 3
+    assert (
+        recorded.index("input.jpg")
+        < recorded.index("layout.png")
+        < recorded.index("background.jpg")
+    )
+
+
 async def test_prompt_goes_through_stdin_not_argv(tmp_path: Path) -> None:
     """`-i/--image`가 가변 인자라, 프롬프트를 positional로 넘기면 이미지 파일로 삼켜진다.
 

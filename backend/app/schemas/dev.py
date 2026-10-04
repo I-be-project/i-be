@@ -38,7 +38,9 @@ class StudentAnswersResponse(BaseModel):
     status: str | None
     riasec_scores: dict[str, int]
     pair_code: str
-    career_pool: list[str] = Field(description="Pair Code 기본 Career Pool (편집 초깃값)")
+    career_pool: list[str] = Field(
+        description="Pair Code 기본 Career Direction Pool 항목 (편집 초깃값)"
+    )
     q7a_first: str | None
     q7a_second: str | None
     q7b_first: str | None
@@ -57,27 +59,31 @@ class DefaultPromptsResponse(BaseModel):
 class GeneratePersonaRequest(BaseModel):
     student_id: UUID
     system_prompt: str = Field(
-        ..., min_length=1, max_length=20000, description="편집 가능한 시스템 프롬프트"
+        ..., min_length=1, max_length=100000, description="편집 가능한 시스템 프롬프트"
     )
     career_pool: list[str] = Field(
         default_factory=list,
         max_length=20,
-        description="현실 직업 후보. 비우면 Pair Code 기본 풀을 쓴다.",
+        description="Career Direction Pool 항목(줄 단위). 비우면 Pair Code 기본 풀을 쓴다.",
     )
     model: str | None = Field(None, description="codex 모델 override. 미지정 시 codex 기본값")
 
 
 class GeneratePersonaResponse(BaseModel):
-    """「Persona 생성 규칙 v1」 13장 출력 계약 + dev 관측용 필드."""
+    """Career Persona Prompt v40 27장 출력 계약 + dev 관측용 필드."""
 
+    career_name: str
     persona_name: str
-    base_career: str
+    persona_anchor: str
+    target: str
+    desired_impact: str
+    value_attitude: str
+    problem_solving: str
+    career_reason: str
+    career_required_competencies: list[str] = Field(
+        ..., description="10개 역량 중 3개 (카드 키워드)"
+    )
     short_description: str
-    source_career_pool: bool
-    pool_extended: bool
-    q8_reflection: str
-    q9_reflection: str
-    competencies: list[str] = Field(..., description="10개 역량 중 가장 적합한 3개 (카드 키워드)")
     user_prompt: str = Field(..., description="실제로 codex에 보낸 user 프롬프트 (디버깅용)")
     elapsed_seconds: float
 
@@ -150,6 +156,7 @@ class DraftDeleteResponse(BaseModel):
 
 class CardPreview(BaseModel):
     image_base64: str = Field(..., description="카드 PNG (base64)")
+    qr_url: str = Field(..., description="카드 QR에 담긴 공개 페이지 주소")
 
 
 # ──────────────────────────────────────────────────────────────

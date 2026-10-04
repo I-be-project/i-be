@@ -14,7 +14,7 @@ import asyncpg
 
 from app.repositories.base import BaseRepository
 
-_COLUMNS = "id, code, name, description, zone, created_at, updated_at"
+_COLUMNS = "id, code, name, description, detail, zone, created_at, updated_at"
 
 
 @dataclass(frozen=True, slots=True)
@@ -31,6 +31,8 @@ class BoothRecord:
     updated_at: datetime
     # 이 부스에 연결된 역량 키. 매핑 자료가 오기 전에는 빈 튜플이다.
     competencies: tuple[str, ...] = ()
+    # 부스 상세 설명(긴 본문). description은 한 줄 요약이다.
+    detail: str | None = None
 
 
 # 부스 1행 + 연결된 역량 배열. left join이라 역량이 없는 부스도 빈 배열로 나온다.
@@ -54,6 +56,7 @@ def _to_record(row: asyncpg.Record) -> BoothRecord:
         code=row["code"],
         name=row["name"],
         description=row["description"],
+        detail=row["detail"],
         zone=row["zone"],
         competencies=tuple(raw),
         created_at=row["created_at"],
@@ -63,16 +66,22 @@ def _to_record(row: asyncpg.Record) -> BoothRecord:
 
 class BoothRepository(BaseRepository):
     async def create(
-        self, *, code: str, name: str, description: str | None, zone: str
+        self,
+        *,
+        code: str,
+        name: str,
+        description: str | None,
+        zone: str,
+        detail: str | None = None,
     ) -> BoothRecord:
         """부스 1건 생성. code가 이미 있으면 asyncpg.UniqueViolationError."""
         query = f"""
-            insert into ops.booths (code, name, description, zone)
-            values ($1, $2, $3, $4)
+            insert into ops.booths (code, name, description, zone, detail)
+            values ($1, $2, $3, $4, $5)
             returning {_COLUMNS}
         """
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(query, code, name, description, zone)
+            row = await conn.fetchrow(query, code, name, description, zone, detail)
         assert row is not None  # insert ... returning은 성공 시 항상 1행
         return _to_record(row)
 
@@ -100,9 +109,15 @@ class BoothRepository(BaseRepository):
         return [_to_record(row) for row in rows]
 
     async def update(
-        self, booth_id: UUID, *, name: str, description: str | None, zone: str
+        self,
+        booth_id: UUID,
+        *,
+        name: str,
+        description: str | None,
+        zone: str,
+        detail: str | None = None,
     ) -> BoothRecord | None:
-        """이름·설명·존을 준 값으로 교체. 없는 id면 None.
+        """이름·설명·상세 설명·존을 준 값으로 교체. 없는 id면 None.
 
         부분 수정(보낸 필드만 반영)은 서비스가 기존 값과 병합해 완성값을 넘기는 방식으로 처리한다.
         여기서 coalesce를 쓰면 description을 null로 지우는 요청과 구분할 수 없다.
@@ -112,12 +127,13 @@ class BoothRepository(BaseRepository):
                set name        = $2,
                    description = $3,
                    zone        = $4,
+                   detail      = $5,
                    updated_at  = now()
              where id = $1
             returning {_COLUMNS}
         """
         async with self._pool.acquire() as conn:
-            row = await conn.fetchrow(query, booth_id, name, description, zone)
+            row = await conn.fetchrow(query, booth_id, name, description, zone, detail)
         return _to_record(row) if row is not None else None
 
     async def delete(self, booth_id: UUID) -> bool:

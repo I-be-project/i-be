@@ -159,6 +159,7 @@
   --color-hm-blue: #005bab; /* 제목·본문 */
   --color-hm-coral: #e96160;
   --color-hm-teal: #00aca8;
+  --color-hm-yellow: #f0be48;
 }
 
 /* 하늘 → 바다 → 모래사장. 학생 여정 공통 배경.
@@ -240,5 +241,4 @@
   border-radius: 1.5rem;
   background: #fff;
   border: 2px solid var(--color-hm-pattern);
-  box-shadow: 0 4px 0 0 var(--color-hm-pattern);
 }

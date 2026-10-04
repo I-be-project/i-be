@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     # 기본값 포트는 프론트 dev 서버(frontend/package.json의 `next dev -p 4000`)와 맞춘다.
     # 어긋나면 로컬에서 뽑은 QR이 열리지 않아 /b/<code>를 테스트할 수 없다.
     frontend_origin: str = "http://localhost:4000"
+    # 카드 QR 링크(/p/<code>)의 base. 카드는 로컬(codex)에서 승인·합성되므로 frontend_origin
+    # (로컬은 localhost)을 쓰면 인쇄 카드에 localhost가 박힌다. 인쇄물은 되돌릴 수 없어 운영
+    # 주소를 기본값으로 고정한다. 로컬 프론트로 QR을 시험할 때만 .env로 덮어쓴다.
+    card_qr_origin: str = "https://i-be.vercel.app"
     log_level: str = "INFO"
 
     # CORS 허용 오리진 — 기본 "*"는 전 오리진 개방(외부 시스템의 직접 호출 허용).

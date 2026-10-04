@@ -309,8 +309,13 @@ class DraftRepository(BaseRepository):
                 draft.source_career_pool,
                 draft.pool_extended,
                 draft.image_key,
-                # 역량 3개(codex 출력)가 확정본의 키워드. 역량 추가 전 초안은 빈 목록.
-                json.dumps(draft.raw.get("competencies") or [], ensure_ascii=False),
+                # 역량 3개(codex 출력)가 확정본의 키워드. v40 키, 없으면 v1 시절 초안의 키.
+                json.dumps(
+                    draft.raw.get("career_required_competencies")
+                    or draft.raw.get("competencies")
+                    or [],
+                    ensure_ascii=False,
+                ),
             )
             await conn.execute(
                 """

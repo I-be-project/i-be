@@ -5,7 +5,7 @@ headline(윗줄)·base_career(아랫줄)를 쓴다. 글자는 AI가 아니라 �
 한글이 깨지지 않고, 문구를 고쳐도 이미지를 다시 만들 필요가 없다.
 
 인물 배치는 이미지 생성 프롬프트(future_photo_prompt)가 정한다. 여기서는 생성 이미지를
-폭에 맞춰 위쪽 기준으로 채울 뿐이라(아래쪽 약 13%가 잘림), 이미지 좌표가 곧 카드 좌표다.
+위쪽 기준으로 채울 뿐이라(4:5 이미지는 좌우가 약 3%씩 잘림), 이미지 좌표가 곧 카드 좌표다.
 
 비율은 세로 신용카드(54x86mm). 폭 1024px ≈ 480dpi.
 """
@@ -18,7 +18,7 @@ from io import BytesIO
 from pathlib import Path
 
 import qrcode  # type: ignore[import-untyped]  # 타입 스텁 없음
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageDraw, ImageFilter, ImageFont, ImageOps
 
 _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 _FONT_DIR = _ASSETS / "fonts"
@@ -32,25 +32,29 @@ CARD_H = round(CARD_W * 86 / 54)  # 1631
 
 # ─── 레이아웃 — 디자인 시안 카드 실측값(카드 폭·높이 대비 비율) ──────────
 LOGO_X, LOGO_Y, LOGO_W = 0.053, 0.037, 0.171
-QR_RIGHT, QR_Y, QR_W = 0.052, 0.041, 0.11
+QR_RIGHT, QR_Y, QR_W = 0.052, 0.041, 0.132  # QR_W: 0.11의 1.2배
 
-# 이름·학교 줄 뒤: 전체 폭 검은 그라데이션(위 투명 → 아래 진함) 위에 흰 글씨.
+# 이름·학교 줄 뒤: 아래로 갈수록 흐려지는 블러(BLUR_TOP 선명 → BLUR_FULL부터 최대 블러).
 # 그 아래에서 흰색이 차올라 사진 → 이름 줄 → 하단 흰 영역이 끊김 없이 이어진다.
-ROW_FADE_TOP = 0.56
-ROW_DARKEST = 0.715
-ROW_ALPHA = 205  # 가장 짙을 때 불투명도(0~255)
-WHITE_FADE_TOP = 0.755
-PHOTO_BOTTOM = 0.80  # 여기부터 완전한 흰 영역
+BLUR_TOP = 0.66
+BLUR_FULL = 0.80
+BLUR_RADIUS = 28  # px, 최대 블러 세기
+# 흰 페이드는 길게 — 짧으면 어두운 옷과 흰 영역 사이에 경계선이 보인다.
+WHITE_FADE_TOP = 0.74
+PHOTO_BOTTOM = 0.83  # 여기부터 완전한 흰 영역 (headline 윗선 ≈ 0.833 아래로 내리지 않는다)
 
 NAME_X, NAME_Y, NAME_SIZE = 0.059, 0.716, 0.116
-SCHOOL_RIGHT, SCHOOL_Y, CLASS_Y, SCHOOL_SIZE = 0.076, 0.705, 0.739, 0.038
-HEADLINE_Y, HEADLINE_SIZE = 0.854, 0.066
-CAREER_Y, CAREER_SIZE = 0.925, 0.135
+SCHOOL_RIGHT, SCHOOL_Y, CLASS_Y, SCHOOL_SIZE = 0.076, 0.7065, 0.7375, 0.038
+HEADLINE_Y, HEADLINE_SIZE = 0.856, 0.066
+CAREER_Y, CAREER_SIZE = 0.923, 0.135
+CAREER_FONT = "Paperlogy-8ExtraBold.ttf"
 
 INK = (17, 17, 17, 255)
 SUB_INK = (51, 51, 51, 255)
 WHITE = (255, 255, 255, 255)
-SHADOW = (0, 0, 0, 120)
+# 이름·학교 글씨 뒤 번진 그림자 — 생성 사진의 남색 재킷(future_photo_prompt)과 같은 계열.
+SHADOW = (28, 36, 68, 220)
+SHADOW_BLUR = 10  # px
 
 
 @dataclass(frozen=True)
@@ -66,34 +70,21 @@ class IdCardContent:
 
 
 @lru_cache(maxsize=16)
-def _font(weight: str, size: int) -> ImageFont.FreeTypeFont:
-    return ImageFont.truetype(str(_FONT_DIR / f"Pretendard-{weight}.otf"), size)
+def _font(name: str, size: int) -> ImageFont.FreeTypeFont:
+    return ImageFont.truetype(str(_FONT_DIR / name), size)
 
 
-def _fit_font(text: str, weight: str, size: int, max_width: float) -> ImageFont.FreeTypeFont:
+def _fit_font(text: str, name: str, size: int, max_width: float) -> ImageFont.FreeTypeFont:
     """폭을 넘으면 넘지 않을 때까지 글자 크기를 줄인다(직업명 길이가 제각각이라)."""
-    while size > 12 and _font(weight, size).getlength(text) > max_width:
+    while size > 12 and _font(name, size).getlength(text) > max_width:
         size -= 2
-    return _font(weight, size)
+    return _font(name, size)
 
 
 @lru_cache(maxsize=1)
 def _logo(width: int) -> Image.Image:
     logo = Image.open(LOGO_IMAGE).convert("RGBA")
     return logo.resize((width, round(logo.height * width / logo.width)), Image.Resampling.LANCZOS)
-
-
-def _fallback_photo(size: tuple[int, int]) -> Image.Image:
-    """폴백 캐릭터를 흰 바탕 가운데에 비율 유지로 앉힌다(원본이 작아 꽉 채우면 흐려진다)."""
-    w, h = size
-    canvas = Image.new("RGBA", size, WHITE)
-    char = Image.open(FALLBACK_IMAGE).convert("RGBA")
-    scale = min(w * 0.85 / char.width, h * 0.62 / char.height)
-    char = char.resize(
-        (int(char.width * scale), int(char.height * scale)), Image.Resampling.LANCZOS
-    )
-    canvas.alpha_composite(char, ((w - char.width) // 2, int(h * 0.12)))
-    return canvas
 
 
 def _gradient(
@@ -105,29 +96,37 @@ def _gradient(
     draw = ImageDraw.Draw(layer)
     for y in range(top, h):
         t = min(1.0, (y - top) / (full - top))
-        draw.line([(0, y), (w, y)], fill=(*rgb, int(alpha * t**1.3)))
+        draw.line([(0, y), (w, y)], fill=(*rgb, int(alpha * t * t * (3 - 2 * t))))
     return layer
 
 
-def _white_text(
-    draw: ImageDraw.ImageDraw,
-    xy: tuple[float, float],
-    text: str,
-    font: ImageFont.FreeTypeFont,
-    anchor: str,
-) -> None:
-    """그라데이션 위 흰 글씨. 옅은 그림자로 밝은 사진 위에서도 윤곽을 잡는다."""
-    draw.text((xy[0] + 2, xy[1] + 2), text, font=font, fill=SHADOW, anchor=anchor)
-    draw.text(xy, text, font=font, fill=WHITE, anchor=anchor)
+_Text = tuple[tuple[float, float], str, ImageFont.FreeTypeFont, str]  # xy, 글자, 폰트, anchor
+
+
+def _white_texts(card: Image.Image, texts: list[_Text]) -> None:
+    """사진 위 흰 글씨. 뒤에 남색 그림자를 번지게 깔아 밝은 사진 위에서도 읽히게 한다."""
+    shadow = Image.new("RGBA", card.size, (0, 0, 0, 0))
+    shadow_draw = ImageDraw.Draw(shadow)
+    for xy, text, font, anchor in texts:
+        shadow_draw.text(
+            xy, text, font=font, fill=SHADOW, anchor=anchor, stroke_width=4, stroke_fill=SHADOW
+        )
+    card.alpha_composite(shadow.filter(ImageFilter.GaussianBlur(SHADOW_BLUR)))
+    draw = ImageDraw.Draw(card)
+    for xy, text, font, anchor in texts:
+        draw.text(xy, text, font=font, fill=WHITE, anchor=anchor)
 
 
 def _qr(data: str, size: int) -> Image.Image:
     qr = qrcode.QRCode(border=2, box_size=10)
     qr.add_data(data)
     qr.make(fit=True)
-    img = qr.make_image(fill_color="black", back_color="white").convert("RGBA")
-    resized: Image.Image = img.resize((size, size), Image.Resampling.NEAREST)
-    return resized
+    # 흰 바탕 없이 검은 모듈만 — 사진 배경(밝은 회색 고정, future_photo_prompt)이 바탕 역할을 한다.
+    modules = qr.make_image(fill_color="black", back_color="white").convert("L")
+    alpha = ImageOps.invert(modules).resize((size, size), Image.Resampling.NEAREST)
+    img = Image.new("RGBA", (size, size), (0, 0, 0, 255))
+    img.putalpha(alpha)
+    return img
 
 
 def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
@@ -137,19 +136,17 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
     card = Image.new("RGBA", (W, H), WHITE)
 
     # ── 인물 + 이름 줄 그라데이션 + 하단 흰 페이드 ──
-    if image_png is None:
-        photo = _fallback_photo((W, photo_h))
-    else:
-        # 위쪽 기준으로 채운다 — 정수리 여백을 지키고 넘치는 부분은 아래(가슴)에서 뺀다.
-        photo = ImageOps.fit(
-            Image.open(BytesIO(image_png)).convert("RGBA"),
-            (W, photo_h),
-            method=Image.Resampling.LANCZOS,
-            centering=(0.5, 0.0),
-        )
+    # 폴백도 생성 사진과 같은 4:5 구도라 같은 방식으로 꽉 채운다.
+    source = Image.open(BytesIO(image_png) if image_png is not None else FALLBACK_IMAGE)
+    # 위쪽 기준으로 채운다 — 정수리 여백을 지키고 넘치는 부분은 아래(가슴)에서 뺀다.
+    photo = ImageOps.fit(
+        source.convert("RGBA"), (W, photo_h), method=Image.Resampling.LANCZOS, centering=(0.5, 0.0)
+    )
     size = photo.size
-    photo.alpha_composite(
-        _gradient(size, round(H * ROW_FADE_TOP), round(H * ROW_DARKEST), (0, 0, 0), ROW_ALPHA)
+    # 블러본을 세로 마스크(위 투명 → 아래 불투명)로 섞어 아래로 갈수록 흐려지게 한다.
+    blur_mask = _gradient(size, round(H * BLUR_TOP), round(H * BLUR_FULL), (0, 0, 0), 255)
+    photo = Image.composite(
+        photo.filter(ImageFilter.GaussianBlur(BLUR_RADIUS)), photo, blur_mask.getchannel("A")
     )
     photo.alpha_composite(_gradient(size, round(H * WHITE_FADE_TOP), photo_h, (255, 255, 255), 255))
     card.alpha_composite(photo)
@@ -161,24 +158,21 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
     card.alpha_composite(_qr(content.qr_data, qr), (W - round(W * QR_RIGHT) - qr, round(H * QR_Y)))
 
     # ── 이름(좌) ──
-    _white_text(
-        draw,
-        (W * NAME_X, H * NAME_Y),
-        content.student_name,
-        _fit_font(content.student_name, "SemiBold", round(W * NAME_SIZE), W * 0.5),
-        "lm",
+    name_font = _fit_font(
+        content.student_name, "Paperlogy-6SemiBold.ttf", round(W * NAME_SIZE), W * 0.5
     )
 
     # ── 학교 / 학년·반·번호(우) — 두 줄 같은 굵기 ──
     right = W - W * SCHOOL_RIGHT
-    school_font = _font("Regular", round(W * SCHOOL_SIZE))
-    _white_text(draw, (right, H * SCHOOL_Y), content.school, school_font, "rm")
-    _white_text(
-        draw,
-        (right, H * CLASS_Y),
-        f"{content.grade}학년 {content.class_no}반 {content.student_no}번",
-        school_font,
-        "rm",
+    school_font = _font("Paperlogy-4Regular.ttf", round(W * SCHOOL_SIZE))
+    class_text = f"{content.grade}학년 {content.class_no}반 {content.student_no}번"
+    _white_texts(
+        card,
+        [
+            ((W * NAME_X, H * NAME_Y), content.student_name, name_font, "lm"),
+            ((right, H * SCHOOL_Y), content.school, school_font, "rm"),
+            ((right, H * CLASS_Y), class_text, school_font, "rm"),
+        ],
     )
 
     # ── 하단: headline(윗줄) + base_career(아랫줄, 크게) ──
@@ -187,7 +181,9 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
         draw.text(
             (W / 2, H * HEADLINE_Y),
             content.headline,
-            font=_fit_font(content.headline, "Bold", round(W * HEADLINE_SIZE), max_w),
+            font=_fit_font(
+                content.headline, "Paperlogy-6SemiBold.ttf", round(W * HEADLINE_SIZE), max_w
+            ),
             fill=SUB_INK,
             anchor="mm",
         )
@@ -197,7 +193,7 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
     draw.text(
         (W / 2, career_y),
         content.base_career,
-        font=_fit_font(content.base_career, "Black", round(W * CAREER_SIZE), max_w),
+        font=_fit_font(content.base_career, CAREER_FONT, round(W * CAREER_SIZE), max_w),
         fill=INK,
         anchor="mm",
     )

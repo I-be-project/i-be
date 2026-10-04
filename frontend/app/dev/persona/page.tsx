@@ -9,7 +9,6 @@ import { ArrowLeft, Clock, Loader2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { StudentPicker } from "@/app/dev/_components/student-picker"
 import {
@@ -21,9 +20,9 @@ import {
   type StudentAnswers,
 } from "@/lib/devApi"
 
-// 규칙 v1의 1순위 근거. 학생을 고르면 Pair Code 기본 풀(백엔드 CAREER_POOLS)로
-// 채워지고, 여기서 고쳐 결과가 어떻게 달라지는지 본다.
-const CAREER_POOL_PLACEHOLDER = "UX 디자이너, 서비스 기획자, 데이터 분석가"
+// Career Direction Pool v4 항목(줄 단위). 학생을 고르면 Pair Code 기본 풀(백엔드
+// CAREER_POOLS)로 채워지고, 여기서 고쳐 결과가 어떻게 달라지는지 본다.
+const CAREER_POOL_PLACEHOLDER = "anchor_jobs: UX/UI 디자이너 · 인류학자·고고학자\nwork_modes: 사람 관찰, 맥락 해석"
 
 export default function DevPersonaPage() {
   const [student, setStudent] = useState<DevStudent | null>(null)
@@ -34,7 +33,7 @@ export default function DevPersonaPage() {
   const [result, setResult] = useState<PersonaResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // 기본 시스템 프롬프트는 백엔드가 들고 있다(규칙 v1 11장) — 화면에서 편집만 한다.
+  // 기본 시스템 프롬프트는 백엔드가 들고 있다(Prompt v40) — 화면에서 편집만 한다.
   useEffect(() => {
     getDefaultPrompts()
       .then((p) => setSystemPrompt(p.persona_system_prompt))
@@ -49,7 +48,7 @@ export default function DevPersonaPage() {
     getStudentAnswers(student.id)
       .then((a) => {
         setAnswers(a)
-        setCareerPoolText(a.career_pool.join(", "))
+        setCareerPoolText(a.career_pool.join("\n"))
       })
       .catch((e: Error) => setError(e.message))
   }, [student])
@@ -65,7 +64,7 @@ export default function DevPersonaPage() {
           student_id: student.id,
           system_prompt: systemPrompt,
           career_pool: careerPoolText
-            .split(",")
+            .split("\n")
             .map((c) => c.trim())
             .filter(Boolean),
         }),
@@ -116,14 +115,16 @@ export default function DevPersonaPage() {
             <label htmlFor="career-pool" className="text-sm font-medium">
               2. Career Pool{" "}
               <span className="font-normal text-muted-foreground">
-                (쉼표 구분 · Pair Code 기본 풀로 채워짐, 편집 가능)
+                (줄 구분 · Pair Code 기본 풀로 채워짐, 편집 가능)
               </span>
             </label>
-            <Input
+            <Textarea
               id="career-pool"
               value={careerPoolText}
               onChange={(e) => setCareerPoolText(e.target.value)}
               placeholder={CAREER_POOL_PLACEHOLDER}
+              rows={9}
+              className="text-xs"
             />
           </section>
 
@@ -255,13 +256,13 @@ function ResultPanel({
           </div>
           <h2 className="text-xl font-bold leading-snug">{result.persona_name}</h2>
           <Badge variant="secondary" className="w-fit">
-            {result.base_career}
+            {result.career_name}
           </Badge>
           <p className="text-sm leading-relaxed">{result.short_description}</p>
         </CardContent>
       </Card>
 
-      {/* 규칙 v1 13장 — 학생에게 보여주지 않는 QA·추적용 내부 데이터 */}
+      {/* v40 27장 — 학생에게 보여주지 않는 해석 근거 */}
       <Card>
         <CardContent className="flex flex-col gap-2 pt-5 text-sm">
           <div className="mb-1 text-xs font-medium text-muted-foreground">
@@ -269,10 +270,13 @@ function ResultPanel({
           </div>
           {(
             [
-              ["Career Pool 내", result.source_career_pool ? "예" : "아니오"],
-              ["인접 확장", result.pool_extended ? "예" : "아니오"],
-              ["Q8 반영", result.q8_reflection],
-              ["Q9 반영", result.q9_reflection],
+              ["Anchor", result.persona_anchor],
+              ["Target", result.target],
+              ["Desired Impact", result.desired_impact],
+              ["가치·태도", result.value_attitude],
+              ["문제해결", result.problem_solving],
+              ["Career 이유", result.career_reason],
+              ["역량", result.career_required_competencies.join(" · ")],
             ] as const
           ).map(([label, value]) => (
             <div key={label} className="flex gap-3">

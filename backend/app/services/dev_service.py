@@ -2,7 +2,7 @@
 
 generated.answers의 stage별 payload는 프론트가 저장한 그대로의 자유 dict다
 (형태는 frontend/lib/answerSync.ts buildStagePayloads 참조).
-여기서는 그 dict를 「Persona 생성 규칙 v1」 12장 템플릿의 슬롯으로 옮기기만 한다.
+여기서는 그 dict를 페르소나 user 프롬프트(persona_prompt.build_user_prompt)의 슬롯으로 옮기기만 한다.
 
 DB만 읽고 AI를 호출하지 않으므로 순수 함수로 두고 단위 테스트한다.
 """
@@ -13,11 +13,12 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from app.core.career_pools import CAREER_POOLS
+from app.core.survey_catalog import Q1TO6
 
 
 @dataclass(frozen=True, slots=True)
 class PersonaPromptInputs:
-    """12장 User Prompt Template v1의 슬롯."""
+    """persona_prompt.build_user_prompt의 슬롯."""
 
     riasec_scores: dict[str, int] = field(default_factory=dict)
     pair_code: str = ""
@@ -28,10 +29,7 @@ class PersonaPromptInputs:
     q7b_second: str | None = None
     q8_response: str | None = None
     q9_response: str | None = None
-    # Q1~Q6 원문은 백엔드에 없다 — DB엔 optionId(q1-s 등)만 있고 라벨 카탈로그는
-    # 프론트(lib/mock/questions.ts)에만 있다. 게다가 그 ID가 담은 정보(RIASEC 유형)는
-    # 이미 riasec_scores에 집계돼 있어 그대로 넣으면 노이즈만 된다. 규칙 v1에서도
-    # Q1~Q6 원문은 우선순위 6위(선택)라 비워 둔다.
+    # Q1~Q6 "질문 → 고른 선택지" 문구. v40은 점수가 아니라 반복 행동 흐름을 읽는다.
     q1to6_texts: list[str] = field(default_factory=list)
 
 
@@ -60,7 +58,7 @@ def chip_items(payload: dict[str, Any]) -> list[str]:
 def _chip_answer(payload: dict[str, Any]) -> str | None:
     """Q8·Q9 payload → 한 줄 문자열.
 
-    칩과 자유서술을 모두 살린다 — 규칙 v1이 둘 다 근거로 쓰기 때문.
+    칩과 자유서술을 모두 살린다 — 둘 다 해석 근거다.
     """
     return " / ".join(chip_items(payload)) or None
 
@@ -70,6 +68,24 @@ def _subfield_title(value: Any) -> str | None:
     if not isinstance(value, dict):
         return None
     return _text(value.get("title"))
+
+
+def q1to6_texts(q1to6: dict[str, Any]) -> list[str]:
+    """Q1~Q6 payload({answers: [{questionId, value}]}) → "Q1 [장면] 질문 → 선택지" 목록.
+
+    카탈로그에 없는 ID는 원문 그대로 둔다.
+    """
+    raw = q1to6.get("answers")
+    picked = {
+        a.get("questionId"): a.get("value")
+        for a in (raw if isinstance(raw, list) else [])
+        if isinstance(a, dict)
+    }
+    return [
+        f"Q{qid} {question} → {options.get(value, value)}"
+        for qid, (question, options) in Q1TO6.items()
+        if isinstance(value := picked.get(qid), str)
+    ]
 
 
 def build_persona_inputs(
@@ -105,4 +121,5 @@ def build_persona_inputs(
         q7b_second=_subfield_title(q7b.get("second")),
         q8_response=_chip_answer(q8),
         q9_response=_chip_answer(q9),
+        q1to6_texts=q1to6_texts(q1to6),
     )
