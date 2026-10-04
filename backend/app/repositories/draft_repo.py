@@ -26,6 +26,12 @@ _SELECT = """
     join pii.students s on s.id = d.student_id
 """
 
+# 초안 목록·개수의 학교·학년·반 범위. $1~$3: school·grade·class_no (null이면 무시).
+_CLASS_FILTER = """
+    ($1::text is null or s.school = $1)
+    and ($2::int is null or s.grade = $2)
+    and ($3::int is null or s.class_no = $3)
+"""
 
 # 초안이 아직 없는 "학생별 최근 완료 세션". $1~$4: student_id·school·grade·class_no (null이면 무시).
 _TARGETS = """
@@ -212,23 +218,38 @@ class DraftRepository(BaseRepository):
         return _to_record(row) if row else None
 
     async def list_drafts(
-        self, *, status: str | None, limit: int, offset: int
+        self,
+        *,
+        status: str | None,
+        limit: int,
+        offset: int,
+        school: str | None = None,
+        grade: int | None = None,
+        class_no: int | None = None,
     ) -> list[DraftRecord]:
         query = f"""
             {_SELECT}
-            where ($1::text is null or d.status = $1)
+            where {_CLASS_FILTER} and ($4::text is null or d.status = $4)
             order by s.school, s.grade, s.class_no, s.student_no
-            limit $2 offset $3
+            limit $5 offset $6
         """
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(query, status, limit, offset)
+            rows = await conn.fetch(query, school, grade, class_no, status, limit, offset)
         return [_to_record(r) for r in rows]
 
-    async def count_by_status(self) -> dict[str, int]:
+    async def count_by_status(
+        self, *, school: str | None = None, grade: int | None = None, class_no: int | None = None
+    ) -> dict[str, int]:
+        """상태별 개수 — list_drafts와 같은 학교·학년·반 범위."""
+        query = f"""
+            select d.status, count(*) as n
+            from generated.persona_drafts d
+            join pii.students s on s.id = d.student_id
+            where {_CLASS_FILTER}
+            group by d.status
+        """
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(
-                "select status, count(*) as n from generated.persona_drafts group by status"
-            )
+            rows = await conn.fetch(query, school, grade, class_no)
         counts = dict.fromkeys(DRAFT_STATUSES, 0)
         counts.update({r["status"]: r["n"] for r in rows})
         return counts

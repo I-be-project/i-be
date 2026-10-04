@@ -150,11 +150,21 @@ export interface DraftEdit {
   note: string;
 }
 
+// 학교·학년·반 범위. 비운 값은 전체.
+export interface DraftScope {
+  school?: string;
+  grade?: number;
+  class_no?: number;
+}
+
 export function listDrafts(
-  status?: DraftStatus
+  status?: DraftStatus,
+  scope: DraftScope = {}
 ): Promise<{ drafts: Draft[]; counts: Record<DraftStatus, number> }> {
-  const query = status ? `?status=${status}&limit=500` : "?limit=500";
-  return request(`/api/dev/drafts${query}`, { method: "GET" });
+  const params = new URLSearchParams({ limit: "500" });
+  if (status) params.set("status", status);
+  for (const [k, v] of Object.entries(scope)) if (v !== undefined) params.set(k, String(v));
+  return request(`/api/dev/drafts?${params}`, { method: "GET" });
 }
 
 export function updateDraft(id: string, edit: DraftEdit): Promise<Draft> {

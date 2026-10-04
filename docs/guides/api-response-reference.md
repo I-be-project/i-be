@@ -58,7 +58,7 @@
 | GET | `/api/dev/students/{student_id}/answers` | 없음 | 200 | `StudentAnswersResponse` | 학생의 최근 세션 답변을 프롬프트 슬롯 형태로 반환. |
 | POST | `/api/dev/persona` | 없음 | 200 | `GeneratePersonaResponse` | 저장된 답변 + 편집한 시스템 프롬프트 → Career Persona 1개 (codex, 이미지 없음). |
 | POST | `/api/dev/future-photo` | 없음 | 200 | `GenerateFuturePhotoResponse` | 학생의 저장된 사진 + 편집한 프롬프트 → 10년 뒤 사진 (codex). |
-| GET | `/api/dev/drafts` | 없음 | 200 | `DraftList` | 페르소나·카드 초안 목록(`?status=pending\|approved\|rejected`)과 상태별 개수. |
+| GET | `/api/dev/drafts` | 없음 | 200 | `DraftList` | 페르소나·카드 초안 목록(`?status=pending\|approved\|rejected`)과 상태별 개수. `?school=&grade=&class_no=`를 주면 목록·개수 모두 그 학교·학년·반 범위만. |
 | PATCH | `/api/dev/drafts/{draft_id}` | 없음 | 200 | `DraftItem` | 카드 문구(headline·base_career·name·tagline·note) 수정. |
 | POST | `/api/dev/drafts/{draft_id}/regenerate-text` | 없음 | 200 | `DraftItem` | 페르소나 텍스트만 재생성 (codex). 검수 대기로 돌아간다. |
 | POST | `/api/dev/drafts/{draft_id}/regenerate-image` | 없음 | 200 | `DraftItem` | 인물 이미지만 재생성 (codex). 실패 시 `error`에 사유. |

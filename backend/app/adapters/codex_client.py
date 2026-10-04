@@ -33,6 +33,7 @@ logger = get_logger(__name__)
 
 # codex가 생성 이미지를 저장할 파일명. 프롬프트와 읽기 경로가 이 한 값을 공유한다.
 _IMAGE_FILENAME = "out.png"
+_IMAGE_WORK_ROOT = Path(__file__).resolve().parents[2] / "tmp" / "codex-images"
 
 
 class CodexClient:
@@ -125,9 +126,14 @@ class CodexClient:
         model: str | None,
     ) -> tuple[bytes | None, str]:
         """이미지 생성 1회 시도 → (이미지, codex 답변). 파일을 남기지 않았으면 이미지는 None."""
-        with TemporaryDirectory() as tmp:
+        # Windows의 시스템 Temp에서 sandbox가 만든 파일은 부모 프로세스가
+        # 읽거나 정리하지 못할 수 있다. 프로젝트 안의 전용 작업 경로를 쓴다.
+        _IMAGE_WORK_ROOT.mkdir(parents=True, exist_ok=True)
+        with TemporaryDirectory(dir=_IMAGE_WORK_ROOT) as tmp:
             work = Path(tmp)
             out_path = work / _IMAGE_FILENAME
+            # 부모가 생성한 파일의 ACL을 유지하도록 출력 파일을 미리 만든다.
+            out_path.touch()
 
             attach: tuple[str, ...] = ()
             # 순서가 곧 프롬프트의 "첫 번째/두 번째/세 번째 이미지"다.
@@ -158,7 +164,8 @@ class CodexClient:
                 f"저장 후 파일 경로만 한 줄로 답해라.",
             )
 
-            return (out_path.read_bytes() if out_path.exists() else None), reply
+            image = out_path.read_bytes() if out_path.exists() else b""
+            return (image or None), reply
 
     async def _run(self, args: list[str], prompt: str) -> str:
         """codex 서브프로세스 1회 실행. stdout 반환, 실패는 ExternalServiceError.

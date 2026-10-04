@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sprout, Home, MapPin } from "lucide-react";
+import { paperlogy } from "@/lib/fonts";
 
 interface TabDef {
   href: string;
@@ -26,7 +27,7 @@ export function BottomNav({ basePath = "" }: { basePath?: string }) {
     // 프레임 폭(max-w-2xl)에 맞춰 가운데 정렬되는 fixed 바 — path/page.tsx 하단 CTA와 동일 패턴.
     // transform 조상 없이 여기 직속으로 둬야 fixed가 뷰포트 기준으로 고정된다.
     <nav
-      className="fixed bottom-0 left-1/2 z-20 w-full max-w-2xl -translate-x-1/2 border-t-2 border-solid border-hm-pattern bg-hm-tint/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl"
+      className={`${paperlogy.className} fixed bottom-0 left-1/2 z-20 w-full max-w-2xl -translate-x-1/2 border-t-2 border-solid border-hm-pattern bg-hm-tint/95 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-xl`}
       aria-label="하단 탭 메뉴"
     >
       <div className="flex items-center justify-around px-2">
