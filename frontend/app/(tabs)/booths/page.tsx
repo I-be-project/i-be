@@ -29,7 +29,7 @@ export default function BoothsPage() {
   const recommended = recommendBooths(booths, profile?.persona ?? null);
   const source = filter === "recommended" ? (recommended.length ? recommended : mockRecommendedBooths) : booths;
   const filtered = source.filter((b) => (filter === "recommended" || b.zone === filter) && `${b.name} ${b.description ?? ""}`.toLowerCase().includes(query.trim().toLowerCase()));
-  return <TabPage logo={false} action={readOnly ? <MyPageLink /> : undefined}>
+  return <TabPage action={readOnly ? <MyPageLink /> : undefined}>
     <section className="hm-card overflow-hidden" aria-label="부스 맵">
       {mapFailed ? <div className="flex min-h-48 flex-col items-center justify-center gap-2 p-6 text-center text-hm-blue"><p className="text-sm font-bold">지도를 준비하고 있어</p><p className="text-xs text-hm-blue/60">아래 목록에서 체험할 부스를 먼저 찾아봐.</p></div> : <div className="relative aspect-[4/3] w-full"><Image src="/booth-map.webp" alt="나Be한마당 부스 배치도" fill sizes="(min-width: 672px) 632px, 100vw" className="object-contain p-3" onError={() => setMapFailed(true)} /></div>}
     </section>
