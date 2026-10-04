@@ -39,7 +39,7 @@ export default function BoothsPage() {
   const booths = source.filter((b) => `${b.name} ${b.description ?? ""}`.toLowerCase().includes(q));
   return <TabPage action={readOnly ? <MyPageLink /> : undefined}>
     <section className={`${SOFT_CARD} overflow-hidden`} aria-label="부스 맵">
-      {mapFailed ? <div className="flex min-h-48 flex-col items-center justify-center gap-2 p-6 text-center text-hm-blue"><p className="text-sm font-bold">지도를 준비하고 있어</p><p className="text-xs text-hm-blue/60">아래 목록에서 체험할 부스를 먼저 찾아봐.</p></div> : <div className="relative aspect-[4/3] w-full"><Image src="/booth-map.webp" alt="나Be한마당 부스 배치도" fill sizes="(min-width: 672px) 632px, 100vw" className="object-contain p-3" onError={() => setMapFailed(true)} /></div>}
+      {mapFailed ? <div className="flex min-h-48 flex-col items-center justify-center gap-2 p-6 text-center text-hm-blue"><p className="text-sm font-bold">지도를 준비하고 있어</p><p className="text-xs text-hm-blue/60">아래 목록에서 체험할 부스를 먼저 찾아봐.</p></div> : <div className="relative aspect-[1672/941] w-full"><Image src="/booth-map.webp" alt="나Be한마당 부스 배치도" fill sizes="(min-width: 672px) 632px, 100vw" className="object-cover" onError={() => setMapFailed(true)} /></div>}
     </section>
     <ProfileFeedback {...feedback} />
     {!feedback.loading && !feedback.error && profile && <section className="flex flex-col gap-3.5">
