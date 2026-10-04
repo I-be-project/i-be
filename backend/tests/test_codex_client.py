@@ -129,14 +129,14 @@ async def test_generate_image_retries_once_then_fails(tmp_path: Path) -> None:
 
 
 async def test_image_output_is_precreated_in_project_workspace(tmp_path: Path) -> None:
-    body = f'''
+    body = f"""
 work = Path(sys.argv[sys.argv.index("-C") + 1])
 output = work / "out.png"
 assert work.parent.name == "codex-images"
 assert work.parent.parent.name == "tmp"
 assert output.exists() and output.stat().st_size == 0
 output.write_bytes({_PNG_BYTES!r})
-'''
+"""
     client = CodexClient(binary=_fake_binary(tmp_path, body), timeout_seconds=10)
     assert await client.generate_image("프롬프트") == _PNG_BYTES
 
