@@ -1,7 +1,6 @@
 import { Check } from "lucide-react";
 import type { ProfileBoothStatus } from "@/lib/api";
 import { competencyLabel, countVisitedByZone, ZONE_LABELS, ZONE_SHORT, type BoothZone } from "@/lib/competencies";
-import { displayFont } from "@/lib/fonts";
 import { groupVisitsByDay } from "@/lib/visitDays";
 import { cn } from "@/lib/utils";
 import { COMPETENCY_ZONE_COLOR, COMPETENCY_ZONE_INK } from "@/lib/zoneColors";
@@ -14,6 +13,8 @@ const ZONE_BORDER: Record<BoothZone, string> = { F: "border-hm-blue", L: "border
 const STAMP_TILT = ["-rotate-[8deg]", "rotate-[5deg]", "-rotate-[3deg]", "rotate-[7deg]", "-rotate-[5deg]"];
 // 기록 앞에 붙는 존 표시. 역량체험존은 C 대신 "역량".
 const ZONE_MARK: Record<BoothZone, string> = { F: "F", L: "L", Y: "Y", C: "역량", "": "" };
+// 존 표시 블록 바탕. 역량체험존(옐로)은 COMPETENCY_ZONE_COLOR를 style로 칠한다.
+const ZONE_BLOCK: Record<BoothZone, string> = { F: "bg-hm-blue", L: "bg-hm-coral", Y: "bg-hm-teal", C: "", "": "" };
 const zoneInk = (zone: BoothZone) => (zone === "C" ? { color: COMPETENCY_ZONE_INK } : undefined);
 
 // 참여 요약 — 큰 숫자 + 존별 도장. 0인 존도 흐린 도장으로 남겨 안 가본 존이 보이게 한다.
@@ -21,13 +22,13 @@ export function StampSummary({ booths }: { booths: ProfileBoothStatus[] }) {
   return <section className={`${SOFT_CARD} px-[18px] py-5`} aria-label="부스 참여 요약">
     {/* 숫자·도장 묶음을 휴대폰 폭으로 고정하고 카드 가운데에 둔다. */}
     <div className="mx-auto max-w-[336px]">
-    <p className={`${displayFont.className} grid grid-cols-[auto_minmax(0,1fr)] items-end gap-x-1.5 text-hm-blue`}>
-      <strong className="text-[4.4rem] font-normal leading-[0.85]">{booths.length}</strong>
+    <p className="grid grid-cols-[auto_minmax(0,1fr)] items-end gap-x-1.5 font-extrabold text-hm-blue">
+      <strong className="text-[4.4rem] font-extrabold leading-[0.85]">{booths.length}</strong>
       <span className="pb-1 text-[1.3rem] leading-tight">개 부스 참여</span>
     </p>
     <div className="mt-4 grid grid-cols-4 gap-2">
       {countVisitedByZone(booths).map(({ zone, count }, i) => <div key={zone} style={zone === "C" ? { ...zoneInk(zone), borderColor: COMPETENCY_ZONE_COLOR } : undefined} className={cn("grid aspect-square place-content-center rounded-full border-[2.5px] border-dashed text-center", ZONE_TEXT[zone], ZONE_BORDER[zone], STAMP_TILT[i % STAMP_TILT.length], count === 0 && "opacity-40")}>
-        <strong className={`${displayFont.className} text-[1.6rem] font-normal leading-none`}>{count}</strong>
+        <strong className="text-[1.6rem] font-extrabold leading-none">{count}</strong>
         <span className="mt-0.5 text-[11px] font-bold">{ZONE_SHORT[zone]}</span>
       </div>)}
     </div>
@@ -41,20 +42,20 @@ const timeOf = (iso: string) => new Date(iso).toLocaleTimeString("ko-KR", { hour
 export function VisitJournal({ booths }: { booths: ProfileBoothStatus[] }) {
   return <div className="flex flex-col gap-[22px] px-1">{groupVisitsByDay(booths).map((day) => <section key={day.key} className="grid grid-cols-[58px_minmax(0,1fr)] gap-3.5" aria-label={`${day.month}월 ${day.day}일 참여 기록`}>
     <div className="text-center text-hm-blue">
-      <strong className={`${displayFont.className} block text-[2.4rem] font-normal leading-none`}>{day.day}</strong>
+      <strong className="block text-[2.4rem] font-extrabold leading-none">{day.day}</strong>
       <span className="text-xs font-bold text-hm-blue/70">{day.month}월 · {day.weekday}</span>
     </div>
     <ul className="border-t-2 border-hm-blue">{day.visits.map((booth) => {
       const zone = booth.zone ?? "";
-      return <li key={booth.id} className="border-b border-hm-pattern py-2.5">
-        <div className="flex items-baseline justify-between gap-2.5">
-          <h3 className="min-w-0 break-keep text-[15px] font-extrabold leading-snug text-hm-blue">
-            {ZONE_MARK[zone] && <span aria-label={ZONE_LABELS[zone]} style={zoneInk(zone)} className={`${displayFont.className} mr-1.5 font-normal ${ZONE_TEXT[zone]}`}>{ZONE_MARK[zone]}</span>}
-            {booth.name}
-          </h3>
-          {booth.visited_at && <time dateTime={booth.visited_at} className="shrink-0 text-xs text-hm-blue/45">{timeOf(booth.visited_at)}</time>}
+      return <li key={booth.id} className="py-2.5">
+        <h3 className="break-keep text-[15px] font-extrabold leading-snug text-hm-blue">
+          {ZONE_MARK[zone] && <span aria-label={ZONE_LABELS[zone]} style={zone === "C" ? { backgroundColor: COMPETENCY_ZONE_COLOR } : undefined} className={cn("mr-1.5 inline-grid h-5 min-w-[22px] place-content-center rounded-md px-1.5 align-[2px] text-[11px] text-white", ZONE_BLOCK[zone])}>{ZONE_MARK[zone]}</span>}
+          {booth.name}
+        </h3>
+        <div className="mt-0.5 flex items-baseline justify-between gap-2.5 text-xs">
+          <p className="min-w-0 text-hm-blue/70">{booth.competencies?.map(competencyLabel).join(", ")}</p>
+          {booth.visited_at && <time dateTime={booth.visited_at} className="shrink-0 text-hm-blue/45">{timeOf(booth.visited_at)}</time>}
         </div>
-        {!!booth.competencies?.length && <p className="mt-0.5 text-xs text-hm-blue/70">{booth.competencies.map(competencyLabel).join(", ")}</p>}
       </li>;
     })}</ul>
   </section>)}</div>;

@@ -1,5 +1,12 @@
-import { Black_Han_Sans } from "next/font/google";
+import localFont from "next/font/local";
 
-// 성장 탭의 큰 숫자·제목용 디스플레이 서체. 본문은 전역 Pretendard 그대로.
-// 한글 글리프는 unicode-range로 나뉘어 있어 latin만 preload하면 의미가 없다 — preload를 끈다.
-export const displayFont = Black_Han_Sans({ weight: "400", subsets: ["latin"], preload: false, display: "swap" });
+// 부스·홈·성장 탭 서체 — 백엔드 카드 합성(app/assets/fonts)과 같은 Paperlogy.
+// 백엔드 TTF를 woff2로 변환해 app/fonts에 둔다. 탭 화면(TabPage)과 하단 탭바에 적용한다.
+export const paperlogy = localFont({
+  src: [
+    { path: "../app/fonts/Paperlogy-4Regular.woff2", weight: "400", style: "normal" },
+    { path: "../app/fonts/Paperlogy-6SemiBold.woff2", weight: "600", style: "normal" },
+    { path: "../app/fonts/Paperlogy-8ExtraBold.woff2", weight: "800", style: "normal" },
+  ],
+  display: "swap",
+});

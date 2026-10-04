@@ -1,9 +1,10 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { HanmadangBackground } from "./HanmadangBackground";
+import { paperlogy } from "@/lib/fonts";
 
 export function TabPage({ title, description, action, children }: { title?: string; description?: string; action?: ReactNode; children: ReactNode }) {
-  return <main className="relative min-h-[100dvh] touch-pan-y touch-pinch-zoom overflow-x-clip px-5 pb-28 pt-4 font-sans">
+  return <main className={`${paperlogy.className} relative min-h-[100dvh] touch-pan-y touch-pinch-zoom overflow-x-clip px-5 pb-28 pt-4`}>
     <HanmadangBackground />
     <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col gap-6">
       <div className="-mb-2 grid grid-cols-[1fr_auto_1fr] items-center gap-3">

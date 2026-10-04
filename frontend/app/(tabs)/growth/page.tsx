@@ -6,7 +6,6 @@ import { PolarAngleAxis, PolarGrid, PolarRadiusAxis, Radar, RadarChart, Responsi
 import { TabPage, ProfileFeedback } from "@/components/tabs/TabPage";
 import { useProfileView, MyPageLink } from "@/components/tabs/ProfileView";
 import { hasAnyScore, toChartData } from "@/lib/competencies";
-import { displayFont } from "@/lib/fonts";
 
 // 레이더 색 — 격자는 아주 연하게, 데이터는 반투명 면 + 얇은 선.
 const GRID = "#e9eff5";
@@ -25,7 +24,7 @@ export default function GrowthPage() {
     {!feedback.loading && !feedback.error && profile && <>
       <StampSummary booths={visited} />
       <section className={`${SOFT_CARD} px-4 pt-[18px] pb-3`}>
-        <h2 className={`${displayFont.className} text-[1.3rem] text-hm-blue`}>나의 역량 지도</h2>
+        <h2 className="text-[1.3rem] font-extrabold text-hm-blue">나의 역량 지도</h2>
         {empty && <p className="mt-1 text-xs font-bold text-hm-blue/60">{readOnly ? "아직 참여한 부스의 역량 기록이 없어." : "첫 부스에 참여하고 QR을 찍어봐. 나의 역량 지도가 채워질 거야!"}</p>}
         <div className="h-[300px] w-full sm:h-[380px]" role="img" aria-label={empty ? "아직 참여 기록이 없는 역량 차트" : chartData.map((d) => `${d.label} ${d.score}점`).join(", ")}>
           <ResponsiveContainer width="100%" height="100%" className="pointer-events-none">
@@ -39,12 +38,12 @@ export default function GrowthPage() {
                 const tx = Number(x) + Math.cos(rad) * LABEL_PUSH, ty = Number(y) + Math.sin(rad) * LABEL_PUSH;
                 const on = score > 0;
                 return <g>
-                  <text x={tx} y={ty - 5} textAnchor="middle" dominantBaseline="central" fill={on ? "#4d7fae" : "#9dbbd6"} fontSize={11} fontWeight={500}>{label}</text>
-                  <text x={tx} y={ty + 7} textAnchor="middle" dominantBaseline="central" fill="#9dbbd6" fontSize={10} fontWeight={500}>{score}</text>
+                  <text x={tx} y={ty - 5} textAnchor="middle" dominantBaseline="central" fill={on ? "#4d7fae" : "#9dbbd6"} fontSize={11} fontWeight={400}>{label}</text>
+                  <text x={tx} y={ty + 7} textAnchor="middle" dominantBaseline="central" fill="#9dbbd6" fontSize={10} fontWeight={400}>{score}</text>
                 </g>;
               }} />
               <PolarRadiusAxis domain={[0, 1]} tick={false} axisLine={false} />
-              <Radar dataKey="r" activeDot={false} stroke={SHAPE} strokeWidth={1.6} fill={SHAPE} fillOpacity={empty ? 0 : 0.28} />
+              <Radar dataKey="r" activeDot={false} stroke={SHAPE} strokeWidth={1} fill={SHAPE} fillOpacity={empty ? 0 : 0.28} />
             </RadarChart>
           </ResponsiveContainer>
         </div>
