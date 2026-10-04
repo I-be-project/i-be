@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { ArrowLeft, Camera } from "lucide-react";
 import { TabPage } from "@/components/tabs/TabPage";
 import { scanBoothPath } from "@/lib/scanBoothCode";
+import { kioskCheckinMessage, kioskCheckinUrl, sendKioskCheckin } from "@/lib/kioskCheckin";
+import { useSessionStore } from "@/store/useSessionStore";
 
 export default function ScanPage() {
   const router = useRouter();
@@ -46,6 +48,18 @@ export default function ScanPage() {
             const frame = context.getImageData(0, 0, canvas.width, canvas.height);
             const result = jsQR(frame.data, frame.width, frame.height, { inversionAttempts: "attemptBoth" });
             if (result) {
+              const kioskUrl = kioskCheckinUrl(result.data);
+              const studentId = useSessionStore.getState().studentId;
+              if (kioskUrl && studentId) {
+                // 같은 QR을 연달아 보내지 않도록 카메라부터 멈추고 한 번만 보낸다.
+                active = false; stop();
+                setStatus("키오스크에 보내는 중…");
+                void sendKioskCheckin(kioskUrl, studentId).then((code) => {
+                  setStatus(kioskCheckinMessage(code));
+                  if (code >= 500) setError(true);
+                });
+                return;
+              }
               const path = scanBoothPath(result.data);
               if (path) { active = false; stop(); router.replace(path); return; }
               setStatus("한마당 부스 QR이 아니야. 부스에 있는 QR을 찍어줘.");
