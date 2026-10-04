@@ -12,8 +12,8 @@ export const SOFT_CARD = "rounded-[22px] bg-white shadow-[0_8px_20px_-10px_rgba(
 const ZONE_TEXT: Record<BoothZone, string> = { F: "text-hm-blue", L: "text-hm-coral", Y: "text-hm-teal", C: "", "": "text-hm-blue/50" };
 const ZONE_BORDER: Record<BoothZone, string> = { F: "border-hm-blue", L: "border-hm-coral", Y: "border-hm-teal", C: "", "": "border-hm-blue/40" };
 const STAMP_TILT = ["-rotate-[8deg]", "rotate-[5deg]", "-rotate-[3deg]", "rotate-[7deg]", "-rotate-[5deg]"];
-// 기록 앞에 붙는 존 글자. 역량체험존은 C 대신 "역".
-const ZONE_MARK: Record<BoothZone, string> = { F: "F", L: "L", Y: "Y", C: "역", "": "" };
+// 기록 앞에 붙는 존 표시. 역량체험존은 C 대신 "역량".
+const ZONE_MARK: Record<BoothZone, string> = { F: "F", L: "L", Y: "Y", C: "역량", "": "" };
 const zoneInk = (zone: BoothZone) => (zone === "C" ? { color: COMPETENCY_ZONE_INK } : undefined);
 
 // 참여 요약 — 큰 숫자 + 존별 도장. 0인 존도 흐린 도장으로 남겨 안 가본 존이 보이게 한다.
@@ -54,7 +54,7 @@ export function VisitJournal({ booths }: { booths: ProfileBoothStatus[] }) {
           </h3>
           {booth.visited_at && <time dateTime={booth.visited_at} className="shrink-0 text-xs text-hm-blue/45">{timeOf(booth.visited_at)}</time>}
         </div>
-        {!!booth.competencies?.length && <p className="mt-0.5 text-xs text-hm-blue/70">얻은 역량: {booth.competencies.map(competencyLabel).join(", ")}</p>}
+        {!!booth.competencies?.length && <p className="mt-0.5 text-xs text-hm-blue/70">{booth.competencies.map(competencyLabel).join(", ")}</p>}
       </li>;
     })}</ul>
   </section>)}</div>;
