@@ -1,22 +1,22 @@
 "use client";
 
-import { useEffect } from "react";
-import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Camera } from "lucide-react";
 import { useSessionStore } from "@/store/useSessionStore";
 import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { BottomNav } from "@/components/nav/BottomNav";
 import { OwnProfileProvider } from "@/components/tabs/ProfileView";
+import { QrScanDialog } from "@/components/tabs/QrScanDialog";
 
 // 설문 완료 후 진입하는 3탭(부스/홈/성장) 공용 레이아웃.
 // route group이라 URL(/booths, /home, /growth)엔 안 드러난다.
 // 탭을 오가도 이 레이아웃은 리마운트되지 않으므로(템플릿과 달리) 하단 네비가 유지된다.
 export default function TabsLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const pathname = usePathname();
   const hasHydrated = useSessionStore((s) => s.hasHydrated);
   const studentToken = useSessionStore((s) => s.studentToken);
+  const [scanOpen, setScanOpen] = useState(false);
 
   // 인증가드 — 기존 profile/[id]/page.tsx에 있던 로직을 그대로 옮겼다.
   // hasHydrated 전에는 localStorage 복원 중이므로 판단을 보류한다.
@@ -33,9 +33,10 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
   return (
     <OwnProfileProvider>
       {children}
-      {pathname !== "/growth/scan" && <div className="pointer-events-none fixed bottom-24 left-1/2 z-30 flex w-full max-w-2xl -translate-x-1/2 justify-end px-5">
-        <Link href="/growth/scan" aria-label="QR 스캔" className="pointer-events-auto flex size-16 items-center justify-center rounded-full bg-hm-blue text-white shadow-lg transition-transform active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hm-blue"><Camera size={28} /></Link>
-      </div>}
+      <div className="pointer-events-none fixed bottom-24 left-1/2 z-30 flex w-full max-w-2xl -translate-x-1/2 justify-end px-5">
+        <button type="button" onClick={() => setScanOpen(true)} aria-label="QR 스캔" className="pointer-events-auto flex size-16 items-center justify-center rounded-full bg-hm-blue text-white shadow-lg transition-transform active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hm-blue"><Camera size={28} /></button>
+      </div>
+      <QrScanDialog open={scanOpen} onOpenChange={setScanOpen} />
       <BottomNav />
     </OwnProfileProvider>
   );

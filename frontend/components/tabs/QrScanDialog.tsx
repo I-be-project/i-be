@@ -1,15 +1,33 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Camera } from "lucide-react";
-import { TabPage } from "@/components/tabs/TabPage";
+import { Camera, X } from "lucide-react";
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { scanBoothPath } from "@/lib/scanBoothCode";
 import { kioskCheckinMessage, kioskCheckinUrl, sendKioskCheckin } from "@/lib/kioskCheckin";
 import { useSessionStore } from "@/store/useSessionStore";
 
-export default function ScanPage() {
+/** 탭 공용 카메라 버튼이 여는 전체 화면 QR 스캐너. 닫히면 스캐너가 언마운트되며 카메라도 꺼진다. */
+export function QrScanDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
+  return <Dialog open={open} onOpenChange={onOpenChange}>
+    <DialogContent showCloseButton={false} className="inset-0 top-0 left-0 block h-[100dvh] w-full max-w-none translate-x-0 translate-y-0 overflow-hidden rounded-none bg-black p-0 text-white ring-0 sm:max-w-none">
+      {open && <QrScanner onOpenChange={onOpenChange} />}
+      <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-4 bg-gradient-to-b from-black/70 to-transparent px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] pb-10">
+        <div>
+          <DialogTitle className="text-xl font-black text-white">QR 스캔</DialogTitle>
+          <DialogDescription className="mt-1 text-sm text-white/75">부스나 키오스크의 QR을 네모 안에 맞춰줘.</DialogDescription>
+        </div>
+        <DialogClose aria-label="닫기" className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors active:bg-white/25"><X size={22} /></DialogClose>
+      </div>
+    </DialogContent>
+  </Dialog>;
+}
+
+const CORNERS = ["left-0 top-0 border-l-4 border-t-4 rounded-tl-3xl", "right-0 top-0 border-r-4 border-t-4 rounded-tr-3xl", "left-0 bottom-0 border-l-4 border-b-4 rounded-bl-3xl", "right-0 bottom-0 border-r-4 border-b-4 rounded-br-3xl"];
+
+// onOpenChange는 effect 의존성이라 안정적인 setter를 그대로 받는다(인라인 함수면 렌더마다 카메라가 재시작됨).
+function QrScanner({ onOpenChange }: { onOpenChange: (open: boolean) => void }) {
   const router = useRouter();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [attempt, setAttempt] = useState(0);
@@ -34,7 +52,7 @@ export default function ScanPage() {
         video.srcObject = stream;
         await video.play();
         if (!active) { stop(); return; }
-        setStatus("부스 QR을 화면 안에 맞춰줘.");
+        setStatus("QR을 네모 안에 맞춰줘.");
         const canvas = document.createElement("canvas");
         const context = canvas.getContext("2d", { willReadFrequently: true });
         if (!context) throw new Error("QR 스캔을 시작하지 못했어. 다른 브라우저에서 시도해줘.");
@@ -61,7 +79,7 @@ export default function ScanPage() {
                 return;
               }
               const path = scanBoothPath(result.data);
-              if (path) { active = false; stop(); router.replace(path); return; }
+              if (path) { active = false; stop(); onOpenChange(false); router.push(path); return; }
               setStatus("한마당 부스 QR이 아니야. 부스에 있는 QR을 찍어줘.");
             }
           }
@@ -77,13 +95,16 @@ export default function ScanPage() {
     };
     void start();
     return () => { active = false; clearTimeout(timer); stop(); };
-  }, [attempt, router]);
-  return <TabPage title="QR 스캔" description="참여한 부스의 QR을 카메라로 찍어줘.">
-    <Link href="/growth" className="flex items-center gap-2 text-sm font-bold text-hm-blue"><ArrowLeft size={18} />성장으로 돌아가기</Link>
-    <section className="hm-card overflow-hidden p-4">
-      <div className="relative aspect-[3/4] overflow-hidden rounded-2xl bg-slate-950"><video ref={videoRef} muted playsInline autoPlay aria-label="QR 스캔 카메라" className="h-full w-full object-cover" /><div aria-hidden className="pointer-events-none absolute inset-[15%] rounded-2xl border-2 border-white/80" /></div>
-      <p role={error ? "alert" : "status"} className="mt-4 text-center text-sm leading-relaxed text-hm-blue">{status}</p>
-      {error && <button onClick={() => setAttempt((n) => n + 1)} className="mx-auto mt-4 flex items-center gap-2 rounded-full bg-hm-blue px-5 py-3 text-sm font-bold text-white"><Camera size={18} />다시 시도</button>}
-    </section>
-  </TabPage>;
+  }, [attempt, router, onOpenChange]);
+  return <>
+    <video ref={videoRef} muted playsInline autoPlay aria-label="QR 스캔 카메라" className="absolute inset-0 h-full w-full object-cover" />
+    {/* 네모 바깥을 어둡게 — 큰 box-shadow로 마스크를 대신한다. */}
+    <div aria-hidden className="pointer-events-none absolute top-1/2 left-1/2 aspect-square w-[min(72vw,20rem)] -translate-x-1/2 -translate-y-1/2 rounded-3xl shadow-[0_0_0_100vmax_rgba(0,0,0,0.6)]">
+      {CORNERS.map((c) => <span key={c} className={`absolute size-12 border-white ${c}`} />)}
+    </div>
+    <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-3 px-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
+      <p role={error ? "alert" : "status"} className="max-w-sm rounded-2xl bg-white px-5 py-3 text-center text-sm font-bold leading-relaxed text-hm-blue shadow-lg">{status}</p>
+      {error && <button onClick={() => setAttempt((n) => n + 1)} className="flex items-center gap-2 rounded-full bg-hm-blue px-5 py-3 text-sm font-bold text-white shadow-lg"><Camera size={18} />다시 시도</button>}
+    </div>
+  </>;
 }
