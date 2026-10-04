@@ -15,7 +15,7 @@ export default function GrowthPage() {
   const scores = profile?.competencies;
   const chartData = toChartData(scores);
   const empty = !hasAnyScore(scores);
-  return <TabPage action={readOnly ? <MyPageLink /> : undefined}>
+  return <TabPage logo={false} action={readOnly ? <MyPageLink /> : undefined}>
     <ProfileFeedback {...feedback} />
     {!feedback.loading && !feedback.error && profile && <>
     <section className="hm-card px-2 pt-5 pb-3 sm:px-5">
