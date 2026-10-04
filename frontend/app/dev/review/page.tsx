@@ -7,7 +7,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Check, ImageIcon, Loader2, RefreshCw, Save, Smile, Trash2, X } from "lucide-react"
+import { ArrowLeft, Check, ChevronRight, ImageIcon, Loader2, RefreshCw, Save, Smile, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
@@ -15,11 +15,15 @@ import { Textarea } from "@/components/ui/textarea"
 import {
   deleteDrafts,
   draftAction,
+  listClasses,
   listDrafts,
+  listSchools,
   previewDraftCard,
   updateDraft,
   type Draft,
   type DraftEdit,
+  type DevClass,
+  type DraftScope,
   type DraftStatus,
 } from "@/lib/devApi"
 import { BatchPanel } from "./batch-panel"
@@ -51,13 +55,23 @@ export default function DevReviewPage() {
   // 목록 체크박스(일괄 삭제용). 상세에 띄운 초안(selectedId)과는 별개다.
   const [checked, setChecked] = useState<Set<string>>(new Set())
   const [refreshKey, setRefreshKey] = useState(0)
+  // 학교 → 학년 → 반 순으로 눌러 들어간다. 반까지 골라야 학생 목록을 불러온다.
+  const [scope, setScope] = useState<DraftScope>({})
+  const [schools, setSchools] = useState<string[]>([])
+  const [classes, setClasses] = useState<DevClass[]>([])
 
   const selected = drafts.find((d) => d.id === selectedId) ?? null
 
   const load = useCallback(async () => {
     setError(null)
+    if (scope.class_no === undefined) {
+      setDrafts([])
+      setCounts(null)
+      setSelectedId(null)
+      return
+    }
     try {
-      const res = await listDrafts(filter)
+      const res = await listDrafts(filter, scope)
       setDrafts(res.drafts)
       setCounts(res.counts)
       setSelectedId((cur) =>
@@ -66,11 +80,26 @@ export default function DevReviewPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "목록을 불러오지 못했습니다.")
     }
-  }, [filter])
+  }, [filter, scope])
 
   useEffect(() => {
     load()
   }, [load])
+
+  useEffect(() => {
+    listSchools().then(setSchools).catch((e: Error) => setError(e.message))
+  }, [])
+
+  const changeScope = (next: DraftScope) => {
+    setScope(next)
+    setChecked(new Set())
+    if (next.school !== scope.school) {
+      setClasses([])
+      if (next.school) listClasses(next.school).then(setClasses).catch((e: Error) => setError(e.message))
+    }
+  }
+  const grades = [...new Set(classes.map((c) => c.grade))]
+  const gradeClasses = classes.filter((c) => c.grade === scope.grade)
 
   const refreshCard = useCallback(async (d: Draft) => {
     setCard(null)
@@ -237,55 +266,118 @@ export default function DevReviewPage() {
 
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="flex flex-col gap-2">
-          <div className="flex items-center justify-between gap-2 px-1 text-sm">
-            <label className="inline-flex items-center gap-2">
-              <input
-                type="checkbox"
-                checked={allChecked}
-                disabled={drafts.length === 0}
-                onChange={(e) => setChecked(e.target.checked ? new Set(drafts.map((d) => d.id)) : new Set())}
-              />
-              전체 {drafts.length}건
-            </label>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => remove([...checked])}
-              disabled={checked.size === 0 || !!busy}
-            >
-              <Trash2 /> 선택 삭제 {checked.size || ""}
-            </Button>
-          </div>
-          <ul className="flex max-h-[80vh] flex-col gap-1 overflow-y-auto rounded-lg border p-2">
-            {drafts.length === 0 && (
-              <li className="p-3 text-sm text-muted-foreground">초안이 없습니다.</li>
+          <nav className="flex flex-wrap items-center gap-1 px-1 text-sm">
+            <Crumb onClick={() => changeScope({})} active={!scope.school}>
+              학교
+            </Crumb>
+            {scope.school && (
+              <>
+                <ChevronRight className="size-3.5 text-muted-foreground" />
+                <Crumb onClick={() => changeScope({ school: scope.school })} active={!scope.grade}>
+                  {scope.school}
+                </Crumb>
+              </>
             )}
-            {drafts.map((d) => (
-              <li
-                key={d.id}
-                className={`flex items-start gap-2 rounded-md px-2 py-2 hover:bg-muted ${
-                  d.id === selectedId ? "bg-muted" : ""
-                }`}
-              >
+            {scope.grade && (
+              <>
+                <ChevronRight className="size-3.5 text-muted-foreground" />
+                <Crumb
+                  onClick={() => changeScope({ school: scope.school, grade: scope.grade })}
+                  active={!scope.class_no}
+                >
+                  {scope.grade}학년
+                </Crumb>
+              </>
+            )}
+            {scope.class_no && (
+              <>
+                <ChevronRight className="size-3.5 text-muted-foreground" />
+                <Crumb active>{scope.class_no}반</Crumb>
+              </>
+            )}
+          </nav>
+
+          {!scope.school ? (
+            <ul className="flex max-h-[80vh] flex-col gap-1 overflow-y-auto rounded-lg border p-2">
+              {schools.map((school) => (
+                <li key={school}>
+                  <button
+                    onClick={() => changeScope({ school })}
+                    className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
+                  >
+                    {school}
+                    <ChevronRight className="size-4 text-muted-foreground" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : !scope.grade ? (
+            <PickGrid
+              items={grades.map((g) => ({ key: g, label: `${g}학년` }))}
+              onPick={(grade) => changeScope({ school: scope.school, grade })}
+            />
+          ) : scope.class_no === undefined ? (
+            <PickGrid
+              items={gradeClasses.map((c) => ({
+                key: c.class_no,
+                label: `${c.class_no}반`,
+                sub: `완료 ${c.completed}/${c.total}`,
+              }))}
+              onPick={(class_no) => changeScope({ ...scope, class_no })}
+            />
+          ) : (
+            <>
+            <div className="flex items-center justify-between gap-2 px-1 text-sm">
+              <label className="inline-flex items-center gap-2">
                 <input
                   type="checkbox"
-                  className="mt-1"
-                  aria-label={`${d.student_name} 선택`}
-                  checked={checked.has(d.id)}
-                  onChange={(e) => toggleCheck(d.id, e.target.checked)}
+                  checked={allChecked}
+                  disabled={drafts.length === 0}
+                  onChange={(e) => setChecked(e.target.checked ? new Set(drafts.map((d) => d.id)) : new Set())}
                 />
-                <button onClick={() => setSelectedId(d.id)} className="flex-1 text-left text-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="font-medium">{d.student_name}</span>
-                    {!d.image_url && <span className="text-xs text-muted-foreground">폴백</span>}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {d.school} {d.grade}-{d.class_no}-{d.student_no} · {d.base_career}
-                  </div>
-                </button>
-              </li>
-            ))}
-          </ul>
+                전체 {drafts.length}건
+              </label>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => remove([...checked])}
+                disabled={checked.size === 0 || !!busy}
+              >
+                <Trash2 /> 선택 삭제 {checked.size || ""}
+              </Button>
+            </div>
+            <ul className="flex max-h-[80vh] flex-col gap-1 overflow-y-auto rounded-lg border p-2">
+              {drafts.length === 0 && (
+                <li className="p-3 text-sm text-muted-foreground">초안이 없습니다.</li>
+              )}
+              {drafts.map((d) => (
+                <li
+                  key={d.id}
+                  className={`flex items-start gap-2 rounded-md px-2 py-2 hover:bg-muted ${
+                    d.id === selectedId ? "bg-muted" : ""
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    aria-label={`${d.student_name} 선택`}
+                    checked={checked.has(d.id)}
+                    onChange={(e) => toggleCheck(d.id, e.target.checked)}
+                  />
+                  <button onClick={() => setSelectedId(d.id)} className="flex-1 text-left text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{d.student_name}</span>
+                      {!d.image_url && <span className="text-xs text-muted-foreground">폴백</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {d.school} {d.grade}-{d.class_no}-{d.student_no} · {d.base_career}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+            </>
+          )}
         </div>
 
         {selected && edit && (
@@ -391,6 +483,50 @@ export default function DevReviewPage() {
           </section>
         )}
       </div>
+    </div>
+  )
+}
+
+function Crumb({
+  children,
+  active,
+  onClick,
+}: {
+  children: React.ReactNode
+  active: boolean
+  onClick?: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={active}
+      className={active ? "font-semibold" : "text-muted-foreground hover:text-foreground hover:underline"}
+    >
+      {children}
+    </button>
+  )
+}
+
+function PickGrid({
+  items,
+  onPick,
+}: {
+  items: { key: number; label: string; sub?: string }[]
+  onPick: (key: number) => void
+}) {
+  if (items.length === 0) return <p className="rounded-lg border p-3 text-sm text-muted-foreground">불러오는 중…</p>
+  return (
+    <div className="grid grid-cols-3 gap-2 rounded-lg border p-2">
+      {items.map((it) => (
+        <button
+          key={it.key}
+          onClick={() => onPick(it.key)}
+          className="flex flex-col items-center rounded-md border px-2 py-3 text-sm font-medium hover:bg-muted"
+        >
+          {it.label}
+          {it.sub && <span className="mt-0.5 text-xs font-normal text-muted-foreground">{it.sub}</span>}
+        </button>
+      ))}
     </div>
   )
 }

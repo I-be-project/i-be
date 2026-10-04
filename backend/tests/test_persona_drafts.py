@@ -252,6 +252,43 @@ async def test_reject_unknown_draft_is_404() -> None:
     assert res.status_code == 404
 
 
+class _ScopedDrafts:
+    """list_drafts·count_by_status에 넘어온 범위를 기록한다."""
+
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    async def list_drafts(self, **kwargs: Any) -> list[Any]:
+        self.calls.append(kwargs)
+        return []
+
+    async def count_by_status(self, **kwargs: Any) -> dict[str, int]:
+        self.calls.append(kwargs)
+        return {"pending": 0, "approved": 0, "rejected": 0}
+
+
+class _NoUrlStorage:
+    async def create_signed_urls(self, keys: list[str], *, ttl_seconds: int) -> dict[str, str]:
+        return {}
+
+
+async def test_list_drafts_scopes_list_and_counts_to_class() -> None:
+    repo = _ScopedDrafts()
+    app = create_app()
+    app.dependency_overrides[get_draft_repo] = lambda: repo
+    app.dependency_overrides[get_storage_client] = lambda: _NoUrlStorage()
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.get(
+            "/api/dev/drafts",
+            params={"status": "pending", "school": "한빛중", "grade": 2, "class_no": 3},
+        )
+
+    assert res.status_code == 200
+    scope = {"school": "한빛중", "grade": 2, "class_no": 3}
+    assert repo.calls == [{"status": "pending", "limit": 100, "offset": 0, **scope}, scope]
+
+
 # ──────────────────────────────────────────────────────────────
 # 일괄 실행기
 # ──────────────────────────────────────────────────────────────
