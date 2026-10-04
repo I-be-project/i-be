@@ -15,6 +15,7 @@ from app.core.errors import NotFoundError
 from app.core.images import crop_top
 from app.core.logging import get_logger
 from app.core.prompts.future_photo_prompt import (
+    BACKGROUND_IMAGE,
     DEFAULT_FUTURE_PHOTO_PROMPT,
     LAYOUT_REFERENCE_IMAGE,
     PHOTO_RATIO,
@@ -47,14 +48,15 @@ def split_headline(name: str, base_career: str) -> str:
 
 def to_draft_text(result: dict[str, Any]) -> DraftText:
     name = str(result.get("persona_name", ""))
-    base_career = str(result.get("base_career", ""))
+    base_career = str(result.get("career_name", ""))
     return DraftText(
         name=name,
         base_career=base_career,
         headline=split_headline(name, base_career),
         tagline=str(result.get("short_description", "")),
-        source_career_pool=result.get("source_career_pool"),
-        pool_extended=result.get("pool_extended"),
+        # v40 출력엔 Pool 내 여부가 없다 — Pool은 정답표가 아니라 참고 사전이 됐다.
+        source_career_pool=None,
+        pool_extended=None,
     )
 
 
@@ -125,7 +127,10 @@ class DraftService:
         try:
             photo = await self._storage.download(draft.photo_key)
             image = await self._codex.generate_image(
-                DEFAULT_FUTURE_PHOTO_PROMPT, photo=photo, layout=LAYOUT_REFERENCE_IMAGE.read_bytes()
+                DEFAULT_FUTURE_PHOTO_PROMPT,
+                photo=photo,
+                layout=LAYOUT_REFERENCE_IMAGE.read_bytes(),
+                background=BACKGROUND_IMAGE.read_bytes(),
             )
             image = crop_top(image, PHOTO_RATIO)
             # 재생성마다 새 키 — 이전 이미지를 덮어쓰지 않고 남긴다(사진 영구 보관).

@@ -600,7 +600,7 @@
 | `base_career` | string | 없음 | 카드 아랫줄(직업명) |
 | `headline` | string | 없음 | 카드 윗줄(수식어) |
 | `tagline` | string | 없음 | short_description |
-| `source_career_pool`, `pool_extended` | boolean 또는 null | 없음 | Career Pool 내 여부 / 인접 확장 여부 |
+| `source_career_pool`, `pool_extended` | boolean 또는 null | 없음 | Career Pool 내 여부 / 인접 확장 여부 (Prompt v40부터 생성 초안은 null) |
 | `raw` | object | 없음 | codex 출력 원본 |
 | `photo_url`, `image_url` | string 또는 null | 있음 | 원본 사진 / 생성 이미지 Presigned URL |
 | `error` | string 또는 null | 있음 | 마지막 이미지 생성 실패 사유 |
@@ -652,27 +652,35 @@
 
 ### GeneratePersonaResponse
 
+Career Persona Prompt v40 27장 출력 계약 + dev 관측용 필드.
+
 | 필드 | 타입 | 기본값 여부 | 설명 |
 |---|---|---|---|
+| `career_name` | string | 없음 | 학생에게 보여줄 직업·직무명 (초안의 `base_career`) |
 | `persona_name` | string | 없음 |  |
-| `base_career` | string | 없음 |  |
+| `persona_anchor` | string | 없음 | 대표 장면·사례·대비 |
+| `target` | string | 없음 | 주요 대상 |
+| `desired_impact` | string | 없음 | 관심을 둔 변화·결과 |
+| `value_attitude` | string | 없음 | 가치·태도 |
+| `problem_solving` | string | 없음 | 문제해결 방식 |
+| `career_reason` | string | 없음 | 설문과 직업 업무가 연결되는 이유 |
+| `career_required_competencies` | string 배열 | 없음 | 10개 역량 중 3개 (카드 키워드) |
 | `short_description` | string | 없음 |  |
-| `source_career_pool` | boolean | 없음 |  |
-| `pool_extended` | boolean | 없음 |  |
-| `q8_reflection` | string | 없음 |  |
-| `q9_reflection` | string | 없음 |  |
 | `user_prompt` | string | 없음 | 실제로 codex에 보낸 user 프롬프트 (디버깅용) |
 | `elapsed_seconds` | number | 없음 |  |
 
 ```json
 {
+  "career_name": "<string>",
   "persona_name": "<string>",
-  "base_career": "<string>",
+  "persona_anchor": "<string>",
+  "target": "<string>",
+  "desired_impact": "<string>",
+  "value_attitude": "<string>",
+  "problem_solving": "<string>",
+  "career_reason": "<string>",
+  "career_required_competencies": ["<string>", "<string>", "<string>"],
   "short_description": "<string>",
-  "source_career_pool": false,
-  "pool_extended": false,
-  "q8_reflection": "<string>",
-  "q9_reflection": "<string>",
   "user_prompt": "<string>",
   "elapsed_seconds": 0
 }
@@ -877,7 +885,7 @@
 | `status` | string 또는 null | 없음 |  |
 | `riasec_scores` | 키: integer 형태의 객체 | 없음 |  |
 | `pair_code` | string | 없음 |  |
-| `career_pool` | string 배열 | 없음 | Pair Code 기본 Career Pool (편집 초깃값) |
+| `career_pool` | string 배열 | 없음 | Pair Code 기본 Career Direction Pool 항목, 줄 단위 (편집 초깃값) |
 | `q7a_first` | string 또는 null | 없음 |  |
 | `q7a_second` | string 또는 null | 없음 |  |
 | `q7b_first` | string 또는 null | 없음 |  |

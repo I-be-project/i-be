@@ -5,7 +5,7 @@
 // 텍스트/이미지를 따로 재생성한 뒤 승인한다. 승인하면 카드 PNG가 S3에 저장되고
 // generated.personas·cards에 확정된다(학생 화면·인쇄는 확정본만 읽는다).
 
-import { useCallback, useEffect, useState } from "react"
+import { Fragment, useCallback, useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowLeft, Check, ImageIcon, Loader2, RefreshCw, Save, Smile, Trash2, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -331,19 +331,28 @@ export default function DevReviewPage() {
               </dd>
               <dt className="text-muted-foreground">상태</dt>
               <dd>{STATUS_LABEL[selected.status]}</dd>
-              <dt className="text-muted-foreground">Career Pool 내</dt>
-              <dd>{selected.source_career_pool ? "예" : "아니오"}</dd>
-              <dt className="text-muted-foreground">인접 확장</dt>
-              <dd>{selected.pool_extended ? "예" : "아니오"}</dd>
-              <dt className="text-muted-foreground">Q8 반영</dt>
-              <dd>{String(selected.raw.q8_reflection ?? "")}</dd>
-              <dt className="text-muted-foreground">Q9 반영</dt>
-              <dd>{String(selected.raw.q9_reflection ?? "")}</dd>
+              {(
+                [
+                  ["Anchor", "persona_anchor"],
+                  ["Target", "target"],
+                  ["Desired Impact", "desired_impact"],
+                  ["가치·태도", "value_attitude"],
+                  ["문제해결", "problem_solving"],
+                  ["Career 이유", "career_reason"],
+                ] as const
+              ).map(([label, key]) => (
+                <Fragment key={key}>
+                  <dt className="text-muted-foreground">{label}</dt>
+                  <dd>{String(selected.raw[key] ?? "—")}</dd>
+                </Fragment>
+              ))}
               <dt className="text-muted-foreground">역량 키워드</dt>
               <dd>
-                {Array.isArray(selected.raw.competencies)
-                  ? selected.raw.competencies.join(" · ")
-                  : "(없음 — 역량 추가 전 생성된 초안)"}
+                {(() => {
+                  // v40 키, 없으면 v1 시절 초안의 키.
+                  const c = selected.raw.career_required_competencies ?? selected.raw.competencies
+                  return Array.isArray(c) ? c.join(" · ") : "(없음)"
+                })()}
               </dd>
             </dl>
 

@@ -177,11 +177,17 @@ async def test_layout_is_attached_after_photo(tmp_path: Path) -> None:
     )
 
     with pytest.raises(ExternalServiceError):
-        await client.generate_image("프롬프트", photo=_JPEG_BYTES, layout=_PNG_BYTES)
+        await client.generate_image(
+            "프롬프트", photo=_JPEG_BYTES, layout=_PNG_BYTES, background=_JPEG_BYTES
+        )
 
     recorded = args_log.read_text(encoding="utf-8")
-    assert recorded.count(" -i ") == 2
-    assert recorded.index("input.jpg") < recorded.index("layout.png")
+    assert recorded.count(" -i ") == 3
+    assert (
+        recorded.index("input.jpg")
+        < recorded.index("layout.png")
+        < recorded.index("background.jpg")
+    )
 
 
 async def test_prompt_goes_through_stdin_not_argv(tmp_path: Path) -> None:

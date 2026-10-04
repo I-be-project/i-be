@@ -24,6 +24,7 @@ from app.adapters.storage_client import StorageClient
 from app.core.errors import NotFoundError
 from app.core.images import crop_top, inspect_image
 from app.core.prompts.future_photo_prompt import (
+    BACKGROUND_IMAGE,
     DEFAULT_FUTURE_PHOTO_PROMPT,
     LAYOUT_REFERENCE_IMAGE,
     PHOTO_RATIO,
@@ -213,7 +214,11 @@ async def generate_future_photo(
 
     started = time.perf_counter()
     image_bytes = await codex.generate_image(
-        req.prompt, photo=photo, layout=LAYOUT_REFERENCE_IMAGE.read_bytes(), model=req.model
+        req.prompt,
+        photo=photo,
+        layout=LAYOUT_REFERENCE_IMAGE.read_bytes(),
+        background=BACKGROUND_IMAGE.read_bytes(),
+        model=req.model,
     )
     image_bytes = crop_top(image_bytes, PHOTO_RATIO)
     elapsed = time.perf_counter() - started
