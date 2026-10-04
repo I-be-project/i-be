@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { HanmadangBackground } from "./HanmadangBackground";
 
 export function TabPage({ title, description, action, logo = true, children }: { title?: string; description?: string; action?: ReactNode; logo?: boolean; children: ReactNode }) {
-  return <main className="relative min-h-[100dvh] px-5 pb-28 pt-7 font-sans">
+  return <main className="relative min-h-[100dvh] touch-pan-y touch-pinch-zoom overflow-x-clip px-5 pb-28 pt-7 font-sans">
     <HanmadangBackground />
     <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col gap-6">
       {(logo || action) && <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
