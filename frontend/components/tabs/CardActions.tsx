@@ -5,30 +5,33 @@ import { Download, Share2 } from "lucide-react";
 
 const isAbort = (e: unknown) => e instanceof DOMException && e.name === "AbortError";
 
+// iOS는 <a download>로 사진 앱에 저장할 수 없어 공유 시트('이미지 저장')를 써야 한다.
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
 /**
- * 카드 이미지 저장. 이미지는 S3 서명 URL(다른 도메인)이라 <a download>가 먹지 않는다.
- * 받아서 휴대폰이면 공유 시트(여기서 '이미지 저장'), 아니면 파일로 내려받는다.
- * 받아오지 못하면(CORS 등) 새 창으로 열어 길게 눌러 저장하게 한다.
+ * 카드 이미지를 기기에 저장. S3 서명 URL은 CORS 때문에 직접 받을 수 없어 같은 출처 프록시(/card-image)로 받는다.
+ * iOS는 공유 시트(여기서 '이미지 저장' → 사진 앱), 그 밖에는 파일로 바로 내려받는다.
  */
 async function saveCard(url: string, filename: string): Promise<string | null> {
   try {
-    const res = await fetch(url);
+    const res = await fetch(`/card-image?url=${encodeURIComponent(url)}`);
     if (!res.ok) throw new Error(String(res.status));
     const blob = await res.blob();
     const file = new File([blob], filename, { type: blob.type || "image/png" });
-    if (navigator.canShare?.({ files: [file] })) {
+    if (isIOS() && navigator.canShare?.({ files: [file] })) {
       await navigator.share({ files: [file] });
       return null;
     }
     const href = URL.createObjectURL(blob);
     const a = Object.assign(document.createElement("a"), { href, download: filename });
+    document.body.appendChild(a);
     a.click();
+    a.remove();
     setTimeout(() => URL.revokeObjectURL(href), 1000);
     return "카드 이미지를 저장했어.";
   } catch (e) {
     if (isAbort(e)) return null;
-    window.open(url, "_blank", "noopener");
-    return "새 창의 이미지를 길게 눌러 저장해 줘.";
+    return "저장하지 못했어. 잠시 후 다시 눌러 줘.";
   }
 }
 
