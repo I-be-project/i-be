@@ -284,12 +284,16 @@ async def list_drafts(
     status: Annotated[Literal["pending", "approved", "rejected"] | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
+    school: Annotated[str | None, Query(min_length=1)] = None,
+    grade: Annotated[int | None, Query(ge=1)] = None,
+    class_no: Annotated[int | None, Query(ge=1)] = None,
 ) -> DraftList:
-    """초안 목록(학교·학년·반·번호 순)과 상태별 개수."""
-    records = await drafts.list_drafts(status=status, limit=limit, offset=offset)
-    return DraftList(
-        drafts=await _draft_items(records, storage), counts=await drafts.count_by_status()
+    """초안 목록(학교·학년·반·번호 순)과 상태별 개수. 학교·학년·반을 주면 그 범위만."""
+    records = await drafts.list_drafts(
+        status=status, limit=limit, offset=offset, school=school, grade=grade, class_no=class_no
     )
+    counts = await drafts.count_by_status(school=school, grade=grade, class_no=class_no)
+    return DraftList(drafts=await _draft_items(records, storage), counts=counts)
 
 
 @router.patch("/drafts/{draft_id}", response_model=DraftItem)
