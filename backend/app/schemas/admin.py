@@ -179,3 +179,26 @@ class AdminTestPurgeResponse(BaseModel):
 
     deleted: int
     removed_storage_objects: int = 0
+
+
+class AdminVerdictRequest(BaseModel):
+    """초안 평가 — O/X/△. verdict=null이면 평가 취소. 사유는 주로 △에 적는다."""
+
+    verdict: Literal["o", "x", "triangle"] | None
+    reason: str = Field("", max_length=500)
+
+
+class AdminReviewProgress(BaseModel):
+    """한 반의 참여·평가 현황 — 검수 남은 수는 drafts - (o + triangle + x)."""
+
+    school: str
+    grade: int
+    class_no: int
+    registered: int = Field(..., description="가입 학생 수")
+    completed: int = Field(..., description="설문 완료")
+    in_progress: int = Field(..., description="설문 시작했으나 미완료")
+    not_started: int = Field(..., description="설문 시작 안 함")
+    drafts: int = Field(..., description="생성된 결과(초안) 수")
+    o: int
+    triangle: int
+    x: int

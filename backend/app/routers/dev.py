@@ -259,10 +259,13 @@ def _draft_item(draft: DraftRecord, urls: dict[str, str]) -> DraftItem:
         image_url=urls.get(draft.image_key) if draft.image_key else None,
         error=draft.error,
         note=draft.note,
+        verdict=draft.verdict,
+        verdict_reason=draft.verdict_reason,
     )
 
 
-async def _draft_items(drafts: list[DraftRecord], storage: StorageClient) -> list[DraftItem]:
+async def draft_items(drafts: list[DraftRecord], storage: StorageClient) -> list[DraftItem]:
+    """초안 + 사진·생성 이미지 서명 URL. /api/admin/reviews도 같은 모양으로 쓴다."""
     keys = [k for d in drafts for k in (d.photo_key, d.image_key) if k]
     urls = await storage.create_signed_urls(keys, ttl_seconds=_PHOTO_URL_TTL_SECONDS)
     return [_draft_item(d, urls) for d in drafts]
@@ -274,7 +277,7 @@ async def _get_draft_item(
     draft = await drafts.get(draft_id)
     if draft is None:
         raise NotFoundError("초안을 찾을 수 없습니다.")
-    return (await _draft_items([draft], storage))[0]
+    return (await draft_items([draft], storage))[0]
 
 
 @router.get("/drafts", response_model=DraftList)
@@ -284,16 +287,17 @@ async def list_drafts(
     status: Annotated[Literal["pending", "approved", "rejected"] | None, Query()] = None,
     limit: Annotated[int, Query(ge=1, le=500)] = 100,
     offset: Annotated[int, Query(ge=0)] = 0,
-    school: Annotated[str | None, Query(min_length=1)] = None,
-    grade: Annotated[int | None, Query(ge=1)] = None,
-    class_no: Annotated[int | None, Query(ge=1)] = None,
+    # 개인 참여자는 school=''·0학년 0반이라 빈 문자열·0도 받는다.
+    school: str | None = None,
+    grade: Annotated[int | None, Query(ge=0)] = None,
+    class_no: Annotated[int | None, Query(ge=0)] = None,
 ) -> DraftList:
     """초안 목록(학교·학년·반·번호 순)과 상태별 개수. 학교·학년·반을 주면 그 범위만."""
     records = await drafts.list_drafts(
         status=status, limit=limit, offset=offset, school=school, grade=grade, class_no=class_no
     )
     counts = await drafts.count_by_status(school=school, grade=grade, class_no=class_no)
-    return DraftList(drafts=await _draft_items(records, storage), counts=counts)
+    return DraftList(drafts=await draft_items(records, storage), counts=counts)
 
 
 @router.patch("/drafts/{draft_id}", response_model=DraftItem)
@@ -385,12 +389,12 @@ async def reject_draft(
 
 @router.get("/schools", response_model=list[str])
 async def list_schools(students: StudentRepoDep) -> list[str]:
-    return await students.list_schools()
+    return await students.list_schools(include_guests=True)
 
 
 @router.get("/schools/classes", response_model=list[DevClass])
 async def list_classes(
-    students: StudentRepoDep, drafts: DraftRepoDep, school: Annotated[str, Query(min_length=1)]
+    students: StudentRepoDep, drafts: DraftRepoDep, school: str
 ) -> list[DevClass]:
     """학교의 반 목록 — 학생 수·설문 완료 수·일괄 생성 대상 수."""
     rows = await students.get_class_progress(school)

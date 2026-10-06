@@ -8,6 +8,7 @@ import { StudentDetailSidebar } from "@/components/console/StudentDetailSidebar"
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ApiError,
+  GUEST_LABEL,
   fetchAdminClassProgress,
   fetchAdminSchools,
   fetchAdminStudents,
@@ -40,6 +41,10 @@ const LEGEND: { key: AdminProgressStatus | "missing"; label: string; swatch: str
   { key: "not_started", label: "미시작", swatch: "border-border bg-muted" },
   { key: "missing", label: "미가입", swatch: "border-dashed border-border/70 bg-transparent" },
 ];
+
+// 개인 참여자 묶음. 학교가 없어(school='', 0학년 0반, 번호 0) 좌석이 아니라
+// 순번으로 나열하고, 학생 조회는 학교가 아닌 kind=guest로 한다.
+const GUEST = "__guest__";
 
 /** 라벨 + 카드 목록을 감싸는 선택 그룹. */
 function PickerGroup({
@@ -162,7 +167,7 @@ export function SeatingView() {
       // 다시 세우므로 깜빡임 없이 정상적으로 로딩 표시가 이어진다.
       setLoadingStudents(false);
       try {
-        const rows = await fetchAdminClassProgress(token, target);
+        const rows = await fetchAdminClassProgress(token, target === GUEST ? "" : target);
         if (requestId !== classProgressRequestId.current) return; // 더 새 요청에 밀림
         setClassProgress(rows);
         setError(null);
@@ -197,9 +202,9 @@ export function SeatingView() {
       setLoadingStudents(true);
       try {
         const res = await fetchAdminStudents(token, {
-          school: target,
-          grade: g,
-          class_no: c,
+          ...(target === GUEST
+            ? { kind: "guest" as const }
+            : { school: target, grade: g, class_no: c }),
           // 한 반 정원을 넉넉히 덮는다. 좌석표는 반 단위라 페이지네이션이 필요 없다.
           limit: 100,
           sort: "name_asc",
@@ -282,17 +287,21 @@ export function SeatingView() {
   // 번호 하나에 학생이 여럿일 수 있다 — 가입 시 반·번호 중복을 허용하기 때문
   // (식별은 이름까지 합쳐서 한다). Map<번호, 학생>이면 뒤에 온 학생이 앞 학생을
   // 덮어써 좌석표에서 조용히 사라지므로 배열로 담는다.
+  const isGuest = school === GUEST;
   const byNo = useMemo(() => {
     const map = new Map<number, AdminStudentItem[]>();
-    classStudents.forEach((s) => {
-      const bucket = map.get(s.student_no);
+    classStudents.forEach((s, i) => {
+      const no = isGuest ? i + 1 : s.student_no;
+      const bucket = map.get(no);
       if (bucket) bucket.push(s);
-      else map.set(s.student_no, [s]);
+      else map.set(no, [s]);
     });
     return map;
-  }, [classStudents]);
+  }, [classStudents, isGuest]);
 
-  const maxNo = classStudents.reduce((m, s) => Math.max(m, s.student_no), 0);
+  const maxNo = isGuest
+    ? classStudents.length
+    : classStudents.reduce((m, s) => Math.max(m, s.student_no), 0);
   const numbers = Array.from({ length: maxNo }, (_, i) => i + 1);
 
   // 요약 숫자는 집계 행에서 그대로 읽는다(학생 배열을 세지 않는다).
@@ -338,18 +347,18 @@ export function SeatingView() {
               ? Array.from({ length: 3 }).map((_, i) => (
                   <Skeleton key={i} className="h-11 w-28 rounded-xl" />
                 ))
-              : schools.map((s) => (
+              : [...schools, GUEST].map((s) => (
                   <PickerCard
                     key={s}
                     selected={s === school}
                     onClick={() => setSchool(s)}
                   >
-                    {s}
+                    {s === GUEST ? GUEST_LABEL : s}
                   </PickerCard>
                 ))}
           </PickerGroup>
 
-          {grades.length > 0 && (
+          {grades.length > 0 && !isGuest && (
             <PickerGroup label="학년">
               {grades.map((g) => (
                 <PickerCard
@@ -363,7 +372,7 @@ export function SeatingView() {
             </PickerGroup>
           )}
 
-          {classRows.length > 0 && (
+          {classRows.length > 0 && !isGuest && (
             <PickerGroup label="반">
               {classRows.map((r) => (
                 <PickerCard

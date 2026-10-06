@@ -2,6 +2,7 @@
 
 import {
   BarChart3,
+  ClipboardCheck,
   LayoutGrid,
   LogOut,
   QrCode,
@@ -24,13 +25,14 @@ interface NavItem {
   icon: LucideIcon;
 }
 
-// 관리자와 운영진의 차이는 부스 화면 이름뿐이다 — 관리자는 편집까지, 운영진은 확인만.
+// 관리자와 운영진의 차이는 부스 화면 이름과 결과 검수(관리자 전용)다.
 const NAV: Record<ConsoleRole, NavItem[]> = {
   admin: [
     { path: "", label: "회원 목록", icon: Users },
     { path: "/seating", label: "진행 현황", icon: LayoutGrid },
     { path: "/booths", label: "부스 관리", icon: QrCode },
     { path: "/visits", label: "부스별 참여인원", icon: BarChart3 },
+    { path: "/review", label: "결과 검수", icon: ClipboardCheck },
   ],
   operator: [
     { path: "", label: "회원 목록", icon: Users },

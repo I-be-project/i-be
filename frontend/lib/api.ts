@@ -818,3 +818,81 @@ export function checkInBooth(
     }
   );
 }
+
+// ── 초안 평가(O/X/△) — /admin/review ──────────────────────────
+export type ReviewVerdict = "o" | "x" | "triangle";
+
+// GET /api/admin/reviews 응답 1행. /api/dev/drafts의 Draft와 같은 모양에서 쓰는 것만.
+export interface AdminReviewItem {
+  id: string;
+  status: "pending" | "approved" | "rejected";
+  student_name: string;
+  student_no: number;
+  name: string;
+  base_career: string;
+  headline: string;
+  tagline: string;
+  raw: Record<string, unknown>;
+  photo_url: string | null;
+  image_url: string | null;
+  verdict: ReviewVerdict | null;
+  verdict_reason: string;
+  error: string | null;
+}
+
+export function fetchAdminReviews(
+  token: string,
+  scope: { school: string; grade: number; class_no: number }
+): Promise<AdminReviewItem[]> {
+  const qs = new URLSearchParams({
+    school: scope.school,
+    grade: String(scope.grade),
+    class_no: String(scope.class_no),
+  }).toString();
+  return request<AdminReviewItem[]>(`/api/admin/reviews?${qs}`, {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function putAdminReview(
+  token: string,
+  id: string,
+  verdict: ReviewVerdict | null,
+  reason: string
+): Promise<AdminReviewItem> {
+  return request<AdminReviewItem>(`/api/admin/reviews/${id}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ verdict, reason }),
+  });
+}
+
+// GET /api/admin/reviews/progress 응답 1행 — 한 반의 참여·평가 현황.
+// 참여 분류는 최근 세션 기준. 검수 남은 수 = drafts - (o+triangle+x).
+export interface AdminReviewProgress {
+  school: string;
+  grade: number;
+  class_no: number;
+  registered: number;
+  completed: number;
+  in_progress: number;
+  not_started: number;
+  drafts: number;
+  o: number;
+  triangle: number;
+  x: number;
+}
+
+export function fetchAdminReviewProgress(token: string): Promise<AdminReviewProgress[]> {
+  return request<AdminReviewProgress[]>("/api/admin/reviews/progress", {
+    method: "GET",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// 개인 참여자(guest)는 학교가 없어 school=''·0학년 0반으로 저장된다. 화면에선 한 묶음으로 보인다.
+export const GUEST_LABEL = "개인 참여자";
+export const schoolLabel = (school: string) => school || GUEST_LABEL;
+export const classLabel = (grade: number, classNo: number) =>
+  grade ? `${grade}학년 ${classNo}반` : GUEST_LABEL;

@@ -26,6 +26,7 @@ import {
   type DraftScope,
   type DraftStatus,
 } from "@/lib/devApi"
+import { classLabel, schoolLabel } from "@/lib/api"
 import { BatchPanel } from "./batch-panel"
 
 const STATUS_LABEL: Record<DraftStatus, string> = {
@@ -99,6 +100,7 @@ export default function DevReviewPage() {
     }
   }
   const grades = [...new Set(classes.map((c) => c.grade))]
+  const isGuest = scope.school === ""
   const gradeClasses = classes.filter((c) => c.grade === scope.grade)
 
   const refreshCard = useCallback(async (d: Draft) => {
@@ -267,29 +269,33 @@ export default function DevReviewPage() {
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="flex flex-col gap-2">
           <nav className="flex flex-wrap items-center gap-1 px-1 text-sm">
-            <Crumb onClick={() => changeScope({})} active={!scope.school}>
+            <Crumb onClick={() => changeScope({})} active={scope.school === undefined}>
               학교
             </Crumb>
-            {scope.school && (
+            {scope.school !== undefined && (
               <>
                 <ChevronRight className="size-3.5 text-muted-foreground" />
-                <Crumb onClick={() => changeScope({ school: scope.school })} active={!scope.grade}>
-                  {scope.school}
+                <Crumb
+                  onClick={() => changeScope({ school: scope.school })}
+                  active={scope.grade === undefined || isGuest}
+                >
+                  {schoolLabel(scope.school)}
                 </Crumb>
               </>
             )}
-            {scope.grade && (
+            {/* 개인 참여자는 학년·반이 없다(0학년 0반) — 학교 단계에서 바로 목록으로 간다. */}
+            {scope.grade !== undefined && !isGuest && (
               <>
                 <ChevronRight className="size-3.5 text-muted-foreground" />
                 <Crumb
                   onClick={() => changeScope({ school: scope.school, grade: scope.grade })}
-                  active={!scope.class_no}
+                  active={scope.class_no === undefined}
                 >
                   {scope.grade}학년
                 </Crumb>
               </>
             )}
-            {scope.class_no && (
+            {scope.class_no !== undefined && !isGuest && (
               <>
                 <ChevronRight className="size-3.5 text-muted-foreground" />
                 <Crumb active>{scope.class_no}반</Crumb>
@@ -297,21 +303,23 @@ export default function DevReviewPage() {
             )}
           </nav>
 
-          {!scope.school ? (
+          {scope.school === undefined ? (
             <ul className="flex max-h-[80vh] flex-col gap-1 overflow-y-auto rounded-lg border p-2">
               {schools.map((school) => (
                 <li key={school}>
                   <button
-                    onClick={() => changeScope({ school })}
+                    onClick={() =>
+                      changeScope(school ? { school } : { school, grade: 0, class_no: 0 })
+                    }
                     className="flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm hover:bg-muted"
                   >
-                    {school}
+                    {schoolLabel(school)}
                     <ChevronRight className="size-4 text-muted-foreground" />
                   </button>
                 </li>
               ))}
             </ul>
-          ) : !scope.grade ? (
+          ) : scope.grade === undefined ? (
             <PickGrid
               items={grades.map((g) => ({ key: g, label: `${g}학년` }))}
               onPick={(grade) => changeScope({ school: scope.school, grade })}
@@ -370,7 +378,10 @@ export default function DevReviewPage() {
                       {!d.image_url && <span className="text-xs text-muted-foreground">폴백</span>}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {d.school} {d.grade}-{d.class_no}-{d.student_no} · {d.base_career}
+                      {d.school
+                        ? `${d.school} ${d.grade}-${d.class_no}-${d.student_no}`
+                        : classLabel(d.grade, d.class_no)}{" "}
+                      · {d.base_career}
                     </div>
                   </button>
                 </li>
