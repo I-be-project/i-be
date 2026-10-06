@@ -24,6 +24,7 @@ from app.repositories.booth_repo import BoothRepository
 from app.repositories.booth_visit_repo import BoothVisitRepository
 from app.repositories.card_repo import CardRepository
 from app.repositories.draft_repo import DraftRepository
+from app.repositories.export_repo import ExportRepository
 from app.repositories.persona_repo import PersonaRepository
 from app.repositories.session_repo import SessionRepository
 from app.repositories.settings_repo import SettingsRepository
@@ -67,6 +68,13 @@ def get_draft_repo(pool: DBPoolDep) -> DraftRepository:
 
 
 DraftRepoDep = Annotated[DraftRepository, Depends(get_draft_repo)]
+
+
+def get_export_repo(pool: DBPoolDep) -> ExportRepository:
+    return ExportRepository(pool)
+
+
+ExportRepoDep = Annotated[ExportRepository, Depends(get_export_repo)]
 
 
 def get_storage_client(settings: SettingsDep) -> StorageClient:
