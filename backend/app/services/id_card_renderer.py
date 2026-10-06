@@ -166,14 +166,14 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
     right = W - W * SCHOOL_RIGHT
     school_font = _font("Paperlogy-4Regular.ttf", round(W * SCHOOL_SIZE))
     class_text = f"{content.grade}학년 {content.class_no}반 {content.student_no}번"
-    _white_texts(
-        card,
-        [
-            ((W * NAME_X, H * NAME_Y), content.student_name, name_font, "lm"),
+    texts: list[_Text] = [((W * NAME_X, H * NAME_Y), content.student_name, name_font, "lm")]
+    # 개인 참여자는 학교가 없다(school=''·0학년 0반) — 학교·반 줄을 비운다.
+    if content.school:
+        texts += [
             ((right, H * SCHOOL_Y), content.school, school_font, "rm"),
             ((right, H * CLASS_Y), class_text, school_font, "rm"),
-        ],
-    )
+        ]
+    _white_texts(card, texts)
 
     # ── 하단: headline(윗줄) + base_career(아랫줄, 크게) ──
     max_w = W * 0.9

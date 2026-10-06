@@ -2,11 +2,21 @@
 
 from __future__ import annotations
 
+from dataclasses import asdict
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Query
 
-from app.deps import AdminServiceDep, CurrentAdminDep, CurrentStaffDep
+from app.core.errors import NotFoundError
+from app.deps import (
+    AdminServiceDep,
+    CurrentAdminDep,
+    CurrentStaffDep,
+    DraftRepoDep,
+    StorageClientDep,
+)
+from app.routers.dev import draft_items
 from app.schemas.admin import (
     AdminBulkDeleteRequest,
     AdminBulkDeleteResponse,
@@ -14,6 +24,7 @@ from app.schemas.admin import (
     AdminDeleteResponse,
     AdminLoginRequest,
     AdminLoginResponse,
+    AdminReviewProgress,
     AdminStudentDetail,
     AdminStudentKind,
     AdminStudentList,
@@ -23,7 +34,9 @@ from app.schemas.admin import (
     AdminTestStudent,
     AdminTestStudentCreateRequest,
     AdminTestToken,
+    AdminVerdictRequest,
 )
+from app.schemas.dev import DraftItem
 
 router = APIRouter(prefix="/api/admin", tags=["admin"])
 
@@ -175,6 +188,49 @@ async def delete_student(
 ) -> AdminDeleteResponse:
     """학생 하드 삭제 — DB(세션·답변·페르소나·카드 cascade) + S3 사진/카드 이미지."""
     return await admin.delete_student(student_id)
+
+
+# 초안 평가(O/X/△) — 배포 환경에서 여러 명이 /dev/review 결과를 채점한다.
+# 승인·재생성은 로컬 codex가 필요해 /dev/review에만 있다. 여기선 보기와 평가만.
+@router.get("/reviews", response_model=list[DraftItem])
+async def list_reviews(
+    _admin: CurrentAdminDep,
+    drafts: DraftRepoDep,
+    storage: StorageClientDep,
+    school: str,
+    grade: Annotated[int, Query(ge=0)],
+    class_no: Annotated[int, Query(ge=0)],
+) -> list[DraftItem]:
+    """한 반의 초안 전체(번호 순) — 상태 무관. 개인 참여자는 school=''·0학년 0반."""
+    records = await drafts.list_drafts(
+        status=None, limit=500, offset=0, school=school, grade=grade, class_no=class_no
+    )
+    return await draft_items(records, storage)
+
+
+@router.get("/reviews/progress", response_model=list[AdminReviewProgress])
+async def review_progress(
+    _admin: CurrentAdminDep, drafts: DraftRepoDep
+) -> list[AdminReviewProgress]:
+    """학교·학년·반별 참여(가입·설문 완료·미완료)와 평가(O/△/X·남은 수) 현황."""
+    return [AdminReviewProgress(**asdict(p)) for p in await drafts.verdict_progress()]
+
+
+@router.put("/reviews/{draft_id}", response_model=DraftItem)
+async def set_review(
+    draft_id: UUID,
+    req: AdminVerdictRequest,
+    _admin: CurrentAdminDep,
+    drafts: DraftRepoDep,
+    storage: StorageClientDep,
+) -> DraftItem:
+    """O/X/△ 기록. 같은 초안을 다시 평가하면 덮어쓴다(마지막 평가가 남는다)."""
+    if await drafts.get(draft_id) is None:
+        raise NotFoundError("초안을 찾을 수 없습니다.")
+    await drafts.set_verdict(draft_id, req.verdict, req.reason.strip())
+    draft = await drafts.get(draft_id)
+    assert draft is not None
+    return (await draft_items([draft], storage))[0]
 
 
 @router.get("/dashboard")
