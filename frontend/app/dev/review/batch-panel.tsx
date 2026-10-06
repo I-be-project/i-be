@@ -18,6 +18,7 @@ import {
   type BatchStatus,
   type DevClass,
 } from "@/lib/devApi"
+import { classLabel, schoolLabel } from "@/lib/api"
 
 // codex 실측: 텍스트 ~30초 + 이미지 ~60초.
 const SECONDS_PER_STUDENT = 90
@@ -54,7 +55,7 @@ export function BatchPanel({
 
   // 학교를 고르거나, 작업이 끝나거나, 초안이 지워지면 반별 대상 수를 새로 받는다.
   useEffect(() => {
-    if (!school) return
+    if (school === null) return
     listClasses(school).then(setClasses).catch((e: Error) => setError(e.message))
   }, [school, running, refreshKey])
 
@@ -124,7 +125,7 @@ export function BatchPanel({
                     s === school ? "bg-muted font-medium" : ""
                   }`}
                 >
-                  <span>{s}</span>
+                  <span>{schoolLabel(s)}</span>
                   {n > 0 && <span className="text-xs text-primary">{n}개 반</span>}
                 </button>
               </li>
@@ -133,7 +134,7 @@ export function BatchPanel({
         </ul>
 
         <div className="max-h-72 overflow-y-auto rounded-md border text-sm">
-          {!school ? (
+          {school === null ? (
             <p className="p-3 text-muted-foreground">왼쪽에서 학교를 고르세요.</p>
           ) : (
             <table className="w-full">
@@ -162,14 +163,14 @@ export function BatchPanel({
                     <td className="p-2 text-center">
                       <input
                         type="checkbox"
-                        aria-label={`${c.grade}학년 ${c.class_no}반`}
+                        aria-label={classLabel(c.grade, c.class_no)}
                         checked={isOn(c)}
                         disabled={running || c.targets === 0}
                         onChange={(e) => toggle(c, e.target.checked)}
                       />
                     </td>
                     <td className="p-2">
-                      {c.grade}학년 {c.class_no}반
+                      {classLabel(c.grade, c.class_no)}
                     </td>
                     <td className="p-2 text-right">
                       {c.completed}/{c.total}
