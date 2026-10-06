@@ -44,6 +44,7 @@ import {
 } from "@/components/ui/table";
 import {
   ApiError,
+  GUEST_LABEL,
   bulkDeleteAdminStudents,
   createAdminTestStudent,
   fetchAdminSchools,
@@ -166,6 +167,8 @@ const SORT_OPTIONS: { value: SortKey; label: string }[] = [
 
 // Select 값은 빈 문자열을 허용하지 않으므로 "전체"용 센티널을 쓴다.
 const ALL_SCHOOLS = "__all__";
+// 개인 참여자는 학교가 없다(school='') — 학교가 아니라 kind=guest로 거른다.
+const GUEST_FILTER = "__guest__";
 
 export function StudentListView() {
   const router = useRouter();
@@ -224,14 +227,18 @@ export function StudentListView() {
     try {
       const res = await fetchAdminStudents(token, {
         q: submittedQuery || undefined,
-        school: schoolFilter === ALL_SCHOOLS ? undefined : schoolFilter,
+        school:
+          schoolFilter === ALL_SCHOOLS || schoolFilter === GUEST_FILTER
+            ? undefined
+            : schoolFilter,
         sort: sortKey,
         limit: pageSize,
         offset: page * pageSize,
         // 아바타는 클릭해야 보이므로 목록에서는 사진을 받지 않는다(서명 50건 절약).
         include_photo: false,
         // 가입 회원 탭은 kind를 생략해 테스트 계정이 빠진 실제 참가자만 받는다.
-        kind: tab === "test" ? "test" : undefined,
+        kind:
+          tab === "test" ? "test" : schoolFilter === GUEST_FILTER ? "guest" : undefined,
       });
       setTotal(res.total);
       // 삭제 등으로 현재 페이지가 범위를 벗어나면 첫 페이지로 되돌린다.
@@ -707,12 +714,17 @@ export function StudentListView() {
                 <SelectTrigger className="w-[160px]" aria-label="학교 필터">
                   <SelectValue>
                     {(v: string | null) =>
-                      !v || v === ALL_SCHOOLS ? "전체 학교" : v
+                      !v || v === ALL_SCHOOLS
+                        ? "전체 학교"
+                        : v === GUEST_FILTER
+                          ? GUEST_LABEL
+                          : v
                     }
                   </SelectValue>
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value={ALL_SCHOOLS}>전체 학교</SelectItem>
+                  <SelectItem value={GUEST_FILTER}>{GUEST_LABEL}</SelectItem>
                   {schools.map((school) => (
                     <SelectItem key={school} value={school}>
                       {school}

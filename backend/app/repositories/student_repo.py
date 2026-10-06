@@ -392,14 +392,17 @@ class StudentRepository(BaseRepository):
             rows = await conn.fetch(list_query, *params, limit, offset)
         return int(total), [_to_record(row) for row in rows]
 
-    async def list_schools(self) -> list[str]:
-        """가입 학생이 있는 학교 이름 목록(중복 제거, 가나다순) — 관리자 필터용."""
+    async def list_schools(self, *, include_guests: bool = False) -> list[str]:
+        """가입 학생이 있는 학교 이름 목록(중복 제거, 가나다순) — 관리자 필터용.
+
+        include_guests면 개인 참여자 묶음(school='')도 넣는다 — 맨 앞에 온다.
+        """
         query = (
-            "select distinct school from pii.students "
-            "where deleted_at is null and kind = 'student' order by school"
+            "select distinct school from pii.students where deleted_at is null "
+            "and (kind = 'student' or ($1 and kind = 'guest')) order by school"
         )
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(query)
+            rows = await conn.fetch(query, include_guests)
         return [row["school"] for row in rows]
 
     async def get_class_progress(self, school: str) -> list[ClassProgressRow]:
@@ -427,7 +430,7 @@ class StudentRepository(BaseRepository):
                 order by se.created_at desc
                 limit 1
             ) ls on true
-            where s.school = $1 and s.deleted_at is null and s.kind = 'student'
+            where s.school = $1 and s.deleted_at is null and s.kind in ('student', 'guest')
             group by s.grade, s.class_no
             order by s.grade, s.class_no
         """

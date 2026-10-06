@@ -20,7 +20,7 @@ DRAFT_STATUSES = ("pending", "approved", "rejected")
 _SELECT = """
     select d.id, d.session_id, d.student_id, d.status, d.name, d.base_career, d.headline,
            d.tagline, d.source_career_pool, d.pool_extended, d.raw, d.image_key, d.error,
-           d.note, d.updated_at, d.reviewed_at,
+           d.note, d.updated_at, d.reviewed_at, d.verdict, d.verdict_reason,
            s.name as student_name, s.school, s.grade, s.class_no, s.student_no, s.photo_key
     from generated.persona_drafts d
     join pii.students s on s.id = d.student_id
@@ -41,6 +41,8 @@ _TARGETS = """
         from generated.sessions se
         join pii.students st on st.id = se.student_id
         where se.status = 'completed' and st.deleted_at is null
+          -- 테스트 계정은 개인 참여자와 같은 school=''라 반 단위 일괄 생성에서 뺀다.
+          and (st.kind <> 'test' or $1::uuid is not null)
           and ($1::uuid is null or se.student_id = $1)
           and ($2::text is null or st.school = $2)
           and ($3::int is null or st.grade = $3)
@@ -71,12 +73,31 @@ class DraftRecord:
     note: str
     updated_at: datetime
     reviewed_at: datetime | None
+    verdict: str | None
+    verdict_reason: str
     student_name: str
     school: str
     grade: int
     class_no: int
     student_no: int
     photo_key: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class VerdictProgress:
+    """한 반의 참여·평가 현황. 참여 분류는 가장 최근 세션 기준(좌석표와 같다)."""
+
+    school: str
+    grade: int
+    class_no: int
+    registered: int
+    completed: int
+    in_progress: int
+    not_started: int
+    drafts: int
+    o: int
+    triangle: int
+    x: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +139,8 @@ def _to_record(row: Any) -> DraftRecord:
         note=row["note"],
         updated_at=row["updated_at"],
         reviewed_at=row["reviewed_at"],
+        verdict=row["verdict"],
+        verdict_reason=row["verdict_reason"],
         student_name=row["student_name"],
         school=row["school"],
         grade=row["grade"],
@@ -294,6 +317,50 @@ class DraftRepository(BaseRepository):
                 draft_ids,
             )
         return deleted
+
+    async def verdict_progress(self) -> list[VerdictProgress]:
+        """학교·학년·반별 가입·설문 진행·초안·평가 수. 개인 참여자는 school=''·0학년 0반."""
+        query = """
+            select s.school, s.grade, s.class_no,
+                   count(*) as registered,
+                   count(*) filter (where ls.status = 'completed') as completed,
+                   count(*) filter (where ls.status is not null
+                                      and ls.status <> 'completed') as in_progress,
+                   count(*) filter (where ls.status is null) as not_started,
+                   count(d.student_id) as drafts,
+                   count(*) filter (where d.verdict = 'o') as o,
+                   count(*) filter (where d.verdict = 'triangle') as triangle,
+                   count(*) filter (where d.verdict = 'x') as x
+            from pii.students s
+            -- 학생별 최근 세션·최근 초안. lateral(학생마다 하위 쿼리)보다 한 번 훑는 편이
+            -- 훨씬 빠르다(5천 명 기준 수 초 → 0.1초 미만).
+            left join (
+                select distinct on (student_id) student_id, status from generated.sessions
+                order by student_id, created_at desc
+            ) ls on ls.student_id = s.id
+            left join (
+                select distinct on (student_id) student_id, verdict
+                from generated.persona_drafts
+                order by student_id, created_at desc
+            ) d on d.student_id = s.id
+            where s.deleted_at is null and s.kind in ('student', 'guest')
+            group by s.school, s.grade, s.class_no
+            order by s.school, s.grade, s.class_no
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query)
+        return [VerdictProgress(**dict(r)) for r in rows]
+
+    async def set_verdict(self, draft_id: UUID, verdict: str | None, reason: str) -> None:
+        """O/X/△ 평가. status와 별개 — 카드 확정에 영향 없음. None이면 평가 취소."""
+        query = """
+            update generated.persona_drafts
+            set verdict = $2, verdict_reason = $3,
+                verdict_at = case when $2::text is null then null else now() end
+            where id = $1
+        """
+        async with self._pool.acquire() as conn:
+            await conn.execute(query, draft_id, verdict, reason)
 
     async def reject(self, draft_id: UUID) -> None:
         query = """

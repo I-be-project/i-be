@@ -553,6 +553,9 @@ export/
 | POST   | `/api/admin/students/test`            | 필요 | 테스트 계정 발급 — 관리자 화면 전용      |
 | POST   | `/api/admin/students/test/{id}/token` | 필요 | 테스트 계정 진입 토큰 발급 — 관리자 화면 전용 |
 | DELETE | `/api/admin/students/test`            | 필요 | 테스트 계정 일괄 삭제 — 관리자 화면 전용 |
+| GET    | `/api/admin/reviews/progress`         | 필요 | 학교·학년·반별 초안 수와 O/△/X 수 — 관리자 화면 전용 |
+| GET    | `/api/admin/reviews?school&grade&class_no` | 필요 | 반의 페르소나 초안 목록(평가 포함) — 관리자 화면 `/admin/review` 전용. 개인 참여자는 `school=''&grade=0&class_no=0` |
+| PUT    | `/api/admin/reviews/{draft_id}`       | 필요 | 초안 평가 `{verdict: "o"\|"x"\|"triangle"\|null, reason}` — 관리자 화면 전용 |
 | GET    | `/healthz`                            | –    | 헬스체크                                 |
 
 미구현 상태인 엔드포인트: `/api/admin/dashboard`, `/api/admin/stats/keywords`, `/api/admin/operators`.
@@ -565,3 +568,4 @@ export/
 | 2026-08-01 | `include_photo` 파라미터와 `has_photo` 필드 추가, 반별 집계·사진 단건 엔드포인트 추가. 기존 동작·기본값은 그대로 |
 | 2026-08-08 | 계정 종류(`kind`) 도입. `GET /api/admin/students` 기본 응답에서 테스트 계정(`kind="test"`) 제외, `kind` 쿼리 파라미터와 `kind` 응답 필드(목록) 추가. 테스트 계정 발급·진입 토큰·일괄 삭제 엔드포인트 3개 추가(3.7절, 관리자 화면 전용) |
 | 2026-09-21 | 학생 상세(3.3절) `answers`를 `{stage, payload, created_at}` 원본에서 문항별 `{no, question 또는 description, answer}`로 변경, 세션에 `riasec`·`pair_code` 추가. 저장된 데이터는 그대로이고 응답 형태만 바뀐다 |
+| 2026-10-06 | 초안 평가(O/X/△) 엔드포인트 3개 추가 — `GET /api/admin/reviews`, `GET /api/admin/reviews/progress`, `PUT /api/admin/reviews/{draft_id}`. 관리자 화면 전용, 마이그레이션 `0019` 선적용 필요 |

@@ -129,6 +129,8 @@ class DraftItem(BaseModel):
     image_url: str | None = Field(None, description="생성 이미지 Presigned URL")
     error: str | None = Field(None, description="마지막 이미지 생성 실패 사유")
     note: str
+    verdict: str | None = Field(None, description="o | x | triangle (평가 전이면 null)")
+    verdict_reason: str = ""
 
 
 class DraftList(BaseModel):
@@ -173,7 +175,7 @@ class DevClass(BaseModel):
 
 
 class BatchClass(BaseModel):
-    school: str = Field(..., min_length=1)
+    school: str = Field(..., description="개인 참여자는 ''(0학년 0반)")
     grade: int
     class_no: int
 
