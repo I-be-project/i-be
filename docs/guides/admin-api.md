@@ -2,6 +2,9 @@
 
 외부 시스템에서 **학생 정보와 사진을 조회**하기 위한 API 문서. 이 문서 하나로 연동이 끝나도록 구성했다.
 
+> **외부 시스템 연동은 [`export-api.md`](export-api.md)(조회 전용 키)를 쓴다.** 이 문서의 관리자 토큰은
+> 삭제·수정 API까지 열리므로 외부에 넘기지 않는다.
+
 - Base URL: `https://api.cnu-likelion.kr`
 - 인증: 관리자 계정 로그인 → Bearer 토큰
 - 응답 형식: JSON (UTF-8)
@@ -569,3 +572,4 @@ export/
 | 2026-08-08 | 계정 종류(`kind`) 도입. `GET /api/admin/students` 기본 응답에서 테스트 계정(`kind="test"`) 제외, `kind` 쿼리 파라미터와 `kind` 응답 필드(목록) 추가. 테스트 계정 발급·진입 토큰·일괄 삭제 엔드포인트 3개 추가(3.7절, 관리자 화면 전용) |
 | 2026-09-21 | 학생 상세(3.3절) `answers`를 `{stage, payload, created_at}` 원본에서 문항별 `{no, question 또는 description, answer}`로 변경, 세션에 `riasec`·`pair_code` 추가. 저장된 데이터는 그대로이고 응답 형태만 바뀐다 |
 | 2026-10-06 | 초안 평가(O/X/△) 엔드포인트 3개 추가 — `GET /api/admin/reviews`, `GET /api/admin/reviews/progress`, `PUT /api/admin/reviews/{draft_id}`. 관리자 화면 전용, 마이그레이션 `0019` 선적용 필요 |
+| 2026-10-07 | 외부 연동은 내보내기 API([`export-api.md`](export-api.md))로 안내하는 배너 추가 |

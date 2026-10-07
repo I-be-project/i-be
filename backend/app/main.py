@@ -25,6 +25,7 @@ from app.routers import (
     booths,
     cards,
     dev,
+    export,
     operator,
     questions,
     sessions,
@@ -118,6 +119,7 @@ def create_app() -> FastAPI:
     app.include_router(students.router)
     app.include_router(operator.router)
     app.include_router(admin.router)
+    app.include_router(export.router)
     app.include_router(booths.router)
     app.include_router(student_booths.router)
     app.include_router(questions.router)

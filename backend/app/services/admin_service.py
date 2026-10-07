@@ -201,7 +201,7 @@ class AdminService:
         sessions: list[AdminSessionDetail] = []
         for c in contents:
             answers, riasec, pair_code = (
-                _readable_answers(c.answers) if include_answers else ([], None, None)
+                readable_answers(c.answers) if include_answers else ([], None, None)
             )
             sessions.append(
                 AdminSessionDetail(
@@ -356,7 +356,7 @@ def _to_progress(row: StudentProgressRow | None) -> AdminStudentProgress:
     )
 
 
-def _readable_answers(
+def readable_answers(
     records: list[AnswerRecord],
 ) -> tuple[list[AdminQuestionAnswer | AdminStageAnswer], dict[str, int] | None, str | None]:
     """저장된 단계별 payload → (질문·답 목록, RIASEC 점수, Pair Code).
