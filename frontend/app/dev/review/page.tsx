@@ -395,7 +395,10 @@ export default function DevReviewPage() {
           <section className="flex flex-col gap-6">
             <div className="grid gap-4 sm:grid-cols-3">
               <Figure label="원본 사진" src={selected.photo_url} />
-              <Figure label="생성 이미지 (없으면 폴백 캐릭터)" src={selected.image_url} />
+              <Figure
+                label={selected.image_url ? "생성 이미지" : "폴백 캐릭터 (생성 이미지 없음)"}
+                src={selected.image_url ?? "/card-fallback.webp"}
+              />
               <Figure
                 label="카드 미리보기"
                 src={card ? `data:image/png;base64,${card}` : null}

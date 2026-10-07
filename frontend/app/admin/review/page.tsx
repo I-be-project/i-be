@@ -33,7 +33,27 @@ const VERDICT_STYLE: Record<ReviewVerdict, string> = {
 };
 const VERDICT_MARK: Record<ReviewVerdict, string> = { o: "O", triangle: "△", x: "X" };
 
+// 생성 이미지가 없을 때 카드에 들어가는 캐릭터 — backend/app/assets/card/fallback.png 축소본.
+const FALLBACK_IMAGE = "/card-fallback.webp";
+
 const done = (p: { o: number; triangle: number; x: number }) => p.o + p.triangle + p.x;
+
+// 현황 표와 같은 순서: 학교 가나다 → 학년 → 반, 개인 참여자(school='')는 맨 끝.
+const byOrder = (a: AdminReviewProgress, b: AdminReviewProgress) =>
+  (!a.school ? 1 : 0) - (!b.school ? 1 : 0) ||
+  a.school.localeCompare(b.school, "ko") ||
+  a.grade - b.grade ||
+  a.class_no - b.class_no;
+
+/** 현재 반 다음으로, 검수가 남은 반. 없으면 null. 현황은 마지막으로 받은 값 기준이다. */
+function nextClass(rows: AdminReviewProgress[], cur: Scope): Scope | null {
+  const sorted = [...rows].sort(byOrder);
+  const i = sorted.findIndex(
+    (r) => r.school === cur.school && r.grade === cur.grade && r.class_no === cur.class_no
+  );
+  const hit = sorted.slice(i + 1).find((r) => r.drafts > done(r));
+  return hit ? { school: hit.school, grade: hit.grade, class_no: hit.class_no } : null;
+}
 
 export default function AdminReviewPage() {
   const router = useRouter();
@@ -83,7 +103,15 @@ export default function AdminReviewPage() {
           </p>
         )}
         {scope ? (
-          <ClassReview scope={scope} call={call} onBack={() => setScope(null)} />
+          <ClassReview
+            // 반이 바뀌면 상태(목록·현재 학생)를 새로 시작한다.
+            key={`${scope.school}|${scope.grade}|${scope.class_no}`}
+            scope={scope}
+            call={call}
+            onBack={() => setScope(null)}
+            next={progress && nextClass(progress, scope)}
+            onNext={setScope}
+          />
         ) : (
           <ProgressOverview rows={progress} onPick={setScope} />
         )}
@@ -261,10 +289,14 @@ function ClassReview({
   scope,
   call,
   onBack,
+  next,
+  onNext,
 }: {
   scope: Scope;
   call: <T>(fn: (token: string) => Promise<T>) => Promise<T | undefined>;
   onBack: () => void;
+  next: Scope | null;
+  onNext: (s: Scope) => void;
 }) {
   const [items, setItems] = useState<AdminReviewItem[] | null>(null);
   const [index, setIndex] = useState(0);
@@ -337,6 +369,7 @@ function ClassReview({
     : classLabel(scope.grade, scope.class_no);
   if (!items) return <p className="text-sm text-muted-foreground">{title} 불러오는 중…</p>;
   const doneCount = items.filter((d) => d.verdict).length;
+  const allDone = items.length > 0 && doneCount === items.length;
   // v40 키, 없으면 v1 시절 초안의 키.
   const comps = item && (item.raw.career_required_competencies ?? item.raw.competencies);
 
@@ -349,10 +382,18 @@ function ClassReview({
           </Button>
           <h1 className="text-lg font-semibold tracking-tight">{title}</h1>
         </div>
-        <span className="text-sm text-muted-foreground">
-          {doneCount}/{items.length} 완료
-          {doneCount === items.length && items.length > 0 && " — 이 반 검수 끝 🎉"}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-muted-foreground">
+            {doneCount}/{items.length} 완료
+            {allDone && " — 이 반 검수 끝 🎉"}
+          </span>
+          {next && (
+            <Button size="sm" variant={allDone ? "default" : "outline"} onClick={() => onNext(next)}>
+              다음 반: {next.school ? `${next.school} ${classLabel(next.grade, next.class_no)}` : classLabel(next.grade, next.class_no)}
+              <ChevronRight />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* 반 학생 번호 줄 — 평가 결과가 색으로 보이고 눌러서 이동한다. */}
@@ -378,7 +419,10 @@ function ClassReview({
         <section className="flex flex-col gap-5 rounded-xl border bg-card p-5 lg:flex-row">
           <div className="flex shrink-0 gap-3">
             <Figure src={item.photo_url} label="원본 사진" />
-            <Figure src={item.image_url} label={item.image_url ? "생성 이미지" : "생성 이미지 (없음 → 폴백)"} />
+            <Figure
+              src={item.image_url ?? FALLBACK_IMAGE}
+              label={item.image_url ? "생성 이미지" : "폴백 캐릭터 (생성 이미지 없음)"}
+            />
           </div>
 
           <div className="flex min-w-0 flex-1 flex-col gap-4">
@@ -419,9 +463,15 @@ function ClassReview({
                   hint="2"
                 >
                   <Triangle className="size-6" strokeWidth={3} />
+                  <span className="text-[11px] font-medium leading-tight">
+                    애매한 사진 결과 (재생성 필요)
+                  </span>
                 </VerdictButton>
                 <VerdictButton active={item.verdict === "x"} style={VERDICT_STYLE.x} disabled={busy} onClick={() => save("x")} hint="3">
                   <X className="size-6" strokeWidth={3} />
+                  <span className="text-[11px] font-medium leading-tight">
+                    폴백 이미지 (사진 없거나, 이상한 사진)
+                  </span>
                 </VerdictButton>
               </div>
 
@@ -507,7 +557,7 @@ function VerdictButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "relative grid h-14 flex-1 place-items-center rounded-xl border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50",
+        "relative grid min-h-14 flex-1 place-items-center gap-0.5 rounded-xl px-2 py-1.5 border text-muted-foreground transition-colors hover:bg-muted disabled:opacity-50",
         active && style
       )}
     >
