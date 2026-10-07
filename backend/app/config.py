@@ -86,6 +86,10 @@ class Settings(BaseSettings):
     # TTL은 위쪽 Auth 블록의 operator_token_ttl_hours를 쓴다.
     operator_password: str = "change-me-operator"
 
+    # 외부 전달(/api/export/v1) 조회 전용 키. 비어 있으면 내보내기 API가 꺼진다.
+    # 받는 쪽에만 전달하고, 끊을 때는 값을 바꾸거나 비운다: openssl rand -hex 32
+    export_api_key: str = ""
+
     # AI — OpenRouter 키 하나로 chat·image 통합.
     openrouter_api_key: str = ""
 
