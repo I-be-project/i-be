@@ -197,10 +197,39 @@ while True:
         break
 ```
 
+이미지는 거의 바뀌지 않는다. **동기화할 때마다 전부 다시 받으면 전송 비용이 쌓이므로**,
+원본 사진은 학생 `id`당 한 번만, AI 생성 이미지는 `persona.approved_at`이 바뀌었을 때만 받는다.
+(전체 1회 ≈ 원본 사진 3.5GB + 생성 이미지 최대 10GB)
+
+---
+
+## 7. 다운로드 스크립트
+
+위 과정을 그대로 구현한 Python 스크립트 `download_export.py`를 함께 전달한다. 필요한 패키지는 `httpx` 하나.
+
+```bash
+pip install httpx
+export EXPORT_API_KEY=<전달받은 키>
+
+python download_export.py --out ./export                 # 전체
+python download_export.py --out ./export --student-id <UUID>   # 1명
+python download_export.py --out ./export --no-images     # 이미지 없이 데이터만
+```
+
+| 출력 | 내용 |
+|---|---|
+| `export/students.json` | 전체 데이터. 만료되는 URL 대신 로컬 경로 `photo_file`, `persona.image_file`이 들어간다 |
+| `export/photos/<id>.<확장자>` | 원본 사진 |
+| `export/persona/<id>_<승인시각>.<확장자>` | AI 생성 인물 이미지 |
+
+- 같은 `--out`으로 다시 실행하면 이미 받은 이미지는 건너뛴다(위 비용 안내대로 동작).
+- 이미지 다운로드가 실패하면 종료 코드 `1`로 끝나고, 다음 실행 때 실패한 것만 다시 받는다.
+- 원본: 저장소 `backend/scripts/download_export.py`
+
 ---
 
 ## 변경 이력
 
 | 날짜 | 내용 |
 |---|---|
-| 2026-10-07 | 최초 작성. `GET /api/export/v1/students` — 조회 전용 키, 커서 페이지네이션, 학생 단건 조회, 학생 정보·대표 설문·원본 사진·승인된 페르소나와 AI 생성 이미지 |
+| 2026-10-07 | 최초 작성. `GET /api/export/v1/students` — 조회 전용 키, 커서 페이지네이션, 학생 단건 조회, 다운로드 스크립트, 학생 정보·대표 설문·원본 사진·승인된 페르소나와 AI 생성 이미지 |
