@@ -19,6 +19,7 @@ dependencies = [
     "python-multipart>=0.0.29",
     "qrcode>=8.2",
     "structlog>=25.5.0",
+    "pillow-heif>=1.8.0",
 ]
 
 [dependency-groups]
