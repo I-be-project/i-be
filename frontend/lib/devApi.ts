@@ -140,6 +140,23 @@ export interface Draft {
   image_url: string | null;
   error: string | null;
   note: string;
+  verdict: Verdict | null;
+  verdict_reason: string;
+  // /dev/review에서 다시 만든 시각과, 다시 만들기 전의 평가(재검수할 때 참고).
+  regenerated_at: string | null;
+  prev_verdict: Verdict | null;
+  prev_verdict_reason: string;
+}
+
+export type Verdict = "o" | "x" | "triangle";
+
+// O/X/△ 평가 — /admin/review와 같은 값. verdict=null이면 평가 취소.
+export function setDraftVerdict(id: string, verdict: Verdict | null, reason = ""): Promise<Draft> {
+  return request(`/api/dev/drafts/${id}/verdict`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ verdict, reason }),
+  });
 }
 
 export interface DraftEdit {
@@ -241,6 +258,20 @@ export function startBatch(body: {
   });
 }
 
+// 아직 생성하지 않은 학생(설문 완료·초안 없음) 수 — 전체 학교.
+export function countTargets(): Promise<{ total: number }> {
+  return request("/api/dev/drafts/targets", { method: "GET" });
+}
+
+// 학교·반을 고르지 않고 미생성 전원을 생성한다.
+export function startBatchAll(concurrency: number): Promise<BatchStatus> {
+  return request("/api/dev/drafts/batch/all", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ concurrency }),
+  });
+}
+
 export function cancelBatch(): Promise<BatchStatus> {
   return request("/api/dev/drafts/batch/cancel", { method: "POST" });
 }
@@ -251,5 +282,32 @@ export function deleteDrafts(ids: string[]): Promise<{ deleted: number }> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ids }),
+  });
+}
+
+// 다시 만들 대상 — codex 실패(실행 실패·시간 초과) · codex 거절(사진 문제) · △ 평가.
+export type DraftIssue = "codex_failed" | "codex_refused" | "triangle" | "regenerated";
+
+export function listDraftIssues(
+  issue: DraftIssue
+): Promise<{ drafts: Draft[]; counts: Record<DraftIssue, number> }> {
+  return request(`/api/dev/drafts/issues?issue=${issue}`, { method: "GET" });
+}
+
+// △ 초안을 검수 이유를 반영해 다시 만든다 — 이유에 직업·문구가 있으면 텍스트, 그 밖은 이미지.
+export function regenerateReview(ids: string[], concurrency: number): Promise<BatchStatus> {
+  return request("/api/dev/drafts/regenerate-review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, concurrency }),
+  });
+}
+
+// 고른 초안들의 이미지만 백그라운드로 다시 만든다. 진행 상태는 getBatch()로 본다.
+export function regenerateImages(ids: string[], concurrency: number): Promise<BatchStatus> {
+  return request("/api/dev/drafts/regenerate-images", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ids, concurrency }),
   });
 }

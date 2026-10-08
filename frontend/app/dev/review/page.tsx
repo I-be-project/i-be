@@ -16,13 +16,19 @@ import {
   deleteDrafts,
   draftAction,
   listClasses,
+  listDraftIssues,
   listDrafts,
   listSchools,
   previewDraftCard,
+  regenerateImages,
+  regenerateReview,
+  setDraftVerdict,
   updateDraft,
   type Draft,
   type DraftEdit,
   type DevClass,
+  type DraftIssue,
+  type Verdict,
   type DraftScope,
   type DraftStatus,
 } from "@/lib/devApi"
@@ -34,6 +40,16 @@ const STATUS_LABEL: Record<DraftStatus, string> = {
   approved: "승인",
   rejected: "반려",
 }
+
+// 재생성 대상 모드의 탭. 전체 학교에서 모아 본다.
+const ISSUE_LABEL: Record<DraftIssue, string> = {
+  codex_failed: "codex 실패",
+  codex_refused: "codex 거절 (사진 문제)",
+  triangle: "△ 평가",
+  regenerated: "재생성 → 재검수",
+}
+
+const VERDICT_MARK: Record<Verdict, string> = { o: "O", triangle: "△", x: "X" }
 
 const toEdit = (d: Draft): DraftEdit => ({
   name: d.name,
@@ -60,11 +76,30 @@ export default function DevReviewPage() {
   const [scope, setScope] = useState<DraftScope>({})
   const [schools, setSchools] = useState<string[]>([])
   const [classes, setClasses] = useState<DevClass[]>([])
+  // null이면 반별 검수, 값이 있으면 그 분류의 재생성 대상을 전체 학교에서 모아 본다.
+  const [issue, setIssue] = useState<DraftIssue | null>(null)
+  const [issueCounts, setIssueCounts] = useState<Record<DraftIssue, number> | null>(null)
+  const [regenConcurrency, setRegenConcurrency] = useState(20)
+  // 상세의 △ 이유 입력값.
+  const [verdictReason, setVerdictReason] = useState("")
 
   const selected = drafts.find((d) => d.id === selectedId) ?? null
 
   const load = useCallback(async () => {
     setError(null)
+    if (issue) {
+      try {
+        const res = await listDraftIssues(issue)
+        setDrafts(res.drafts)
+        setIssueCounts(res.counts)
+        setSelectedId((cur) =>
+          cur && res.drafts.some((d) => d.id === cur) ? cur : (res.drafts[0]?.id ?? null)
+        )
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "목록을 불러오지 못했습니다.")
+      }
+      return
+    }
     if (scope.class_no === undefined) {
       setDrafts([])
       setCounts(null)
@@ -81,7 +116,7 @@ export default function DevReviewPage() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "목록을 불러오지 못했습니다.")
     }
-  }, [filter, scope])
+  }, [filter, scope, issue])
 
   useEffect(() => {
     load()
@@ -89,7 +124,30 @@ export default function DevReviewPage() {
 
   useEffect(() => {
     listSchools().then(setSchools).catch((e: Error) => setError(e.message))
+    // 탭 개수만 쓴다 — codex 실패 목록이 가장 작아 이걸로 받는다.
+    listDraftIssues("codex_failed").then((r) => setIssueCounts(r.counts)).catch(() => {})
   }, [])
+
+  const changeIssue = (next: DraftIssue | null) => {
+    setIssue(next)
+    setChecked(new Set())
+    setSelectedId(null)
+  }
+
+  // 고른 초안들의 이미지를 백그라운드로 다시 만든다. 진행은 위 일괄 생성 패널에 보인다.
+  // △ 탭은 검수 이유를 반영해(직업·문구면 텍스트, 그 밖은 이미지) 다시 만든다.
+  const regenerate = async (ids: string[]) => {
+    const what = issue === "triangle" ? "△ 이유를 반영해 다시 만들까요" : "이미지를 다시 만들까요"
+    if (!confirm(`${ids.length}명의 ${what}? (동시 ${regenConcurrency})`)) return
+    setError(null)
+    try {
+      await (issue === "triangle" ? regenerateReview : regenerateImages)(ids, regenConcurrency)
+      setChecked(new Set())
+      setRefreshKey((k) => k + 1)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "재생성을 시작하지 못했습니다.")
+    }
+  }
 
   const changeScope = (next: DraftScope) => {
     setScope(next)
@@ -123,6 +181,7 @@ export default function DevReviewPage() {
       return
     }
     setEdit(toEdit(selected))
+    setVerdictReason(selected.verdict === "triangle" ? selected.verdict_reason : "")
     refreshCard(selected)
     // selected 객체가 아니라 id 기준 — 저장으로 객체만 바뀔 땐 여기서 다시 돌지 않는다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -169,6 +228,9 @@ export default function DevReviewPage() {
       filter === "pending"
     )
   const reject = () => act("반려", () => draftAction(id, "reject"), filter === "pending")
+  // 재검수 탭에선 평가하면 목록에서 빠지므로 다음 학생으로 넘어간다.
+  const judge = (v: Verdict | null) =>
+    act("평가", () => setDraftVerdict(id, v, v === "triangle" ? verdictReason : ""), issue === "regenerated")
   const regenText = () => act("텍스트 재생성", () => draftAction(id, "regenerate-text"))
   const regenImage = () => act("이미지 재생성", () => draftAction(id, "regenerate-image"))
   const useFallback = () => act("폴백 적용", () => draftAction(id, "use-fallback"))
@@ -201,6 +263,107 @@ export default function DevReviewPage() {
     })
   const allChecked = drafts.length > 0 && drafts.every((d) => checked.has(d.id))
 
+  const listView = (
+    <>
+            <div className="flex items-center justify-between gap-2 px-1 text-sm">
+              <label className="inline-flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={allChecked}
+                  disabled={drafts.length === 0}
+                  onChange={(e) => setChecked(e.target.checked ? new Set(drafts.map((d) => d.id)) : new Set())}
+                />
+                전체 {drafts.length}건
+              </label>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => remove([...checked])}
+                disabled={checked.size === 0 || !!busy}
+              >
+                <Trash2 /> 선택 삭제 {checked.size || ""}
+              </Button>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 px-1 text-sm">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => regenerate([...checked])}
+                disabled={checked.size === 0}
+              >
+                <ImageIcon /> {issue === "triangle" ? "선택 이유 반영 재생성" : "선택 이미지 재생성"}{" "}
+                {checked.size || ""}
+              </Button>
+              {issue && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => regenerate(drafts.map((d) => d.id))}
+                  disabled={drafts.length === 0}
+                >
+                  <RefreshCw /> {issue === "triangle" ? "전체 이유 반영 재생성" : "전체 재생성"}{" "}
+                  {drafts.length}
+                </Button>
+              )}
+              <select
+                className="h-8 rounded-md border bg-background px-2 text-sm"
+                value={regenConcurrency}
+                onChange={(e) => setRegenConcurrency(Number(e.target.value))}
+                title="동시 codex 실행 수"
+              >
+                {[1, 2, 4, 6, 8, 10, 15, 20].map((n) => (
+                  <option key={n} value={n}>
+                    동시 {n}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <ul className="flex max-h-[80vh] flex-col gap-1 overflow-y-auto rounded-lg border p-2">
+              {drafts.length === 0 && (
+                <li className="p-3 text-sm text-muted-foreground">초안이 없습니다.</li>
+              )}
+              {drafts.map((d) => (
+                <li
+                  key={d.id}
+                  className={`flex items-start gap-2 rounded-md px-2 py-2 hover:bg-muted ${
+                    d.id === selectedId ? "bg-muted" : ""
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    aria-label={`${d.student_name} 선택`}
+                    checked={checked.has(d.id)}
+                    onChange={(e) => toggleCheck(d.id, e.target.checked)}
+                  />
+                  <button onClick={() => setSelectedId(d.id)} className="flex-1 text-left text-sm">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-medium">{d.student_name}</span>
+                      {!d.image_url && <span className="text-xs text-muted-foreground">폴백</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {d.school
+                        ? `${d.school} ${d.grade}-${d.class_no}-${d.student_no}`
+                        : classLabel(d.grade, d.class_no)}{" "}
+                      · {d.base_career}
+                    </div>
+                    {/* 재생성 대상 모드: 왜 다시 만드는지 */}
+                    {issue && (
+                      <div className="line-clamp-2 text-xs text-destructive">
+                        {issue === "regenerated"
+                          ? `이전 ${d.prev_verdict ? VERDICT_MARK[d.prev_verdict] : "평가 없음"} ${d.prev_verdict_reason}`
+                          : d.verdict === "triangle"
+                            ? `△ ${d.verdict_reason || "(이유 없음)"}`
+                            : (d.error ?? "이미지·오류 기록 없음 (중간에 끊김)")}
+                      </div>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+    </>
+  )
+
   const field = (key: keyof DraftEdit, label: string) => (
     <label className="flex flex-col gap-1 text-sm">
       <span className="font-medium">{label}</span>
@@ -231,6 +394,27 @@ export default function DevReviewPage() {
             <code>uv run python -m scripts.batch_drafts</code>로 돌립니다.
           </p>
         </div>
+        <div className="flex flex-col items-end gap-2">
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button
+            size="sm"
+            variant={issue === null ? "default" : "outline"}
+            onClick={() => changeIssue(null)}
+          >
+            반별 검수
+          </Button>
+          {(Object.keys(ISSUE_LABEL) as DraftIssue[]).map((k) => (
+            <Button
+              key={k}
+              size="sm"
+              variant={issue === k ? "default" : "outline"}
+              onClick={() => changeIssue(k)}
+            >
+              {ISSUE_LABEL[k]} {issueCounts ? issueCounts[k] : ""}
+            </Button>
+          ))}
+        </div>
+        {issue === null && (
         <div className="flex gap-2">
           {(["pending", "approved", "rejected"] as const).map((s) => (
             <Button
@@ -256,6 +440,8 @@ export default function DevReviewPage() {
             전체
           </Button>
         </div>
+        )}
+        </div>
       </header>
 
       <BatchPanel onProgress={load} refreshKey={refreshKey} />
@@ -268,6 +454,10 @@ export default function DevReviewPage() {
 
       <div className="grid gap-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         <div className="flex flex-col gap-2">
+          {issue ? (
+            listView
+          ) : (
+          <>
           <nav className="flex flex-wrap items-center gap-1 px-1 text-sm">
             <Crumb onClick={() => changeScope({})} active={scope.school === undefined}>
               학교
@@ -334,60 +524,9 @@ export default function DevReviewPage() {
               onPick={(class_no) => changeScope({ ...scope, class_no })}
             />
           ) : (
-            <>
-            <div className="flex items-center justify-between gap-2 px-1 text-sm">
-              <label className="inline-flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={allChecked}
-                  disabled={drafts.length === 0}
-                  onChange={(e) => setChecked(e.target.checked ? new Set(drafts.map((d) => d.id)) : new Set())}
-                />
-                전체 {drafts.length}건
-              </label>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => remove([...checked])}
-                disabled={checked.size === 0 || !!busy}
-              >
-                <Trash2 /> 선택 삭제 {checked.size || ""}
-              </Button>
-            </div>
-            <ul className="flex max-h-[80vh] flex-col gap-1 overflow-y-auto rounded-lg border p-2">
-              {drafts.length === 0 && (
-                <li className="p-3 text-sm text-muted-foreground">초안이 없습니다.</li>
-              )}
-              {drafts.map((d) => (
-                <li
-                  key={d.id}
-                  className={`flex items-start gap-2 rounded-md px-2 py-2 hover:bg-muted ${
-                    d.id === selectedId ? "bg-muted" : ""
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    aria-label={`${d.student_name} 선택`}
-                    checked={checked.has(d.id)}
-                    onChange={(e) => toggleCheck(d.id, e.target.checked)}
-                  />
-                  <button onClick={() => setSelectedId(d.id)} className="flex-1 text-left text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="font-medium">{d.student_name}</span>
-                      {!d.image_url && <span className="text-xs text-muted-foreground">폴백</span>}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {d.school
-                        ? `${d.school} ${d.grade}-${d.class_no}-${d.student_no}`
-                        : classLabel(d.grade, d.class_no)}{" "}
-                      · {d.base_career}
-                    </div>
-                  </button>
-                </li>
-              ))}
-            </ul>
-            </>
+            listView
+          )}
+          </>
           )}
         </div>
 
@@ -407,6 +546,11 @@ export default function DevReviewPage() {
             {selected.error && (
               <p className="text-sm text-destructive">
                 {selected.image_url ? "마지막 재생성 실패" : "폴백 캐릭터 사용"}: {selected.error}
+              </p>
+            )}
+            {selected.verdict === "triangle" && (
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                △ 평가{selected.verdict_reason ? `: ${selected.verdict_reason}` : ""}
               </p>
             )}
 
@@ -461,6 +605,37 @@ export default function DevReviewPage() {
                 })()}
               </dd>
             </dl>
+
+            {/* O/X/△ 검수 — /admin/review와 같은 평가. 재생성한 결과를 여기서 바로 다시 본다. */}
+            <div className="flex flex-col gap-2 rounded-lg border p-3 text-sm">
+              {selected.regenerated_at && (
+                <p className="text-muted-foreground">
+                  재생성됨 · 이전 평가{" "}
+                  {selected.prev_verdict ? VERDICT_MARK[selected.prev_verdict] : "없음"}
+                  {selected.prev_verdict_reason && ` — ${selected.prev_verdict_reason}`}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">검수</span>
+                {(["o", "triangle", "x"] as const).map((v) => (
+                  <Button
+                    key={v}
+                    size="sm"
+                    variant={selected.verdict === v ? "default" : "outline"}
+                    onClick={() => judge(selected.verdict === v ? null : v)}
+                    disabled={!!busy}
+                  >
+                    {VERDICT_MARK[v]}
+                  </Button>
+                ))}
+                <Input
+                  className="h-8 max-w-xs"
+                  placeholder="△ 이유 (△ 누르기 전에 적기)"
+                  value={verdictReason}
+                  onChange={(e) => setVerdictReason(e.target.value)}
+                />
+              </div>
+            </div>
 
             <div className="flex flex-wrap gap-2">
               <Button onClick={approve} disabled={!!busy}>

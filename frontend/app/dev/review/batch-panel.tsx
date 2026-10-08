@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import {
   cancelBatch,
+  countTargets,
   getBatch,
   listClasses,
   listSchools,
   startBatch,
+  startBatchAll,
   type BatchClass,
   type BatchStatus,
   type DevClass,
@@ -44,11 +46,16 @@ export function BatchPanel({
   const [concurrency, setConcurrency] = useState(2)
   const [status, setStatus] = useState<BatchStatus | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // 아직 생성하지 않은 학생 수(전체 학교) — 작업이 끝나거나 초안이 지워지면 다시 받는다.
+  const [allTargets, setAllTargets] = useState<number | null>(null)
 
   useEffect(() => {
     listSchools().then(setSchools).catch((e: Error) => setError(e.message))
-    getBatch().then(setStatus).catch(() => {})
   }, [])
+  // 페이지에서 이미지 재생성을 시작해도 refreshKey가 바뀌어 진행 상태를 다시 받는다.
+  useEffect(() => {
+    getBatch().then(setStatus).catch(() => {})
+  }, [refreshKey])
 
   const running = status?.running ?? false
   const done = status?.done ?? 0
@@ -58,6 +65,12 @@ export function BatchPanel({
     if (school === null) return
     listClasses(school).then(setClasses).catch((e: Error) => setError(e.message))
   }, [school, running, refreshKey])
+
+  useEffect(() => {
+    countTargets()
+      .then((r) => setAllTargets(r.total))
+      .catch(() => {})
+  }, [running, refreshKey])
 
   useEffect(() => {
     if (!running) return
@@ -100,6 +113,19 @@ export function BatchPanel({
     }
   }
 
+  const startAll = async () => {
+    if (!allTargets) return
+    const hours = ((allTargets * SECONDS_PER_STUDENT) / concurrency / 3600).toFixed(1)
+    if (!confirm(`아직 생성하지 않은 ${allTargets}명 전원 생성 — 약 ${hours}시간 걸립니다. 시작할까요?`))
+      return
+    setError(null)
+    try {
+      setStatus(await startBatchAll(concurrency))
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "시작하지 못했습니다.")
+    }
+  }
+
   const stop = async () => {
     try {
       // 취소는 비동기로 반영된다 — 폴링이 이어서 '중단됨'을 받아온다.
@@ -111,7 +137,23 @@ export function BatchPanel({
 
   return (
     <section className="mb-6 flex flex-col gap-3 rounded-lg border p-4">
-      <h2 className="text-sm font-semibold">일괄 생성</h2>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold">일괄 생성</h2>
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">
+            미생성 전체 {allTargets ?? "…"}명
+          </span>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={startAll}
+            disabled={running || !allTargets}
+            title="학교·반을 고르지 않고 아직 생성하지 않은 학생 전원 (동시 실행 수는 아래 설정)"
+          >
+            <Play /> 전체 생성
+          </Button>
+        </div>
+      </div>
 
       <div className="grid gap-3 md:grid-cols-[220px_minmax(0,1fr)]">
         <ul className="max-h-72 overflow-y-auto rounded-md border p-1 text-sm">
