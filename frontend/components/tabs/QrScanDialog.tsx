@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera, X } from "lucide-react";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { scanBoothPath } from "@/lib/scanBoothCode";
+import { scanBoothPath, scanPersonaPath } from "@/lib/scanBoothCode";
 import { kioskCheckinMessage, kioskCheckinUrl, sendKioskCheckin } from "@/lib/kioskCheckin";
 import { useSessionStore } from "@/store/useSessionStore";
 
@@ -16,7 +16,7 @@ export function QrScanDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       <div className="absolute inset-x-0 top-0 flex items-start justify-between gap-4 bg-gradient-to-b from-black/70 to-transparent px-5 pt-[calc(1.25rem+env(safe-area-inset-top))] pb-10">
         <div>
           <DialogTitle className="text-xl font-black text-white">QR 스캔</DialogTitle>
-          <DialogDescription className="mt-1 text-sm text-white/75">부스나 키오스크의 QR을 네모 안에 맞춰줘.</DialogDescription>
+          <DialogDescription className="mt-1 text-sm text-white/75">부스·키오스크·페르소나 카드의 QR을 네모 안에 맞춰줘.</DialogDescription>
         </div>
         <DialogClose aria-label="닫기" className="flex size-11 shrink-0 items-center justify-center rounded-full bg-white/15 text-white backdrop-blur-sm transition-colors active:bg-white/25"><X size={22} /></DialogClose>
       </div>
@@ -78,9 +78,9 @@ function QrScanner({ onOpenChange }: { onOpenChange: (open: boolean) => void }) 
                 });
                 return;
               }
-              const path = scanBoothPath(result.data);
+              const path = scanBoothPath(result.data) ?? scanPersonaPath(result.data);
               if (path) { active = false; stop(); onOpenChange(false); router.push(path); return; }
-              setStatus("한마당 부스 QR이 아니야. 부스에 있는 QR을 찍어줘.");
+              setStatus("한마당 QR이 아니야. 부스나 페르소나 카드의 QR을 찍어줘.");
             }
           }
           timer = setTimeout(scan, 200);

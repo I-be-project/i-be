@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { Download, Link } from "lucide-react";
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
+import { Download, Link, QrCode } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 const isAbort = (e: unknown) => e instanceof DOMException && e.name === "AbortError";
 
@@ -45,10 +47,32 @@ async function copyLink(url: string): Promise<string> {
   }
 }
 
-// 홈 카드 아래 버튼 두 개 — 이미지 저장 / 링크 복사.
+/** 친구가 앱 QR 스캐너로 찍을 수 있게 공개 페이지 QR을 크게 띄운다. 열려 있을 때만 그린다. */
+function MyQrBody({ url }: { url: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let active = true;
+    QRCode.toDataURL(url, { width: 768, margin: 2, errorCorrectionLevel: "M" })
+      .then((dataUrl) => { if (active) setSrc(dataUrl); })
+      .catch(() => { if (active) setFailed(true); });
+    return () => { active = false; };
+  }, [url]);
+  return <div className="flex flex-col items-center gap-3">
+    <DialogTitle className="text-lg font-black text-hm-blue">내 QR</DialogTitle>
+    <DialogDescription className="text-center text-sm text-hm-blue/70">친구가 앱의 QR 스캔으로 찍으면 내 페이지가 열려.</DialogDescription>
+    {failed
+      ? <p role="alert" className="py-10 text-sm text-hm-blue">QR을 만들지 못했어. 다시 열어 줘.</p>
+      // eslint-disable-next-line @next/next/no-img-element -- data URL이라 next/image 최적화 대상이 아니다.
+      : src ? <img src={src} alt="내 공개 페이지 QR" className="aspect-square w-full rounded-2xl bg-white" /> : <div className="aspect-square w-full animate-pulse rounded-2xl bg-hm-blue/10" />}
+  </div>;
+}
+
+// 홈 카드 아래 버튼 — 이미지 저장 / 링크 복사 / 내 QR.
 export function CardActions({ imageUrl, sharePath, name }: { imageUrl?: string | null; sharePath?: string | null; name?: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   if (!imageUrl && !sharePath) return null;
   const run = async (task: () => Promise<string | null>) => {
     setBusy(true);
@@ -60,7 +84,11 @@ export function CardActions({ imageUrl, sharePath, name }: { imageUrl?: string |
     <div className="flex gap-2">
       {imageUrl && <button type="button" disabled={busy} onClick={() => run(() => saveCard(imageUrl, `나Be한마당-${name ?? "페르소나"}-카드.png`))} className={`${button} bg-hm-blue text-white shadow-[0_8px_20px_-10px_rgba(0,91,171,0.32),0_1px_3px_rgba(0,91,171,0.08)]`}><Download size={17} />이미지 저장</button>}
       {sharePath && <button type="button" disabled={busy} onClick={() => run(() => copyLink(new URL(sharePath, window.location.origin).href))} className={`${button} bg-white text-hm-blue shadow-[0_8px_20px_-10px_rgba(0,91,171,0.32),0_1px_3px_rgba(0,91,171,0.08)]`}><Link size={17} />링크 복사</button>}
+      {sharePath && <button type="button" onClick={() => setQrOpen(true)} className={`${button} bg-white text-hm-blue shadow-[0_8px_20px_-10px_rgba(0,91,171,0.32),0_1px_3px_rgba(0,91,171,0.08)]`}><QrCode size={17} />내 QR</button>}
     </div>
+    {sharePath && <Dialog open={qrOpen} onOpenChange={setQrOpen}>
+      <DialogContent className="max-w-sm bg-white p-6">{qrOpen && <MyQrBody url={new URL(sharePath, window.location.origin).href} />}</DialogContent>
+    </Dialog>}
     {message && <p role="status" className="mt-2 break-all text-center text-xs text-hm-blue/70">{message}</p>}
   </div>;
 }
