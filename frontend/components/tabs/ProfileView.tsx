@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useStudentProfile } from "@/hooks/useStudentProfile";
 import { getPublicProfile, type ProfileSummary } from "@/lib/api";
 import { useSessionStore } from "@/store/useSessionStore";
@@ -35,6 +36,14 @@ export function PublicProfileProvider({ code, children }: { code: string; childr
   const [loading, setLoading] = useState(true);
   const [attempt, setAttempt] = useState(0);
   const updatedAt = useRef(0);
+  const router = useRouter();
+  const token = useSessionStore((s) => s.studentToken);
+  const studentId = useSessionStore((s) => s.studentId);
+  // 공유 코드의 첫 부분은 계정 UUID다. 로그인한 본인의 QR/링크로 들어오면 자기 홈으로 보낸다.
+  const isOwnPage = !!token && !!studentId && code.toLowerCase().startsWith(`${studentId.replaceAll("-", "").toLowerCase()}.`);
+  useEffect(() => {
+    if (isOwnPage) router.replace("/home");
+  }, [isOwnPage, router]);
   useEffect(() => {
     let active = true;
     let pending = false;
@@ -63,6 +72,7 @@ export function PublicProfileProvider({ code, children }: { code: string; childr
     const timer = window.setInterval(onFocus, 60_000);
     return () => { active = false; window.clearInterval(timer); window.removeEventListener("focus", onFocus); };
   }, [code, attempt]);
+  if (isOwnPage) return null;
   return <ProfileViewContext.Provider value={{
     profile, loading, error, readOnly: true, basePath: `/p/${code}`,
     retry: () => { updatedAt.current = 0; setLoading(true); setError(null); setAttempt((n) => n + 1); },
@@ -70,12 +80,9 @@ export function PublicProfileProvider({ code, children }: { code: string; childr
 }
 
 export function MyPageLink() {
-  const { basePath } = useProfileView();
   const token = useSessionStore((s) => s.studentToken);
-  const studentId = useSessionStore((s) => s.studentId);
   const hydrated = useSessionStore((s) => s.hasHydrated);
-  // 공유 코드의 첫 부분은 계정 UUID다. 본인 공유 화면에서는 복귀 버튼을 숨긴다.
-  const isOwnPage = !!token && !!studentId && basePath.startsWith(`/p/${studentId.replaceAll("-", "").toLowerCase()}.`);
-  if (!hydrated || isOwnPage) return null;
-  return <Link href={hydrated && token ? "/home" : "/login?next=%2Fhome"} className="shrink-0 rounded-full border border-hm-pattern bg-white px-4 py-2 text-xs font-extrabold text-hm-blue">내 페이지로 가기</Link>;
+  // 본인 공유 화면은 PublicProfileProvider가 /home으로 보내므로 여기선 따로 거르지 않는다.
+  if (!hydrated) return null;
+  return <Link href={token ? "/home" : "/login?next=%2Fhome"} className="shrink-0 whitespace-nowrap rounded-full border border-hm-pattern bg-white px-3 py-2 text-xs font-extrabold text-hm-blue">내 페이지</Link>;
 }
