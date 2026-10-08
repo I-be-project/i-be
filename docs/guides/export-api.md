@@ -50,7 +50,14 @@
         "competencies": ["공간 지각", "문제 해결", "협업"],
         "image_url": "https://...",
         "approved_at": "2026-10-07T03:00:00Z"
-      }
+      },
+      "booths": [
+        { "id": "d1764c10-...", "name": "드론 시뮬레이션", "zone": "F", "visited_at": "2026-10-10T02:10:00Z" }
+      ],
+      "competency_scores": [
+        { "key": "communication", "label": "의사소통", "score": 0 },
+        { "key": "creativity", "label": "창의성", "score": 1 }
+      ]
     }
   ],
   "next_cursor": "f8a1..."
@@ -60,6 +67,15 @@
 ### `GET /api/export/v1/students/{id}` — 1명
 
 목록 `items[]`의 한 항목과 같은 객체. 없으면 `404`.
+
+### `GET /api/export/v1/booths` — 전체 부스
+
+```json
+[
+  { "id": "d1764c10-...", "name": "드론 시뮬레이션", "zone": "F",
+    "description": "건양대 무유인항공공학과", "competencies": ["creativity", "judgment", "planning"] }
+]
+```
 
 ## 필드
 
@@ -76,6 +92,10 @@
 | `survey.answers` | Q1~Q6은 `question` + `answer`(문자열), Q7-A~Q9는 `description` + `answer`(배열) |
 | `persona` | 검수 승인된 결과. 승인 전이면 `null` |
 | `persona.image_url` | AI 생성 인물 이미지. 생성 실패 시 `null` |
+| `booths` | 방문한 부스, 방문 순. 부스 상세는 `/booths`의 같은 `id` |
+| `competency_scores` | 역량 10종. 방문한 부스에 연결된 역량마다 1점, 0점도 10개 모두 |
+| 부스 `zone` | `F` · `L` · `Y` · `C`, 모르면 `""` |
+| 부스 `competencies` | 역량 키 목록. `competency_scores[].key`와 같은 값 |
 
 ## 이미지
 
@@ -87,3 +107,4 @@
 | 날짜 | 내용 |
 |---|---|
 | 2026-10-07 | 최초 작성 |
+| 2026-10-08 | 학생 객체(목록·1명 공통)에 `booths`·`competency_scores` 추가, `GET /booths` 추가 |
