@@ -44,7 +44,9 @@ from app.deps import (
 )
 from app.repositories.draft_repo import DraftRecord, DraftText
 from app.repositories.session_repo import SessionRepository
+from app.schemas.admin import AdminVerdictRequest
 from app.schemas.dev import (
+    BatchAllRequest,
     BatchRequest,
     BatchStatus,
     CardPreview,
@@ -54,6 +56,8 @@ from app.schemas.dev import (
     DevStudentList,
     DraftDeleteRequest,
     DraftDeleteResponse,
+    DraftIssue,
+    DraftIssueList,
     DraftItem,
     DraftList,
     DraftUpdate,
@@ -61,7 +65,9 @@ from app.schemas.dev import (
     GenerateFuturePhotoResponse,
     GeneratePersonaRequest,
     GeneratePersonaResponse,
+    RegenerateImagesRequest,
     StudentAnswersResponse,
+    TargetCount,
 )
 from app.services.dev_service import build_persona_inputs
 from app.services.draft_batch import dev_batch
@@ -261,6 +267,9 @@ def _draft_item(draft: DraftRecord, urls: dict[str, str]) -> DraftItem:
         note=draft.note,
         verdict=draft.verdict,
         verdict_reason=draft.verdict_reason,
+        regenerated_at=draft.regenerated_at,
+        prev_verdict=draft.prev_verdict,
+        prev_verdict_reason=draft.prev_verdict_reason,
     )
 
 
@@ -300,6 +309,20 @@ async def list_drafts(
     return DraftList(drafts=await draft_items(records, storage), counts=counts)
 
 
+@router.get("/drafts/issues", response_model=DraftIssueList)
+async def list_draft_issues(
+    issue: DraftIssue,
+    drafts: DraftRepoDep,
+    storage: StorageClientDep,
+    limit: Annotated[int, Query(ge=1, le=2000)] = 2000,
+) -> DraftIssueList:
+    """다시 만들 대상(전체 학교) — codex 실패 · codex 거절(사진 문제) · △ 평가."""
+    records = await drafts.list_issue(issue, limit=limit)
+    return DraftIssueList(
+        drafts=await draft_items(records, storage), counts=await drafts.count_issues()
+    )
+
+
 @router.patch("/drafts/{draft_id}", response_model=DraftItem)
 async def update_draft(
     draft_id: UUID, req: DraftUpdate, drafts: DraftRepoDep, storage: StorageClientDep
@@ -336,7 +359,18 @@ async def regenerate_draft_image(
     draft_id: UUID, service: DraftServiceDep, drafts: DraftRepoDep, storage: StorageClientDep
 ) -> DraftItem:
     """인물 이미지만 다시 생성(codex). 실패하면 기존 이미지를 두고 error에 사유를 남긴다."""
-    await service.generate_image(draft_id)
+    await service.regenerate_image(draft_id)
+    return await _get_draft_item(draft_id, drafts, storage)
+
+
+@router.put("/drafts/{draft_id}/verdict", response_model=DraftItem)
+async def set_draft_verdict(
+    draft_id: UUID, req: AdminVerdictRequest, drafts: DraftRepoDep, storage: StorageClientDep
+) -> DraftItem:
+    """O/X/△ — /admin/review와 같은 평가. 재생성한 초안을 이 화면에서 바로 다시 검수한다."""
+    if await drafts.get(draft_id) is None:
+        raise NotFoundError("초안을 찾을 수 없습니다.")
+    await drafts.set_verdict(draft_id, req.verdict, req.reason.strip())
     return await _get_draft_item(draft_id, drafts, storage)
 
 
@@ -444,6 +478,47 @@ async def start_batch(
         )
     label = f"{len({p[0] for p in picked})}개 학교 · {len(picked)}개 반"
     dev_batch.start(service, targets, concurrency=req.concurrency, label=label)
+    return _batch_status()
+
+
+@router.get("/drafts/targets", response_model=TargetCount)
+async def count_targets(drafts: DraftRepoDep) -> TargetCount:
+    """아직 생성하지 않은 학생 수(전체 학교)."""
+    return TargetCount(total=await drafts.count_targets())
+
+
+@router.post("/drafts/batch/all", response_model=BatchStatus, status_code=202)
+async def start_batch_all(
+    req: BatchAllRequest, drafts: DraftRepoDep, service: DraftServiceDep
+) -> BatchStatus:
+    """학교·반을 고르지 않고 아직 생성하지 않은 학생 전원을 백그라운드로 생성한다."""
+    targets = await drafts.list_targets(limit=100_000)
+    dev_batch.start(
+        service, targets, concurrency=req.concurrency, label=f"미생성 전체 {len(targets)}명"
+    )
+    return _batch_status()
+
+
+@router.post("/drafts/regenerate-images", response_model=BatchStatus, status_code=202)
+async def regenerate_images(req: RegenerateImagesRequest, service: DraftServiceDep) -> BatchStatus:
+    """고른 초안들의 이미지만 백그라운드로 다시 만든다. 일괄 생성과 같은 진행 상태를 쓴다."""
+    ids = list(dict.fromkeys(req.ids))
+    dev_batch.start_images(
+        service, ids, concurrency=req.concurrency, label=f"이미지 재생성 {len(ids)}명"
+    )
+    return _batch_status()
+
+
+@router.post("/drafts/regenerate-review", response_model=BatchStatus, status_code=202)
+async def regenerate_review(req: RegenerateImagesRequest, service: DraftServiceDep) -> BatchStatus:
+    """△ 초안들을 검수 이유를 반영해 백그라운드로 다시 만든다.
+
+    이유에 직업·문구가 있으면 텍스트를, 그 밖에는 이미지를(둘 다 짚으면 둘 다) 다시 만든다.
+    """
+    ids = list(dict.fromkeys(req.ids))
+    dev_batch.start_review(
+        service, ids, concurrency=req.concurrency, label=f"△ 이유 반영 재생성 {len(ids)}명"
+    )
     return _batch_status()
 
 

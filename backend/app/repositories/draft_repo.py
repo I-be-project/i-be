@@ -16,11 +16,25 @@ from app.repositories.base import BaseRepository
 
 DRAFT_STATUSES = ("pending", "approved", "rejected")
 
+# 다시 만들 대상 분류 → 조건. 원본 사진이 없거나 검수자가 폴백을 고른 건은 대상이 아니다.
+_REFUSED = "d.error like 'codex가 이미지를 만들지 않았습니다%'"
+DRAFT_ISSUES = {
+    # 실행 실패·시간 초과·중간에 끊김 — 다시 돌리면 대개 된다.
+    "codex_failed": f"""d.image_key is null and s.photo_key is not null
+        and not ({_REFUSED}) and coalesce(d.error, '') <> '검수자가 폴백 이미지 선택'""",
+    # 얼굴이 아님·너무 어두움 등 사진 문제로 codex가 거절.
+    "codex_refused": f"d.image_key is null and s.photo_key is not null and {_REFUSED}",
+    "triangle": "d.verdict = 'triangle'",
+    # /dev/review에서 다시 만들어 성공했고 아직 다시 평가하지 않은 것.
+    "regenerated": "d.regenerated_at is not null and d.verdict is null and d.error is null",
+}
+
 # 학생 정보는 카드(이름·학교·학년·반·번호)와 원본 사진 표시에 필요해 함께 읽는다.
 _SELECT = """
     select d.id, d.session_id, d.student_id, d.status, d.name, d.base_career, d.headline,
            d.tagline, d.source_career_pool, d.pool_extended, d.raw, d.image_key, d.error,
            d.note, d.updated_at, d.reviewed_at, d.verdict, d.verdict_reason,
+           d.regenerated_at, d.prev_verdict, d.prev_verdict_reason,
            s.name as student_name, s.school, s.grade, s.class_no, s.student_no, s.photo_key
     from generated.persona_drafts d
     join pii.students s on s.id = d.student_id
@@ -75,6 +89,9 @@ class DraftRecord:
     reviewed_at: datetime | None
     verdict: str | None
     verdict_reason: str
+    regenerated_at: datetime | None
+    prev_verdict: str | None
+    prev_verdict_reason: str
     student_name: str
     school: str
     grade: int
@@ -141,6 +158,9 @@ def _to_record(row: Any) -> DraftRecord:
         reviewed_at=row["reviewed_at"],
         verdict=row["verdict"],
         verdict_reason=row["verdict_reason"],
+        regenerated_at=row["regenerated_at"],
+        prev_verdict=row["prev_verdict"],
+        prev_verdict_reason=row["prev_verdict_reason"],
         student_name=row["student_name"],
         school=row["school"],
         grade=row["grade"],
@@ -170,6 +190,14 @@ class DraftRepository(BaseRepository):
             rows = await conn.fetch(query, student_id, school, grade, class_no, limit)
         return [DraftTarget(session_id=r["session_id"], student_id=r["student_id"]) for r in rows]
 
+    async def count_targets(self) -> int:
+        """전체 학교의 대상 수 — list_targets와 같은 조건."""
+        async with self._pool.acquire() as conn:
+            n: int = await conn.fetchval(
+                f"select count(*) from ({_TARGETS}) t", None, None, None, None
+            )
+        return n
+
     async def count_targets_by_class(self, school: str) -> dict[tuple[int, int], int]:
         """학교의 (학년, 반)별 대상 수 — list_targets와 같은 조건. 반 목록에 함께 보여준다."""
         query = f"""
@@ -194,7 +222,8 @@ class DraftRepository(BaseRepository):
                 headline = excluded.headline, tagline = excluded.tagline,
                 source_career_pool = excluded.source_career_pool,
                 pool_extended = excluded.pool_extended, raw = excluded.raw,
-                status = 'pending', reviewed_at = null, updated_at = now()
+                status = 'pending', reviewed_at = null, updated_at = now(),
+                verdict = null, verdict_reason = '', verdict_at = null
             returning id
         """
         async with self._pool.acquire() as conn:
@@ -219,11 +248,28 @@ class DraftRepository(BaseRepository):
             set image_key = coalesce($2, image_key), error = $3,
                 status = case when $2 is null then status else 'pending' end,
                 reviewed_at = case when $2 is null then reviewed_at end,
+                -- 새 이미지면 다시 검수해야 한다 — O/X/△ 평가를 지운다.
+                verdict = case when $2 is null then verdict end,
+                verdict_reason = case when $2 is null then verdict_reason else '' end,
+                verdict_at = case when $2 is null then verdict_at end,
                 updated_at = now()
             where id = $1
         """
         async with self._pool.acquire() as conn:
             await conn.execute(query, draft_id, image_key, error)
+
+    async def mark_regenerated(self, draft_id: UUID) -> None:
+        """재생성 직전에 부른다 — 지금 평가를 이전 평가로 옮겨 둔다(성공하면 평가가 지워진다)."""
+        query = """
+            update generated.persona_drafts
+            set regenerated_at = now(),
+                prev_verdict = coalesce(verdict, prev_verdict),
+                prev_verdict_reason = case when verdict is null then prev_verdict_reason
+                                           else verdict_reason end
+            where id = $1
+        """
+        async with self._pool.acquire() as conn:
+            await conn.execute(query, draft_id)
 
     async def clear_image(self, draft_id: UUID) -> None:
         """생성 이미지 해제 → 카드는 폴백 캐릭터. S3 객체는 지우지 않는다(사진 영구 보관)."""
@@ -276,6 +322,30 @@ class DraftRepository(BaseRepository):
         counts = dict.fromkeys(DRAFT_STATUSES, 0)
         counts.update({r["status"]: r["n"] for r in rows})
         return counts
+
+    async def list_issue(self, issue: str, *, limit: int) -> list[DraftRecord]:
+        """재생성 대상 분류 하나 — 전체 학교, 학교·학년·반·번호 순."""
+        query = f"""
+            {_SELECT}
+            where {DRAFT_ISSUES[issue]}
+            order by s.school, s.grade, s.class_no, s.student_no
+            limit $1
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, limit)
+        return [_to_record(r) for r in rows]
+
+    async def count_issues(self) -> dict[str, int]:
+        cols = ", ".join(
+            f"count(*) filter (where {cond}) as {k}" for k, cond in DRAFT_ISSUES.items()
+        )
+        query = f"""
+            select {cols} from generated.persona_drafts d
+            join pii.students s on s.id = d.student_id
+        """
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(query)
+        return dict(row) if row else dict.fromkeys(DRAFT_ISSUES, 0)
 
     async def update_text(self, draft_id: UUID, text: DraftText, *, note: str) -> None:
         """검수자가 고친 문구. 상태는 건드리지 않는다."""
