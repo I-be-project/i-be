@@ -12,13 +12,14 @@ from uuid import UUID, uuid4
 from app.adapters.codex_client import CodexClient
 from app.adapters.storage_client import StorageClient
 from app.core.errors import NotFoundError
-from app.core.images import crop_top
+from app.core.images import crop_top, to_codex_input
 from app.core.logging import get_logger
 from app.core.prompts.future_photo_prompt import (
     BACKGROUND_IMAGE,
     DEFAULT_FUTURE_PHOTO_PROMPT,
     LAYOUT_REFERENCE_IMAGE,
     PHOTO_RATIO,
+    with_review_feedback,
 )
 from app.core.prompts.persona_prompt import (
     DEFAULT_SYSTEM_PROMPT,
@@ -89,8 +90,13 @@ class DraftService:
             raise NotFoundError("초안을 찾을 수 없습니다.")
         return draft
 
-    async def generate_text(self, session_id: UUID, student_id: UUID) -> UUID:
-        """세션 답변 → 페르소나 텍스트 → 초안 저장. 초안 id 반환."""
+    async def generate_text(
+        self, session_id: UUID, student_id: UUID, *, feedback: str | None = None
+    ) -> UUID:
+        """세션 답변 → 페르소나 텍스트 → 초안 저장. 초안 id 반환.
+
+        feedback: 다시 쓸 때 붙이는 이전 결과와 검수 의견(_text_feedback).
+        """
         records = await self._sessions.list_answers(session_id)
         inputs = build_persona_inputs({r.stage: r.payload for r in records}, career_pool=[])
         user_prompt = build_user_prompt(
@@ -105,6 +111,8 @@ class DraftService:
             q9_response=inputs.q9_response,
             q1to6_texts=inputs.q1to6_texts,
         )
+        if feedback:
+            user_prompt += f"\n\n{feedback}"
         result = await self._codex.generate_json(
             f"{DEFAULT_SYSTEM_PROMPT}\n\n---\n\n{user_prompt}", PERSONA_OUTPUT_SCHEMA
         )
@@ -112,9 +120,13 @@ class DraftService:
 
     async def regenerate_text(self, draft_id: UUID) -> None:
         draft = await self._require(draft_id)
-        await self.generate_text(draft.session_id, draft.student_id)
+        await self._drafts.mark_regenerated(draft_id)
+        # △ 받은 초안이면 그 이유와 이전 결과를 함께 줘서 고쳐 쓰게 한다.
+        reason = draft.verdict_reason.strip() if draft.verdict == "triangle" else ""
+        feedback = _text_feedback(draft, reason) if reason else None
+        await self.generate_text(draft.session_id, draft.student_id, feedback=feedback)
 
-    async def generate_image(self, draft_id: UUID) -> None:
+    async def generate_image(self, draft_id: UUID, *, feedback: str | None = None) -> None:
         """원본 사진 → 10년 뒤 인물 이미지 → S3. 실패는 초안의 error에 남기고 삼킨다.
 
         일괄 생성에서 한 명의 이미지 실패가 전체를 멈추면 안 되고, 텍스트는 이미
@@ -124,10 +136,18 @@ class DraftService:
         if not draft.photo_key:
             await self._drafts.save_image(draft_id, image_key=None, error="원본 사진 없음")
             return
+        # △ 받은 초안은 따로 주지 않아도 그 이유를 반영한다(검수 화면의 단건 재생성).
+        if feedback is None and draft.verdict == "triangle" and draft.verdict_reason.strip():
+            feedback = draft.verdict_reason.strip()
+        prompt = (
+            with_review_feedback(DEFAULT_FUTURE_PHOTO_PROMPT, feedback)
+            if feedback
+            else DEFAULT_FUTURE_PHOTO_PROMPT
+        )
         try:
-            photo = await self._storage.download(draft.photo_key)
+            photo = to_codex_input(await self._storage.download(draft.photo_key))
             image = await self._codex.generate_image(
-                DEFAULT_FUTURE_PHOTO_PROMPT,
+                prompt,
                 photo=photo,
                 layout=LAYOUT_REFERENCE_IMAGE.read_bytes(),
                 background=BACKGROUND_IMAGE.read_bytes(),
@@ -144,6 +164,27 @@ class DraftService:
             await self._drafts.save_image(draft_id, image_key=None, error=str(exc)[:500])
             return
         await self._drafts.save_image(draft_id, image_key=key, error=None)
+
+    async def regenerate_image(self, draft_id: UUID) -> None:
+        """검수 화면에서 이미지만 다시 만든다 — 재검수 대상으로 기록한다."""
+        await self._drafts.mark_regenerated(draft_id)
+        await self.generate_image(draft_id)
+
+    async def regenerate_from_review(self, draft_id: UUID) -> None:
+        """△ 이유를 보고 텍스트·이미지 중 필요한 것을 다시 만든다(이유를 프롬프트에 반영).
+
+        이미지 먼저 — 새 이미지·텍스트가 저장되면 평가가 지워지므로 이유는 처음에 읽어 둔다.
+        """
+        draft = await self._require(draft_id)
+        reason = draft.verdict_reason.strip() if draft.verdict == "triangle" else ""
+        text, image = review_targets(reason)
+        await self._drafts.mark_regenerated(draft_id)
+        if image:
+            await self.generate_image(draft_id, feedback=reason or None)
+        if text:
+            await self.generate_text(
+                draft.session_id, draft.student_id, feedback=_text_feedback(draft, reason)
+            )
 
     async def use_fallback(self, draft_id: UUID) -> None:
         """생성 이미지를 버리고 폴백 캐릭터로 — 생성은 됐지만 결과가 이상할 때."""
@@ -194,3 +235,26 @@ class DraftService:
         return await self._storage.upload_card_image(
             f"{draft.student_id}/{draft.id}.png", png, content_type="image/png"
         )
+
+
+# △ 이유로 무엇을 다시 만들지 고른다. △는 "애매한 사진 결과"라 기본은 이미지이고,
+# 직업·문구를 짚은 이유만 텍스트를 다시 쓴다. 둘 다 짚으면 둘 다.
+_TEXT_HINTS = ("직업", "페르소나", "문구", "설명", "수식어", "역량")
+_IMAGE_HINTS = (
+    "얼굴", "사진", "이미지", "머리", "헤어", "수염", "피부", "닮", "성별", "표정",
+    "눈", "입", "화질", "메이크업", "안경", "그림자", "남자", "여자", "어려", "나이",
+)  # fmt: skip
+
+
+def review_targets(reason: str) -> tuple[bool, bool]:
+    """(텍스트를 다시 쓸지, 이미지를 다시 만들지)."""
+    text = any(h in reason for h in _TEXT_HINTS)
+    image = not text or any(h in reason for h in _IMAGE_HINTS)
+    return text, image
+
+
+def _text_feedback(draft: DraftRecord, reason: str) -> str:
+    return f"""[검수 피드백 — 이전 결과를 다시 쓴다]
+- 이전 결과: {draft.name} / {draft.tagline}
+- 검수 의견: "{reason}"
+이 의견이 가리키는 문제를 고쳐 다시 작성한다. 출력 형식과 규칙은 그대로 따른다."""

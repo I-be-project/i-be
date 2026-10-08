@@ -14,14 +14,14 @@ Usage:
   --page-size   페이지당 학생 수 (기본 500, 최대 500)
   --no-images   이미지는 건너뛰고 데이터만
 
-출력:
-  <out>/students.json             전체 데이터. 만료되는 URL 대신 로컬 파일 경로가 들어간다
+출력 — 학생마다 폴더 하나:
+  <out>/<학생 id>/student.json    학생 데이터. 만료되는 URL 대신 같은 폴더의 파일명이 들어간다
                                     (photo_file, persona.image_file)
-  <out>/photos/<id>.<ext>         원본 사진
-  <out>/persona/<id>_<승인시각>.<ext>  AI 생성 인물 이미지
+  <out>/<학생 id>/photo.<ext>     원본 사진
+  <out>/<학생 id>/persona.<ext>   AI 생성 인물 이미지 (페르소나 결과)
 
 다시 실행하면 이미 받은 이미지는 건너뛴다(S3 전송 비용 절약). 원본 사진은 id당 한 번,
-AI 생성 이미지는 승인 시각(approved_at)이 바뀌었을 때만 새로 받는다.
+AI 생성 이미지는 승인 시각(approved_at)이 이전 student.json과 달라졌을 때만 새로 받는다.
 """
 
 from __future__ import annotations
@@ -29,7 +29,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import re
 import sys
 from pathlib import Path
 from typing import Any
@@ -105,16 +104,18 @@ def _existing(stem: Path) -> Path | None:
 
 
 def _fetch_image(
-    client: ExportClient, url: str | None, stem: Path, out: Path
+    client: ExportClient, url: str | None, stem: Path, *, reuse: bool
 ) -> tuple[str | None, bool]:
-    """(students.json에 넣을 상대경로, 새로 받았는지). 이미 있으면 받지 않는다."""
+    """(student.json에 넣을 파일명, 새로 받았는지). reuse면 이미 받은 파일을 그대로 쓴다."""
+    found = _existing(stem)
+    if found and reuse:
+        return found.name, False
     if not url:
         return None, False
-    found = _existing(stem)
     if found:
-        return found.relative_to(out).as_posix(), False
+        found.unlink()  # 확장자가 바뀔 수 있어 옛 파일을 지운다
     dest = client.download(url, stem)
-    return (dest.relative_to(out).as_posix(), True) if dest else (None, False)
+    return (dest.name, True) if dest else (None, False)
 
 
 def run(args: argparse.Namespace, *, transport: httpx.BaseTransport | None = None) -> int:
@@ -135,6 +136,11 @@ def run(args: argparse.Namespace, *, transport: httpx.BaseTransport | None = Non
 
         new_images = failed = 0
         for s in students:
+            folder = out / s["id"]
+            folder.mkdir(exist_ok=True)
+            meta = folder / "student.json"
+            prev = json.loads(meta.read_text(encoding="utf-8")) if meta.exists() else {}
+
             # 서명 URL은 1시간이면 만료되므로 저장하지 않고 로컬 경로로 바꾼다.
             photo_url = s.pop("photo_url", None)
             persona = s.get("persona")
@@ -143,24 +149,25 @@ def run(args: argparse.Namespace, *, transport: httpx.BaseTransport | None = Non
                 s["photo_file"] = None
                 if persona:
                     persona["image_file"] = None
-                continue
-
-            s["photo_file"], fresh = _fetch_image(client, photo_url, out / "photos" / s["id"], out)
-            new_images += fresh
-            failed += bool(photo_url and not s["photo_file"])
-            if persona:
-                # 다시 승인되면 이미지가 바뀔 수 있어 승인 시각을 파일명에 넣는다.
-                version = re.sub(r"\D", "", persona["approved_at"])[:14]
-                stem = out / "persona" / f"{s['id']}_{version}"
-                persona["image_file"], fresh = _fetch_image(client, image_url, stem, out)
+            else:
+                s["photo_file"], fresh = _fetch_image(
+                    client, photo_url, folder / "photo", reuse=True
+                )
                 new_images += fresh
-                failed += bool(image_url and not persona["image_file"])
+                if persona:
+                    # 다시 승인되면 이미지가 바뀔 수 있다 — 승인 시각이 같을 때만 재사용.
+                    same = (prev.get("persona") or {}).get("approved_at") == persona["approved_at"]
+                    persona["image_file"], fresh = _fetch_image(
+                        client, image_url, folder / "persona", reuse=same
+                    )
+                    new_images += fresh
+                failed += bool(photo_url and not s["photo_file"])
+                failed += bool(image_url and not (persona and persona["image_file"]))
+            meta.write_text(json.dumps(s, ensure_ascii=False, indent=2), encoding="utf-8")
 
-        manifest = out / "students.json"
-        manifest.write_text(json.dumps(students, ensure_ascii=False, indent=2), encoding="utf-8")
         print(
             f"\n학생 {len(students)}명 · 새로 받은 이미지 {new_images}장"
-            f"{f' · 실패 {failed}장' if failed else ''} → {manifest}"
+            f"{f' · 실패 {failed}장' if failed else ''} → {out}/<학생 id>/"
         )
         # 실패한 이미지는 다음 실행 때 다시 받는다(파일이 없으니 건너뛰지 않는다).
         return 1 if failed else 0

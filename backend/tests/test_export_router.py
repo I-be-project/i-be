@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID, uuid4
 
 import httpx
 
 from app.config import get_settings
-from app.deps import get_export_repo, get_storage_client
+from app.deps import get_booth_repo, get_booth_visit_repo, get_export_repo, get_storage_client
 from app.main import create_app
+from app.repositories.booth_repo import BoothRecord
+from app.repositories.booth_visit_repo import BoothVisitRecord
 from app.repositories.export_repo import ExportPersona, ExportRow
 from app.repositories.session_repo import AnswerRecord
 
@@ -77,6 +79,49 @@ class _Repo:
         return rows, answers
 
 
+DRONE = BoothRecord(
+    id=uuid4(),
+    code="D1",
+    name="드론 체험관",
+    description="드론 회사",
+    zone="F",
+    created_at=NOW,
+    updated_at=NOW,
+    competencies=("creativity", "challenge"),
+)
+MAP = BoothRecord(
+    id=uuid4(),
+    code="M1",
+    name="지도 만들기",
+    description=None,
+    zone="L",
+    created_at=NOW,
+    updated_at=NOW,
+    competencies=("creativity",),
+)
+
+
+class _Booths:
+    async def list_all(self) -> list[BoothRecord]:
+        return [DRONE, MAP]
+
+
+class _Visits:
+    """요청한 학생 중 첫 번째만 방문 기록이 있다 — MAP을 먼저, DRONE을 나중에.
+    지워진 부스 방문 1건 포함."""
+
+    async def list_for_students(self, student_ids: list[UUID]) -> list[BoothVisitRecord]:
+        later = NOW + timedelta(minutes=5)
+        student_id = student_ids[0]
+        return [
+            BoothVisitRecord(
+                id=uuid4(), student_id=student_id, booth_id=DRONE.id, created_at=later
+            ),
+            BoothVisitRecord(id=uuid4(), student_id=student_id, booth_id=MAP.id, created_at=NOW),
+            BoothVisitRecord(id=uuid4(), student_id=student_id, booth_id=uuid4(), created_at=NOW),
+        ]
+
+
 class _Storage:
     async def create_signed_urls(self, keys: list[str], *, ttl_seconds: int) -> dict[str, str]:
         return {k: f"https://signed.example/{k}" for k in keys}
@@ -89,6 +134,8 @@ def _client(repo: _Repo, key: str = KEY) -> httpx.AsyncClient:
     )
     app.dependency_overrides[get_export_repo] = lambda: repo
     app.dependency_overrides[get_storage_client] = lambda: _Storage()
+    app.dependency_overrides[get_booth_repo] = lambda: _Booths()
+    app.dependency_overrides[get_booth_visit_repo] = lambda: _Visits()
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
 
 
@@ -178,7 +225,48 @@ async def test_export_single_student_matches_list_item() -> None:
 
     assert one.status_code == 200, one.text
     assert repo.student_ids[0] == target
-    assert one.json() == listed.json()["items"][1]
+    assert one.json() == listed.json()["items"][1] | {
+        # 단건 요청에선 target이 첫 번째라 방문 기록을 받는다(_Visits)
+        "booths": one.json()["booths"],
+        "competency_scores": one.json()["competency_scores"],
+    }
+
+
+async def test_export_single_student_has_visited_booths_and_10_competencies() -> None:
+    row = _row()
+    async with _client(_Repo([row])) as client:
+        body = (await client.get(f"/api/export/v1/students/{row.id}", headers=_AUTH)).json()
+
+    # 방문 순, 지워진 부스 방문은 빠진다
+    assert [b["name"] for b in body["booths"]] == ["지도 만들기", "드론 체험관"]
+    scores = {c["key"]: c["score"] for c in body["competency_scores"]}
+    assert len(scores) == 10
+    assert scores["creativity"] == 2  # 두 부스 모두
+    assert scores["challenge"] == 1
+    assert scores["planning"] == 0  # 0점도 빠짐없이
+
+
+async def test_export_list_items_have_booths_per_student() -> None:
+    rows = [_row(), _row()]
+    async with _client(_Repo(rows)) as client:
+        items = (await client.get("/api/export/v1/students", headers=_AUTH)).json()["items"]
+
+    assert [b["name"] for b in items[0]["booths"]] == ["지도 만들기", "드론 체험관"]
+    assert items[1]["booths"] == []
+    assert [c["score"] for c in items[1]["competency_scores"]] == [0] * 10
+
+
+async def test_export_booths_lists_all_with_competency_keys() -> None:
+    async with _client(_Repo([])) as client:
+        res = await client.get("/api/export/v1/booths", headers=_AUTH)
+        no_key = await client.get("/api/export/v1/booths")
+
+    assert res.status_code == 200, res.text
+    assert [(b["name"], b["zone"], b["competencies"]) for b in res.json()] == [
+        ("드론 체험관", "F", ["creativity", "challenge"]),
+        ("지도 만들기", "L", ["creativity"]),
+    ]
+    assert no_key.status_code == 401
 
 
 async def test_export_single_student_unknown_is_404() -> None:

@@ -7,7 +7,7 @@ from io import BytesIO
 import pytest
 from PIL import Image
 
-from app.core.images import ImageValidationError, crop_top, inspect_image
+from app.core.images import ImageValidationError, crop_top, inspect_image, to_codex_input
 
 
 def _png(size: tuple[int, int] = (64, 64), color: tuple[int, int, int] = (10, 20, 30)) -> bytes:
@@ -56,3 +56,24 @@ def test_crop_top_keeps_top_of_tall_image() -> None:
 
 def test_crop_top_trims_sides_of_wide_image() -> None:
     assert Image.open(BytesIO(crop_top(_png((100, 100)), 4 / 5))).size == (80, 100)
+
+
+def _encode(fmt: str) -> bytes:
+    out = BytesIO()
+    Image.new("RGB", (64, 80), (120, 80, 40)).save(out, format=fmt)
+    return out.getvalue()
+
+
+def test_to_codex_input_converts_heic_to_jpeg() -> None:
+    """확장자만 .webp인 아이폰 사진(HEIC)도 codex가 받는 JPEG로 바뀐다."""
+    heic = _encode("HEIF")
+    assert inspect_image(heic).image_format == "HEIF"
+
+    out = to_codex_input(heic)
+    info = inspect_image(out)
+    assert (info.image_format, info.width, info.height) == ("JPEG", 64, 80)
+
+
+def test_to_codex_input_keeps_supported_formats() -> None:
+    jpeg = _encode("JPEG")
+    assert to_codex_input(jpeg) is jpeg

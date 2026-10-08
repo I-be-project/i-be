@@ -10,6 +10,13 @@ from dataclasses import dataclass
 from io import BytesIO
 
 from PIL import Image, UnidentifiedImageError
+from pillow_heif import register_heif_opener
+
+# 아이폰 사진(HEIC)을 Pillow가 열 수 있게 한다. 확장자만 .webp로 올라온 HEIC도 있다.
+register_heif_opener()
+
+# codex가 그대로 받는 입력 포맷. 그 밖(HEIC 등)은 JPEG로 바꿔 넘긴다.
+_CODEX_FORMATS = {"JPEG", "PNG", "WEBP"}
 
 
 class ImageValidationError(ValueError):
@@ -51,6 +58,22 @@ def inspect_image(data: bytes, *, min_bytes: int = 100) -> ImageInfo:
         width=width,
         height=height,
     )
+
+
+def to_codex_input(data: bytes) -> bytes:
+    """JPEG·PNG·WebP는 그대로, 그 밖(HEIC 등)은 JPEG로 바꾼다.
+
+    판별할 수 없는 바이트는 그대로 둔다 — codex 어댑터가 같은 검증으로 사유를 남긴다.
+    """
+    try:
+        if inspect_image(data).image_format in _CODEX_FORMATS:
+            return data
+    except ImageValidationError:
+        return data
+    with Image.open(BytesIO(data)) as im:
+        out = BytesIO()
+        im.convert("RGB").save(out, format="JPEG", quality=95)
+    return out.getvalue()
 
 
 def crop_top(data: bytes, ratio: float) -> bytes:

@@ -6,6 +6,7 @@ dev는 로컬 Codex CLI로만 동작한다 — OpenRouter(AIClient)를 쓰지 �
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -131,6 +132,9 @@ class DraftItem(BaseModel):
     note: str
     verdict: str | None = Field(None, description="o | x | triangle (평가 전이면 null)")
     verdict_reason: str = ""
+    regenerated_at: datetime | None = Field(None, description="/dev/review에서 다시 만든 시각")
+    prev_verdict: str | None = Field(None, description="재생성 전 평가")
+    prev_verdict_reason: str = ""
 
 
 class DraftList(BaseModel):
@@ -185,6 +189,27 @@ class BatchRequest(BaseModel):
     concurrency: int = Field(
         2, ge=1, le=20, description="동시 codex 실행 수. 상한은 ChatGPT 계정 사용량 한도가 정한다"
     )
+
+
+class BatchAllRequest(BaseModel):
+    concurrency: int = Field(2, ge=1, le=20)
+
+
+class TargetCount(BaseModel):
+    total: int = Field(..., description="설문 완료했지만 초안이 없는 학생 수(전체 학교)")
+
+
+DraftIssue = Literal["codex_failed", "codex_refused", "triangle", "regenerated"]
+
+
+class DraftIssueList(BaseModel):
+    drafts: list[DraftItem]
+    counts: dict[str, int] = Field(..., description="분류별 전체 개수")
+
+
+class RegenerateImagesRequest(BaseModel):
+    ids: list[UUID] = Field(..., min_length=1, max_length=5000)
+    concurrency: int = Field(2, ge=1, le=20)
 
 
 class BatchStatus(BaseModel):

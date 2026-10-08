@@ -14,7 +14,12 @@ from app.deps import get_draft_repo, get_storage_client
 from app.main import create_app
 from app.repositories.draft_repo import DraftTarget
 from app.services.draft_batch import DraftBatch
-from app.services.draft_service import DraftService, split_headline, to_draft_text
+from app.services.draft_service import (
+    DraftService,
+    review_targets,
+    split_headline,
+    to_draft_text,
+)
 from app.services.id_card_renderer import CARD_H, CARD_W, IdCardContent, render_id_card
 
 
@@ -101,20 +106,34 @@ def test_render_id_card_without_image_uses_fallback() -> None:
 
 
 class _Draft:
-    def __init__(self, *, photo_key: str | None = "uploads/p.jpg") -> None:
+    def __init__(
+        self,
+        *,
+        photo_key: str | None = "uploads/p.jpg",
+        verdict: str | None = None,
+        verdict_reason: str = "",
+    ) -> None:
         self.id = uuid4()
         self.student_id = uuid4()
         self.session_id = uuid4()
         self.photo_key = photo_key
+        self.verdict = verdict
+        self.verdict_reason = verdict_reason
+        self.name = "하늘을 나는 드론 전문가"
+        self.tagline = "설명"
 
 
 class _Drafts:
     def __init__(self, draft: _Draft) -> None:
         self.draft = draft
         self.saved: dict[str, Any] = {}
+        self.marked = False
 
     async def get(self, draft_id: UUID) -> Any:
         return self.draft
+
+    async def mark_regenerated(self, draft_id: UUID) -> None:
+        self.marked = True
 
     async def save_image(self, draft_id: UUID, *, image_key: str | None, error: str | None) -> None:
         self.saved = {"image_key": image_key, "error": error}
@@ -144,11 +163,65 @@ class _Codex:
         layout: bytes | None = None,
         background: bytes | None = None,
     ) -> bytes:
+        self.prompt = prompt
         self.layout = layout
         self.background = background
         if self._error:
             raise self._error
         return _png()
+
+
+async def test_generate_image_for_triangle_draft_adds_review_reason() -> None:
+    """△ 초안의 단건 이미지 재생성은 따로 주지 않아도 이유를 프롬프트에 붙인다."""
+    drafts = _Drafts(_Draft(verdict="triangle", verdict_reason="기존 사진과 너무 같음"))
+    codex = _Codex()
+    await _service(drafts, codex, _Storage()).generate_image(drafts.draft.id)
+
+    assert '검수자가 보고 남긴 의견: "기존 사진과 너무 같음"' in codex.prompt
+
+
+async def test_generate_image_without_triangle_uses_base_prompt() -> None:
+    drafts = _Drafts(_Draft(verdict="o", verdict_reason="좋음"))
+    codex = _Codex()
+    await _service(drafts, codex, _Storage()).generate_image(drafts.draft.id)
+
+    assert "검수 피드백" not in codex.prompt
+
+
+async def test_regenerate_image_marks_draft_for_re_review() -> None:
+    """검수 화면의 이미지 재생성은 재검수 대상으로 기록한 뒤 만든다."""
+    drafts = _Drafts(_Draft())
+    await _service(drafts, _Codex(), _Storage()).regenerate_image(drafts.draft.id)
+    assert drafts.marked is True
+    assert drafts.saved["image_key"] is not None
+
+
+def test_review_targets_picks_text_image_or_both() -> None:
+    assert review_targets("기존 사진과 유사") == (False, True)
+    assert review_targets("직업명 괜찮나요") == (True, False)
+    assert review_targets("얼굴 애매, 직업 애매") == (True, True)
+    assert review_targets("") == (False, True)  # 이유 없으면 이미지
+
+
+async def test_regenerate_from_review_text_reason_rewrites_text_with_feedback() -> None:
+    drafts = _Drafts(_Draft(verdict="triangle", verdict_reason="직업명이 어색함"))
+    service = _service(drafts, _Codex(), _Storage())
+    calls: list[tuple[str, Any]] = []
+
+    async def fake_text(session_id: UUID, student_id: UUID, *, feedback: str | None = None) -> UUID:
+        calls.append(("text", feedback))
+        return drafts.draft.id
+
+    async def fake_image(draft_id: UUID, *, feedback: str | None = None) -> None:
+        calls.append(("image", feedback))
+
+    service.generate_text = fake_text  # type: ignore[method-assign]
+    service.generate_image = fake_image  # type: ignore[method-assign]
+    await service.regenerate_from_review(drafts.draft.id)
+
+    assert [c[0] for c in calls] == ["text"]
+    assert '검수 의견: "직업명이 어색함"' in calls[0][1]
+    assert "하늘을 나는 드론 전문가" in calls[0][1]  # 이전 결과도 함께 준다
 
 
 class _Students:
@@ -309,6 +382,9 @@ class _BatchService:
     async def generate_image(self, draft_id: UUID) -> None:
         self.images.append(draft_id)
 
+    async def regenerate_image(self, draft_id: UUID) -> None:
+        self.images.append(draft_id)
+
 
 async def test_batch_continues_past_a_failed_student() -> None:
     targets = [DraftTarget(session_id=uuid4(), student_id=uuid4()) for _ in range(3)]
@@ -320,6 +396,151 @@ async def test_batch_continues_past_a_failed_student() -> None:
     assert not progress.running
     assert sorted(service.images) == sorted([targets[0].session_id, targets[2].session_id])
     assert "codex 실행이 실패했습니다." in progress.errors[0]
+
+
+async def test_batch_start_images_regenerates_each_draft() -> None:
+    batch = DraftBatch()
+    service = _BatchService(fail_student=uuid4())
+    ids = [uuid4(), uuid4(), uuid4()]
+
+    batch.start_images(service, ids, concurrency=2, label="이미지 재생성 3명")  # type: ignore[arg-type]
+    assert batch._task is not None
+    progress = await batch._task
+
+    assert (progress.label, progress.total, progress.done) == ("이미지 재생성 3명", 3, 3)
+    assert sorted(service.images) == sorted(ids)
+
+
+async def test_batch_start_review_runs_review_regeneration() -> None:
+    batch = DraftBatch()
+    done: list[UUID] = []
+
+    class _Svc:
+        async def regenerate_from_review(self, draft_id: UUID) -> None:
+            done.append(draft_id)
+
+    ids = [uuid4() for _ in range(3)]
+    batch.start_review(_Svc(), ids, concurrency=20, label="△")  # type: ignore[arg-type]
+    assert batch._task is not None
+    await batch._task
+    assert sorted(done) == sorted(ids)
+
+
+class _VerdictDrafts:
+    def __init__(self) -> None:
+        self.calls: list[tuple[str | None, str]] = []
+
+    async def get(self, draft_id: UUID) -> Any:
+        from tests.test_admin_reviews import _record
+
+        return _record()
+
+    async def set_verdict(self, draft_id: UUID, verdict: str | None, reason: str) -> None:
+        self.calls.append((verdict, reason))
+
+
+async def test_dev_set_verdict_saves_trimmed_reason() -> None:
+    repo = _VerdictDrafts()
+    app = create_app()
+    app.dependency_overrides[get_draft_repo] = lambda: repo
+    app.dependency_overrides[get_storage_client] = lambda: _NoUrlStorage()
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        bad = await client.put(f"/api/dev/drafts/{uuid4()}/verdict", json={"verdict": "maybe"})
+        ok = await client.put(
+            f"/api/dev/drafts/{uuid4()}/verdict", json={"verdict": "triangle", "reason": " 수염 "}
+        )
+
+    assert bad.status_code == 422
+    assert ok.status_code == 200, ok.text
+    assert repo.calls == [("triangle", "수염")]
+
+
+class _IssueDrafts:
+    def __init__(self) -> None:
+        self.issues: list[str] = []
+
+    async def list_issue(self, issue: str, *, limit: int) -> list[Any]:
+        self.issues.append(issue)
+        return []
+
+    async def count_issues(self) -> dict[str, int]:
+        return {"codex_failed": 1, "codex_refused": 2, "triangle": 3}
+
+
+async def test_list_draft_issues_by_kind() -> None:
+    repo = _IssueDrafts()
+    app = create_app()
+    app.dependency_overrides[get_draft_repo] = lambda: repo
+    app.dependency_overrides[get_storage_client] = lambda: _NoUrlStorage()
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        ok = await client.get("/api/dev/drafts/issues", params={"issue": "triangle"})
+        bad = await client.get("/api/dev/drafts/issues", params={"issue": "nope"})
+
+    assert ok.status_code == 200, ok.text
+    assert ok.json() == {
+        "drafts": [],
+        "counts": {"codex_failed": 1, "codex_refused": 2, "triangle": 3},
+    }
+    assert repo.issues == ["triangle"]
+    assert bad.status_code == 422
+
+
+async def test_regenerate_images_starts_background_job_with_unique_ids() -> None:
+    from app.deps import get_draft_service
+    from app.services.draft_batch import dev_batch
+
+    service = _BatchService(fail_student=uuid4())
+    app = create_app()
+    app.dependency_overrides[get_draft_service] = lambda: service
+    one, two = str(uuid4()), str(uuid4())
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.post("/api/dev/drafts/regenerate-images", json={"ids": [one, two, one]})
+    assert dev_batch._task is not None
+    await dev_batch._task
+
+    assert res.status_code == 202, res.text
+    assert res.json()["label"] == "이미지 재생성 2명"
+    assert sorted(map(str, service.images)) == sorted([one, two])
+
+
+class _AllTargets:
+    def __init__(self, targets: list[DraftTarget]) -> None:
+        self.targets = targets
+        self.kwargs: dict[str, Any] = {}
+
+    async def list_targets(self, **kwargs: Any) -> list[DraftTarget]:
+        self.kwargs = kwargs
+        return self.targets
+
+    async def count_targets(self) -> int:
+        return len(self.targets)
+
+
+async def test_batch_all_starts_every_target_without_class_filter() -> None:
+    from app.deps import get_draft_service
+    from app.services.draft_batch import dev_batch
+
+    targets = [DraftTarget(session_id=uuid4(), student_id=uuid4()) for _ in range(2)]
+    repo = _AllTargets(targets)
+    service = _BatchService(fail_student=uuid4())
+    app = create_app()
+    app.dependency_overrides[get_draft_repo] = lambda: repo
+    app.dependency_overrides[get_draft_service] = lambda: service
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
+        count = await client.get("/api/dev/drafts/targets")
+        res = await client.post("/api/dev/drafts/batch/all", json={"concurrency": 2})
+    assert dev_batch._task is not None
+    await dev_batch._task
+
+    assert count.json() == {"total": 2}
+    assert res.status_code == 202, res.text
+    assert res.json()["label"] == "미생성 전체 2명"
+    assert repo.kwargs == {"limit": 100_000}  # 학교·반 조건 없이 전원
+    assert sorted(service.images) == sorted(t.session_id for t in targets)
 
 
 class _DeletingDrafts:

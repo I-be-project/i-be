@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import asyncio
 import time
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from typing import Any
+from uuid import UUID
 
 from app.core.errors import ConflictError
 from app.repositories.draft_repo import DraftTarget
@@ -54,7 +56,9 @@ class DraftBatch:
         이미지 실패는 service가 초안의 error에 남기고 삼킨다(카드는 폴백).
         """
         self._reset(label, len(targets))
-        return await self._run(service, targets, concurrency=concurrency, on_item=on_item)
+        return await self._run(
+            targets, _text_and_image(service), concurrency=concurrency, on_item=on_item
+        )
 
     def _reset(self, label: str, total: int) -> None:
         self.progress = BatchProgress(
@@ -63,34 +67,33 @@ class DraftBatch:
 
     async def _run(
         self,
-        service: DraftService,
-        targets: list[DraftTarget],
+        items: Sequence[Any],
+        work: Callable[[Any], Awaitable[None]],
         *,
         concurrency: int,
-        on_item: OnItem | None,
+        on_item: Callable[[Any, str, float], None] | None,
     ) -> BatchProgress:
+        """items 하나마다 work. 한 건의 실패로 전체를 멈추지 않는다."""
         sem = asyncio.Semaphore(concurrency)
 
-        async def one(target: DraftTarget) -> None:
+        async def one(item: Any) -> None:
             async with sem:
                 t0 = time.monotonic()
                 try:
-                    draft_id = await service.generate_text(target.session_id, target.student_id)
-                    await service.generate_image(draft_id)
+                    await work(item)
                     status = "ok"
                 except Exception as exc:
                     self.progress.failed += 1
                     status = f"실패: {exc}"
-                    self.progress.errors = [
-                        *self.progress.errors[-9:],
-                        f"{target.student_id}: {exc}",
-                    ]
+                    # 일괄 생성은 학생 id, 이미지 재생성은 초안 id로 남는다.
+                    who = getattr(item, "student_id", item)
+                    self.progress.errors = [*self.progress.errors[-9:], f"{who}: {exc}"]
                 self.progress.done += 1
                 if on_item:
-                    on_item(target, status, time.monotonic() - t0)
+                    on_item(item, status, time.monotonic() - t0)
 
         try:
-            await asyncio.gather(*(one(t) for t in targets))
+            await asyncio.gather(*(one(i) for i in items))
         except asyncio.CancelledError:
             self.progress.cancelled = True
             raise
@@ -107,19 +110,52 @@ class DraftBatch:
         concurrency: int,
         label: str,
     ) -> None:
+        """초안 일괄 생성(텍스트 → 이미지)을 백그라운드로 시작."""
+        self._start(targets, _text_and_image(service), concurrency=concurrency, label=label)
+
+    def start_images(
+        self, service: DraftService, draft_ids: list[UUID], *, concurrency: int, label: str
+    ) -> None:
+        """기존 초안의 이미지만 다시 만든다. 실패는 service가 초안의 error에 남긴다."""
+        self._start(draft_ids, service.regenerate_image, concurrency=concurrency, label=label)
+
+    def start_review(
+        self, service: DraftService, draft_ids: list[UUID], *, concurrency: int, label: str
+    ) -> None:
+        """△ 초안을 그 이유를 반영해 다시 만든다(텍스트·이미지 중 필요한 것)."""
+        self._start(draft_ids, service.regenerate_from_review, concurrency=concurrency, label=label)
+
+    def _start(
+        self,
+        items: Sequence[Any],
+        work: Callable[[Any], Awaitable[None]],
+        *,
+        concurrency: int,
+        label: str,
+    ) -> None:
         """백그라운드로 시작. codex 사용량 때문에 동시에 한 작업만 허용한다."""
         if self._task is not None and not self._task.done():
             raise ConflictError("이미 일괄 생성이 진행 중입니다.")
         # 태스크가 첫 스케줄을 받기 전에 응답이 나가므로 상태는 여기서 먼저 채운다.
-        self._reset(label, len(targets))
+        self._reset(label, len(items))
         self._task = asyncio.create_task(
-            self._run(service, targets, concurrency=concurrency, on_item=None)
+            self._run(items, work, concurrency=concurrency, on_item=None)
         )
 
     def cancel(self) -> None:
         """진행 중인 codex 호출까지 끊는다. 이미 저장된 초안은 남는다."""
         if self._task is not None and not self._task.done():
             self._task.cancel()
+
+
+def _text_and_image(service: DraftService) -> Callable[[DraftTarget], Awaitable[None]]:
+    """텍스트 실패는 초안이 안 생겨 다음 실행에서 다시 대상이 된다."""
+
+    async def work(target: DraftTarget) -> None:
+        draft_id = await service.generate_text(target.session_id, target.student_id)
+        await service.generate_image(draft_id)
+
+    return work
 
 
 # 검수 화면용 프로세스 단일 인스턴스.
