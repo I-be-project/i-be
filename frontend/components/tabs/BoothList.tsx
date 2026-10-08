@@ -19,7 +19,7 @@ const zoneInk = (zone: BoothZone) => (zone === "C" ? { color: COMPETENCY_ZONE_IN
 // 존 색 네모 안에 흰 글씨(F·L·Y·역량). 존을 모르면 그리지 않는다.
 export function ZoneBlock({ zone, className }: { zone: BoothZone; className?: string }) {
   if (!ZONE_MARK[zone]) return null;
-  return <span aria-label={ZONE_LABELS[zone]} style={zone === "C" ? { backgroundColor: COMPETENCY_ZONE_COLOR } : undefined} className={cn("inline-grid h-5 min-w-[22px] place-content-center rounded-md px-1.5 text-[11px] font-extrabold text-white", ZONE_BLOCK[zone], className)}>{ZONE_MARK[zone]}</span>;
+  return <span aria-label={ZONE_LABELS[zone]} style={zone === "C" ? { backgroundColor: COMPETENCY_ZONE_COLOR, color: COMPETENCY_ZONE_INK } : undefined} className={cn("inline-grid h-5 min-w-[22px] place-content-center rounded-md px-1.5 text-[11px] font-extrabold text-white", ZONE_BLOCK[zone], className)}>{ZONE_MARK[zone]}</span>;
 }
 
 // 참여 요약 — 큰 숫자 + 존별 도장. 0인 존도 흐린 도장으로 남겨 안 가본 존이 보이게 한다.
@@ -52,9 +52,9 @@ export function VisitJournal({ booths }: { booths: ProfileBoothStatus[] }) {
     </div>
     <ul className="border-t-2 border-hm-blue">{day.visits.map((booth) => {
       const zone = booth.zone ?? "";
-      return <li key={booth.id} className="py-2.5">
+      return <li key={booth.id} className={cn("py-2.5", ZONE_MARK[zone] && "grid grid-cols-[auto_minmax(0,1fr)] gap-x-1.5")}>
+        <ZoneBlock zone={zone} className="row-span-2 self-start" />
         <h3 className="break-keep text-[15px] font-extrabold leading-snug text-hm-blue">
-          <ZoneBlock zone={zone} className="mr-1.5 align-[2px]" />
           {booth.name}
         </h3>
         <div className="mt-0.5 flex items-baseline justify-between gap-2.5 text-xs">
@@ -73,7 +73,7 @@ export function ZoneSection({ zone, booths, personaKeywords = [], onSelect }: { 
     <header className="mb-1.5 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
       <span style={zoneInk(zone)} className={cn("font-extrabold leading-none", zone === "C" ? "text-xl" : "text-[1.9rem]", ZONE_TEXT[zone])}>{ZONE_MARK[zone]}</span>
       <div>
-        <h2 className="text-[13px] font-extrabold text-hm-blue">{ZONE_SHORT[zone]} 부스</h2>
+        <h2 className="text-[18px] font-extrabold leading-snug text-hm-blue">{ZONE_SHORT[zone]} 부스</h2>
         <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#e9eff5]">
           <div style={{ width: `${booths.length ? (visited / booths.length) * 100 : 0}%`, ...(zone === "C" ? { backgroundColor: COMPETENCY_ZONE_COLOR } : {}) }} className={cn("h-full rounded-full", ZONE_BLOCK[zone])} />
         </div>
@@ -88,8 +88,7 @@ export function ZoneSection({ zone, booths, personaKeywords = [], onSelect }: { 
 export function RecommendSection({ booths, personaKeywords = [], onSelect }: { booths: ProfileBoothStatus[]; personaKeywords?: string[]; onSelect?: (booth: ProfileBoothStatus) => void }) {
   return <section className={`${SOFT_CARD} p-4`} aria-label="추천 부스">
     <header className="mb-1.5">
-      <h2 className="text-[15px] font-extrabold text-hm-blue">지금 가 볼 만한 부스</h2>
-      {!!personaKeywords.length && <p className="mt-0.5 text-xs text-hm-blue/60">내 역량 키워드({personaKeywords.map((k) => competencyLabel(k)).join("·")})와 맞는 곳</p>}
+      <h2 className="text-[20px] font-extrabold leading-snug text-hm-blue">지금 가 볼 만한 부스</h2>
     </header>
     <BoothRows booths={booths} personaKeywords={personaKeywords} onSelect={onSelect} showZone empty="아직 추천할 부스가 없어. 존을 골라 둘러봐." />
   </section>;
