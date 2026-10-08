@@ -88,20 +88,30 @@ def _args(out: Path, **kw: Any) -> argparse.Namespace:
     return argparse.Namespace(**{**base, **kw})
 
 
-def test_downloads_all_pages_and_images(tmp_path: Path) -> None:
+def _read(out: Path, sid: str) -> dict[str, Any]:
+    result: dict[str, Any] = json.loads((out / sid / "student.json").read_text(encoding="utf-8"))
+    return result
+
+
+def _sid(idx: int) -> str:
+    return f"00000000-0000-0000-0000-00000000000{idx}"
+
+
+def test_downloads_all_pages_into_student_folders(tmp_path: Path) -> None:
     server = FakeServer(
         [_student(1, approved_at="2026-10-07T03:00:00Z"), _student(2, photo=False), _student(3)]
     )
     assert run(_args(tmp_path), transport=httpx.MockTransport(server)) == 0
 
-    data = json.loads((tmp_path / "students.json").read_text(encoding="utf-8"))
-    assert [s["name"] for s in data] == ["학생1", "학생2", "학생3"]  # 커서로 2페이지
-    first = data[0]
+    # 커서로 2페이지 → 학생 3명 모두 자기 폴더
+    assert sorted(p.name for p in tmp_path.iterdir()) == [_sid(1), _sid(2), _sid(3)]
+    first = _read(tmp_path, _sid(1))
     assert "photo_url" not in first and "image_url" not in first["persona"]  # 만료 URL 제거
-    assert first["photo_file"] == f"photos/{first['id']}.jpg"
-    assert first["persona"]["image_file"] == f"persona/{first['id']}_20261007030000.png"
-    assert data[1]["photo_file"] is None
-    assert (tmp_path / first["photo_file"]).read_bytes() == b"img"
+    assert first["photo_file"] == "photo.jpg"
+    assert first["persona"]["image_file"] == "persona.png"
+    assert (tmp_path / _sid(1) / "photo.jpg").read_bytes() == b"img"
+    assert (tmp_path / _sid(1) / "persona.png").exists()
+    assert _read(tmp_path, _sid(2))["photo_file"] is None
     assert set(server.auth_on_images) == {None}  # 이미지엔 인증 헤더를 싣지 않는다
 
 
@@ -115,24 +125,27 @@ def test_rerun_skips_existing_and_refetches_on_reapproval(tmp_path: Path) -> Non
 
     server.students = [_student(1, approved_at="2026-10-08T01:00:00Z")]
     run(_args(tmp_path), transport=httpx.MockTransport(server))
-    assert server.image_gets[2:] == ["/gen/00000000-0000-0000-0000-000000000001"]  # 생성 이미지만
+    assert server.image_gets[2:] == [f"/gen/{_sid(1)}"]  # 생성 이미지만 다시
+    assert _read(tmp_path, _sid(1))["persona"]["approved_at"] == "2026-10-08T01:00:00Z"
+    assert len(list((tmp_path / _sid(1)).glob("persona.*"))) == 1
 
 
 def test_single_student_and_no_images(tmp_path: Path) -> None:
     server = FakeServer([_student(1), _student(2)])
-    sid = "00000000-0000-0000-0000-000000000002"
     assert (
-        run(_args(tmp_path, student_id=sid, no_images=True), transport=httpx.MockTransport(server))
+        run(
+            _args(tmp_path, student_id=_sid(2), no_images=True),
+            transport=httpx.MockTransport(server),
+        )
         == 0
     )
 
-    data = json.loads((tmp_path / "students.json").read_text(encoding="utf-8"))
-    assert [s["id"] for s in data] == [sid]
-    assert data[0]["photo_file"] is None
+    assert [p.name for p in tmp_path.iterdir()] == [_sid(2)]
+    assert _read(tmp_path, _sid(2))["photo_file"] is None
     assert server.image_gets == []
 
 
 def test_wrong_key_fails(tmp_path: Path) -> None:
     server = FakeServer([_student(1)])
     assert run(_args(tmp_path, key="wrong"), transport=httpx.MockTransport(server)) == 1
-    assert not (tmp_path / "students.json").exists()
+    assert list(tmp_path.iterdir()) == []
