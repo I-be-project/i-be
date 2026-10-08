@@ -263,6 +263,7 @@ def get_booth_service(
 
 
 BoothServiceDep = Annotated[BoothService, Depends(get_booth_service)]
+BoothRepoDep = Annotated[BoothRepository, Depends(get_booth_repo)]
 
 
 def get_booth_visit_repo(pool: DBPoolDep) -> BoothVisitRepository:
@@ -278,6 +279,7 @@ def get_booth_visit_service(
 
 
 BoothVisitServiceDep = Annotated[BoothVisitService, Depends(get_booth_visit_service)]
+BoothVisitRepoDep = Annotated[BoothVisitRepository, Depends(get_booth_visit_repo)]
 
 
 def get_draft_service(
