@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Share2 } from "lucide-react";
+import { Download, Link } from "lucide-react";
 
 const isAbort = (e: unknown) => e instanceof DOMException && e.name === "AbortError";
 
@@ -35,16 +35,8 @@ async function saveCard(url: string, filename: string): Promise<string | null> {
   }
 }
 
-/** 공개 페이지 링크 공유. 공유 시트가 없으면 클립보드에 복사한다. */
-async function shareLink(url: string, title: string): Promise<string | null> {
-  if (navigator.share) {
-    try {
-      await navigator.share({ title, url });
-      return null;
-    } catch (e) {
-      if (isAbort(e)) return null;
-    }
-  }
+/** 공개 페이지 링크를 클립보드에 복사한다. */
+async function copyLink(url: string): Promise<string> {
   try {
     await navigator.clipboard.writeText(url);
     return "링크를 복사했어. 친구에게 붙여넣어 보내 봐.";
@@ -53,7 +45,7 @@ async function shareLink(url: string, title: string): Promise<string | null> {
   }
 }
 
-// 홈 카드 아래 버튼 두 개 — 이미지 저장 / 링크 공유.
+// 홈 카드 아래 버튼 두 개 — 이미지 저장 / 링크 복사.
 export function CardActions({ imageUrl, sharePath, name }: { imageUrl?: string | null; sharePath?: string | null; name?: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -67,7 +59,7 @@ export function CardActions({ imageUrl, sharePath, name }: { imageUrl?: string |
   return <div>
     <div className="flex gap-2">
       {imageUrl && <button type="button" disabled={busy} onClick={() => run(() => saveCard(imageUrl, `나Be한마당-${name ?? "페르소나"}-카드.png`))} className={`${button} bg-hm-blue text-white shadow-[0_8px_20px_-10px_rgba(0,91,171,0.32),0_1px_3px_rgba(0,91,171,0.08)]`}><Download size={17} />이미지 저장</button>}
-      {sharePath && <button type="button" disabled={busy} onClick={() => run(() => shareLink(new URL(sharePath, window.location.origin).href, `${name ?? "나"}의 나Be한마당 페르소나`))} className={`${button} bg-white text-hm-blue shadow-[0_8px_20px_-10px_rgba(0,91,171,0.32),0_1px_3px_rgba(0,91,171,0.08)]`}><Share2 size={17} />링크 공유</button>}
+      {sharePath && <button type="button" disabled={busy} onClick={() => run(() => copyLink(new URL(sharePath, window.location.origin).href))} className={`${button} bg-white text-hm-blue shadow-[0_8px_20px_-10px_rgba(0,91,171,0.32),0_1px_3px_rgba(0,91,171,0.08)]`}><Link size={17} />링크 복사</button>}
     </div>
     {message && <p role="status" className="mt-2 break-all text-center text-xs text-hm-blue/70">{message}</p>}
   </div>;
