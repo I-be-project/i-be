@@ -81,7 +81,9 @@ def _encode(fmt: str) -> bytes:
     return out.getvalue()
 
 
-@pytest.mark.skipif(os.name == "nt" and "HEIF" not in Image.SAVE, reason="Windows HEIC DLL 사용 불가")
+@pytest.mark.skipif(
+    os.name == "nt" and "HEIF" not in Image.SAVE, reason="Windows HEIC DLL 사용 불가"
+)
 def test_to_codex_input_converts_heic_to_jpeg() -> None:
     """확장자만 .webp인 아이폰 사진(HEIC)도 codex가 받는 JPEG로 바뀐다."""
     heic = _encode("HEIF")
