@@ -2,12 +2,29 @@
 
 from __future__ import annotations
 
+import os
+import runpy
+import sys
 from io import BytesIO
+from types import ModuleType
 
 import pytest
 from PIL import Image
 
 from app.core.images import ImageValidationError, crop_top, inspect_image, to_codex_input
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows DLL 차단 시 폴백")
+def test_windows_blocked_heif_keeps_png_support(monkeypatch: pytest.MonkeyPatch) -> None:
+    plugin = ModuleType("pillow_heif")
+
+    def blocked() -> None:
+        raise ImportError("DLL blocked by application control policy")
+
+    monkeypatch.setattr(plugin, "register_heif_opener", blocked, raising=False)
+    monkeypatch.setitem(sys.modules, "pillow_heif", plugin)
+    namespace = runpy.run_module("app.core.images", run_name="heif_fallback_test", alter_sys=True)
+    assert namespace["inspect_image"](_png((120, 80))).image_format == "PNG"
 
 
 def _png(size: tuple[int, int] = (64, 64), color: tuple[int, int, int] = (10, 20, 30)) -> bytes:
@@ -64,6 +81,7 @@ def _encode(fmt: str) -> bytes:
     return out.getvalue()
 
 
+@pytest.mark.skipif(os.name == "nt" and "HEIF" not in Image.SAVE, reason="Windows HEIC DLL 사용 불가")
 def test_to_codex_input_converts_heic_to_jpeg() -> None:
     """확장자만 .webp인 아이폰 사진(HEIC)도 codex가 받는 JPEG로 바뀐다."""
     heic = _encode("HEIF")

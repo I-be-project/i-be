@@ -6,14 +6,25 @@ Pillow로 확인한다. 어댑터/서비스가 외부 응답을 신뢰하기 전
 
 from __future__ import annotations
 
+import logging
+import os
 from dataclasses import dataclass
 from io import BytesIO
 
 from PIL import Image, UnidentifiedImageError
-from pillow_heif import register_heif_opener
 
 # 아이폰 사진(HEIC)을 Pillow가 열 수 있게 한다. 확장자만 .webp로 올라온 HEIC도 있다.
-register_heif_opener()
+# Windows에서 네이티브 DLL이 정책으로 차단돼도 JPG·PNG 처리는 사용할 수 있다.
+try:
+    from pillow_heif import register_heif_opener
+
+    register_heif_opener()
+except (ImportError, OSError):
+    if os.name != "nt":
+        raise
+    logging.getLogger(__name__).warning(
+        "HEIC 지원을 불러오지 못했습니다. 이 Windows 환경에서는 JPG·PNG·WebP 사진을 사용하세요."
+    )
 
 # codex가 그대로 받는 입력 포맷. 그 밖(HEIC 등)은 JPEG로 바꿔 넘긴다.
 _CODEX_FORMATS = {"JPEG", "PNG", "WEBP"}
