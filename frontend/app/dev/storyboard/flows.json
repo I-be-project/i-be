@@ -1,0 +1,355 @@
+[
+  {
+    "title": "1. 시작 · 가입",
+    "frames": [
+      {
+        "name": "웰컴",
+        "src": "/storyboard/s01-welcome.jpg",
+        "size": [
+          780,
+          2268
+        ]
+      },
+      {
+        "name": "로그인",
+        "src": "/storyboard/s02-login.jpg",
+        "size": [
+          780,
+          1760
+        ]
+      },
+      {
+        "name": "회원가입",
+        "src": "/storyboard/s03-signup.jpg",
+        "size": [
+          780,
+          2408
+        ]
+      },
+      {
+        "name": "웰컴 (로그인)",
+        "src": "/storyboard/s04-welcome-loggedin.jpg",
+        "size": [
+          780,
+          2268
+        ]
+      }
+    ]
+  },
+  {
+    "title": "2. 탐험 설문",
+    "frames": [
+      {
+        "name": "탐험 브리핑 · 장면",
+        "src": "/storyboard/s05-explore.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "탐험 브리핑 · 시트 펼침",
+        "src": "/storyboard/s05-explore-open.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q1 선착장 · 장면",
+        "src": "/storyboard/s06-q1.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q1 선착장 · 선택",
+        "src": "/storyboard/s06-q1-open.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q2 역할 · 장면",
+        "src": "/storyboard/s06-q2.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q2 역할 · 선택",
+        "src": "/storyboard/s06-q2-open.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q3 코스 변경 · 장면",
+        "src": "/storyboard/s06-q3.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q3 코스 변경 · 선택",
+        "src": "/storyboard/s06-q3-open.jpg",
+        "size": [
+          780,
+          1696
+        ]
+      },
+      {
+        "name": "낮 Q4 도구 창고 · 장면",
+        "src": "/storyboard/s06-q4.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q4 도구 창고 · 선택",
+        "src": "/storyboard/s06-q4-open.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q5 갈림길 · 장면",
+        "src": "/storyboard/s06-q5.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q5 갈림길 · 선택",
+        "src": "/storyboard/s06-q5-open.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q6 오늘의 기록 · 장면",
+        "src": "/storyboard/s06-q6.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "낮 Q6 오늘의 기록 · 선택",
+        "src": "/storyboard/s06-q6-open.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "캠프의 밤 · 장면",
+        "src": "/storyboard/s07-evening.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "캠프의 밤 · 시트 펼침",
+        "src": "/storyboard/s07-evening-open.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "밤 Q7-A 공간 · 선택",
+        "src": "/storyboard/s08-q7a.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "밤 Q7-A 공간 · 다음 질문 생성 중",
+        "src": "/storyboard/s08-generating.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "밤 Q7-B 도구",
+        "src": "/storyboard/s08-q7b.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "밤 Q8 방식",
+        "src": "/storyboard/s08-q8.jpg",
+        "size": [
+          780,
+          1760
+        ]
+      },
+      {
+        "name": "밤 Q9 대상·완료",
+        "src": "/storyboard/s08-q9.jpg",
+        "size": [
+          780,
+          1760
+        ]
+      },
+      {
+        "name": "사진 등록",
+        "src": "/storyboard/s09-photo.jpg",
+        "size": [
+          780,
+          3150
+        ]
+      },
+      {
+        "name": "대원증 대기 · 진입 팝업",
+        "src": "/storyboard/s10-pending-card.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "대원증 대기 · 대기",
+        "src": "/storyboard/s10-pending-card-wait.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      }
+    ]
+  },
+  {
+    "title": "3. 부스 참여",
+    "frames": [
+      {
+        "name": "QR 스캔",
+        "src": "/storyboard/s20-scan.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "방문 인증",
+        "src": "/storyboard/s21-checkin.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "기록 완료",
+        "src": "/storyboard/s22-checkin-done.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "미로그인 QR",
+        "src": "/storyboard/s23-checkin-loggedout.jpg",
+        "size": [
+          780,
+          1760
+        ]
+      },
+      {
+        "name": "설문 미완료",
+        "src": "/storyboard/s24-checkin-blocked.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      }
+    ]
+  },
+  {
+    "title": "4. 개인 페이지 (3탭)",
+    "frames": [
+      {
+        "name": "홈 · 앞면",
+        "src": "/storyboard/s11-home.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "홈 · 뒷면",
+        "src": "/storyboard/s11-home-back.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "부스 · 목록",
+        "src": "/storyboard/s12-booths.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "부스 · 부스 상세 시트",
+        "src": "/storyboard/s12-booths-sheet.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "성장",
+        "src": "/storyboard/s13-growth.jpg",
+        "size": [
+          780,
+          2298
+        ]
+      }
+    ]
+  },
+  {
+    "title": "5. 공개 페이지",
+    "frames": [
+      {
+        "name": "공개 홈",
+        "src": "/storyboard/s15-public-home.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "공개 부스",
+        "src": "/storyboard/s16-public-booths.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "공개 성장",
+        "src": "/storyboard/s17-public-growth.jpg",
+        "size": [
+          780,
+          2298
+        ]
+      }
+    ]
+  }
+]
