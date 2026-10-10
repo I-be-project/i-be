@@ -247,12 +247,14 @@ def _booth(
     competencies: tuple[str, ...] = (),
     zone: str = "",
     description: str | None = None,
+    detail: str | None = None,
 ) -> BoothRecord:
     return BoothRecord(
         id=uuid4(),
         code="ABC123",
         name=name,
         description=description,
+        detail=detail,
         zone=zone,
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
@@ -492,7 +494,11 @@ async def test_profile_summary_carries_booth_details() -> None:
     """
     student_id = uuid4()
     booth = _booth(
-        "스피치ON", competencies=("communication",), zone="C", description="자기소개 미션"
+        "스피치ON",
+        competencies=("communication",),
+        zone="C",
+        description="자기소개 미션",
+        detail="낱말 카드로 두 문장을 말해봅니다.",
     )
     visit = _visit(student_id=student_id, booth_id=booth.id)
     service, _, _ = _build(latest=None, booths=[booth], visits=[visit])
@@ -501,6 +507,7 @@ async def test_profile_summary_carries_booth_details() -> None:
 
     assert status.zone == "C"
     assert status.description == "자기소개 미션"
+    assert status.detail == "낱말 카드로 두 문장을 말해봅니다."
     assert status.competencies == ["communication"]
     assert status.visited_at == visit.created_at
 
