@@ -36,7 +36,7 @@ export default function BoothsPage() {
   const q = query.trim().toLowerCase();
   const all = profile?.booths ?? [];
   const source = tab === "recommended" ? recommendBooths(all, profile?.persona ?? null) : all.filter((b) => b.zone === tab).sort((a, b) => Number(a.visited) - Number(b.visited)); // 참여 완료는 맨 아래로(나머지 순서는 유지)
-  const booths = source.filter((b) => `${b.name} ${b.description ?? ""}`.toLowerCase().includes(q));
+  const booths = source.filter((b) => `${b.name} ${b.description ?? ""} ${b.detail ?? ""}`.toLowerCase().includes(q));
   return <TabPage action={readOnly ? <MyPageLink /> : undefined}>
     <section className={`${SOFT_CARD} overflow-hidden`} aria-label="부스 맵">
       {mapFailed ? <div className="flex min-h-48 flex-col items-center justify-center gap-2 p-6 text-center text-hm-blue"><p className="text-sm font-bold">지도를 준비하고 있어</p><p className="text-xs text-hm-blue/60">아래 목록에서 체험할 부스를 먼저 찾아봐.</p></div> : <div className="relative aspect-[1672/941] w-full"><Image src="/booth-map.webp" alt="나Be한마당 부스 배치도" fill sizes="(min-width: 672px) 632px, 100vw" className="object-cover" onError={() => setMapFailed(true)} /></div>}

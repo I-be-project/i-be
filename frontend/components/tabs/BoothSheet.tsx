@@ -20,6 +20,7 @@ export function BoothSheet({ booth, open, personaKeywords = [], onClose }: { boo
         <div className="flex items-center gap-2 text-sm font-bold text-hm-blue/70"><ZoneBlock zone={zone} />{ZONE_LABELS[zone]}</div>
         <SheetTitle className="mt-2.5 break-keep text-[1.45rem] font-extrabold leading-snug text-hm-blue">{booth.name}</SheetTitle>
         {booth.description ? <SheetDescription className="mt-1 text-sm text-hm-blue/70">{zone === "C" ? "미션 · " : ""}{booth.description}</SheetDescription> : <SheetDescription className="sr-only">부스 상세 정보</SheetDescription>}
+        {booth.detail && <p className="mt-4 whitespace-pre-line break-keep text-[0.95rem] leading-relaxed text-hm-blue">{booth.detail}</p>}
         <p className={cn("mt-4 rounded-2xl px-4 py-3 text-sm font-bold", booth.visited ? "bg-hm-teal/10 text-hm-teal" : "bg-hm-tint text-hm-blue/70")}>
           {booth.visited ? `참여 완료${booth.visited_at ? ` · ${visitedAt(booth.visited_at)}` : ""}` : "아직 참여 전이야. 부스에서 QR을 찍으면 기록돼."}
         </p>
