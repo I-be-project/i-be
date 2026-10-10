@@ -2,7 +2,6 @@
 .DS_Store
 .obsidian/
 .claude/
-.superpowers/
 .omc/
 
 # 서브프로젝트별 무시는 각 backend/.gitignore, frontend/.gitignore 가 담당.

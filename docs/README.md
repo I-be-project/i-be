@@ -2,8 +2,6 @@
 
 기획·설계·운영 기록을 모아둔다. 코드는 [루트 README](../README.md) 참고.
 
-**[`TODO.md`](TODO.md)** — 발견했지만 아직 안 고친 버그·결함. 고치면 항목을 지운다.
-
 ## 폴더를 수명으로 가른다
 
 문서를 **성격이 아니라 수명으로** 나눈다. 이러면 "이 문서 아직 유효한가?"에
@@ -14,7 +12,6 @@
 | [`guides/`](guides/) | **살아있음** — 지금의 사실 | **고친다** | 날짜 없음 |
 | [`issues/`](issues/) | **박제** — 그때의 기록 | 고치지 않는다 | `YYYY-MM-DD-` |
 | [`notes/`](notes/) | **박제** — 그때의 기록 | 고치지 않는다 | `YYYY-MM-DD-` |
-| [`superpowers/`](superpowers/) | 자동 생성 | 건드리지 않는다 | `YYYY-MM-DD-` |
 
 박제 문서는 **내용을 갱신하지 않는다.** 당시 판단이 그랬다는 게 기록의 값어치다.
 사실과 달라졌으면 문서 첫머리에 경고 배너를 달고 현행 문서를 링크한다
@@ -43,9 +40,9 @@
 | [`operations.md`](guides/operations.md) | 행사 운영 런북 — 장애 확인 순서, 배포 동결 |
 | [`booths.md`](guides/booths.md) | 직업·역량체험부스 명단 (F·L·Y존 57개 + 역량 10개) |
 | [`architecture.md`](guides/architecture.md) | 시스템 구조 |
-| [`backend-design.md`](guides/backend-design.md) | 백엔드 종합 설계 |
 | [`design-system.md`](guides/design-system.md) | Voyage 디자인 시스템 |
-| [`admin-api.md`](guides/admin-api.md) | 관리자 API 사용 설명서 (외부 전달용) |
+| [`admin-api.md`](guides/admin-api.md) | 관리자 API 사용 설명서 (관리자 화면용) |
+| [`export-api.md`](guides/export-api.md) | 학생 데이터 내보내기 API (외부 연동용) |
 
 ## issues/ — 삽질과 인프라 판단
 
@@ -84,6 +81,7 @@ python3 scripts/gen-docs-index.py
 
 | 문서 | 내용 |
 |---|---|
+| [`2026-09-21-구청-회신-반영-작업-정리.md`](notes/2026-09-21-구청-회신-반영-작업-정리.md) | 구청 회신 반영 개발·운영·부하테스트 작업 정리 |
 | [`2026-08-15-사진-업로드-품질-개선-회의안.md`](notes/2026-08-15-사진-업로드-품질-개선-회의안.md) | 사진 업로드 품질 개선 회의안 (논의용 초안) |
 | [`2026-08-08-행사-부하-용량-점검.md`](notes/2026-08-08-행사-부하-용량-점검.md) | 행사 부하 용량 점검 |
 | [`2026-07-31-관리자-api-외부-개방.md`](notes/2026-07-31-관리자-api-외부-개방.md) | 관리자 API 외부 개방 변경 기록 |
@@ -93,13 +91,6 @@ python3 scripts/gen-docs-index.py
 | [`2026-06-24-학생-온보딩-플로우-설계.md`](notes/2026-06-24-학생-온보딩-플로우-설계.md) | 학생 온보딩 플로우 설계 |
 | [`2026-03-19-프로젝트-비전.md`](notes/2026-03-19-프로젝트-비전.md) | 프로젝트 비전 원본 |
 | [`2026-03-19-프론트엔드-개발-계획.md`](notes/2026-03-19-프론트엔드-개발-계획.md) | 프론트엔드 개발 계획 원본 |
-
-## superpowers/ — 설계서와 구현 계획
-
-`superpowers` 스킬이 만드는 산출물이다. 직접 쓰지 않는다.
-
-- [`specs/`](superpowers/specs/) — 기능별 설계서
-- [`plans/`](superpowers/plans/) — 단계별 구현 계획
 
 ## 폴더 승격 규칙
 

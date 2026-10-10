@@ -3,7 +3,7 @@
 | 항목 | 값 |
 |---|---|
 | 범위 | 전체 시스템 구조(프론트·백엔드·데이터·배포·보안) |
-| 관련 문서 | [`backend-design.md`](backend-design.md)(상세 설계), [`deployment.md`](deployment.md)(배포), [`operations.md`](operations.md)(운영) |
+| 관련 문서 | [`deployment.md`](deployment.md)(배포), [`operations.md`](operations.md)(운영) |
 
 > 학생이 질문에 답하면 AI가 **페르소나(직업) 카드**를 만들어주고, 개인 페이지에서
 > 결과를 확인·보관하는 참여형 진로 경험 시스템. 본 문서는 **전체 구조와 컴포넌트
@@ -347,7 +347,6 @@ Lightsail 인스턴스 (2GB/2vCPU, Dual-stack)
 ---
 
 ## 13. 관련 문서
-- 상세 백엔드 설계: [`backend-design.md`](backend-design.md)
 - 배포: [`deployment.md`](deployment.md) · 운영: [`operations.md`](operations.md)
 - 용량 점검: [`../notes/2026-08-08-행사-부하-용량-점검.md`](../notes/2026-08-08-행사-부하-용량-점검.md)
 - 학생 온보딩 흐름 spec: [`../notes/2026-06-24-학생-온보딩-플로우-설계.md`](../notes/2026-06-24-학생-온보딩-플로우-설계.md)
@@ -361,3 +360,4 @@ Lightsail 인스턴스 (2GB/2vCPU, Dual-stack)
 | 2026-06-27 | 전체 아키텍처 개요 v1 (Lightsail·Supabase·S3·사진영구·페르소나선택 반영) |
 | 2026-08-15 | 현행화 — 프론트 실연동·Vercel 배포, 스키마 3개(`rewards` 없음), 계정 종류(`kind`) 3종, 부스 QR 방문, 운영진 콘솔, 4탭 구조, 토큰 만료 12h, 배포 브랜치 `production`, S3 프리픽스 3종 반영. 카드 파이프라인·감사로그를 🔴 미구현으로 명시 |
 | 2026-09-11 | 부스에 존(F·L·Y·C)과 NCS 역량 10개 연결 추가. 성향 탭 차트 축을 부스에서 역량으로 교체. QR 일괄 인쇄 페이지 추가 |
+| 2026-10-10 | `backend-design.md`(설계 의도 문서) 삭제에 따라 관련 문서 링크 제거 |
