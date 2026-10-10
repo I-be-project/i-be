@@ -1,6 +1,6 @@
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
-import { ArrowRight, ClipboardCheck, ImageIcon, UserRoundSearch } from "lucide-react"
+import { ArrowRight, ClipboardCheck, ImageIcon, LayoutGrid, UserRoundSearch } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
@@ -36,6 +36,14 @@ const DEV_TOOLS: DevTool[] = [
     href: "/dev/review",
     tag: "검수",
     icon: ClipboardCheck,
+  },
+  {
+    title: "전체 시스템 스토리보드",
+    description:
+      "가입부터 설문, 부스 참여, 개인·공개 페이지까지 학생 화면을 화이트보드처럼 흐름 순서로 한눈에 봅니다.",
+    href: "/dev/storyboard",
+    tag: "문서",
+    icon: LayoutGrid,
   },
 ]
 
