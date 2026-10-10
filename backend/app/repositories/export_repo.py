@@ -63,7 +63,8 @@ _PAGE = """
         limit 1
     ) se on true
     left join generated.personas p on p.session_id = se.id and p.approved_at is not null
-    where s.deleted_at is null and s.kind in ('student', 'guest')
+    -- 테스트 계정은 목록에서 빼고 단건($3)에서만 내준다 — 협력사가 시험 계정 id로 조회한다.
+    where s.deleted_at is null and (s.kind <> 'test' or $3::uuid is not null)
       and ($1::uuid is null or s.id > $1)
       and ($3::uuid is null or s.id = $3)
     order by s.id
@@ -75,7 +76,7 @@ class ExportRepository(BaseRepository):
     async def page(
         self, *, after: UUID | None, limit: int, student_id: UUID | None = None
     ) -> tuple[list[ExportRow], dict[UUID, list[AnswerRecord]]]:
-        """(학생 행, 세션별 답변). 테스트 계정·삭제된 학생은 제외. student_id면 그 학생만."""
+        """(학생 행, 세션별 답변). 삭제된 학생은 제외, 테스트 계정은 student_id 단건일 때만."""
         async with self._pool.acquire() as conn:
             rows = await conn.fetch(_PAGE, after, limit, student_id)
             session_ids = [r["session_id"] for r in rows if r["session_id"]]
