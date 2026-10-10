@@ -78,9 +78,10 @@ export interface ProfileBoothStatus {
   id: string;
   name: string;
   visited: boolean;
-  // 아래 4개는 부스 탭 카드용. 구버전 서버가 안 내려줄 수 있어 선택 필드로 둔다.
+  // 아래 필드는 부스 탭 카드용. 구버전 서버가 안 내려줄 수 있어 선택 필드로 둔다.
   zone?: BoothZone;
   description?: string | null;
+  detail?: string | null;
   competencies?: string[];
   visited_at?: string | null;
 }

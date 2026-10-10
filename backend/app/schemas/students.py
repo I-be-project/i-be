@@ -69,7 +69,8 @@ class ProfileBoothStatus(BaseModel):
     name: str
     visited: bool = Field(..., description="이 학생이 이 부스에 방문 기록을 남겼는지")
     zone: str = Field("", description="'F'·'L'·'Y'·'C' 중 하나. 존을 모르는 부스는 빈 문자열")
-    description: str | None = Field(None, description="직업체험은 기관명, 역량체험은 미션 활동")
+    description: str | None = Field(None, description="운영기관")
+    detail: str | None = Field(None, description="학생용 부스 설명 — 부스 상세 시트에 보인다")
     competencies: list[str] = Field(
         default_factory=list, description="이 부스에 연결된 역량 키. 매핑 전이면 빈 목록"
     )

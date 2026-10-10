@@ -2,7 +2,7 @@
 
 진로 내비게이터 백엔드 — FastAPI + Supabase Postgres + 인-프로세스 카드 생성 워커.
 
-설계 문서: [`../docs/guides/backend-design.md`](../docs/guides/backend-design.md)
+시스템 구조: [`../docs/guides/architecture.md`](../docs/guides/architecture.md)
 
 ## 빠른 시작 (로컬)
 

@@ -47,11 +47,30 @@ def test_read_rows_splits_competencies_on_semicolon(tmp_path: Path) -> None:
     assert rows[0].competencies == ["challenge", "analysis", "thinking"]
 
 
-def test_check_competencies_allows_empty() -> None:
-    """매핑 자료가 오기 전에는 전부 비어 있다 — 이게 정상이다."""
-    rows = [BoothRow(zone="F", name="부스", description="기관", competencies=[])]
+def test_check_competencies_allows_empty_only_for_zoneless_booth() -> None:
+    """존 없는 부스(기타)만 역량 0개다. 직업체험 부스가 비어 있으면 갱신 시 역량이 지워진다."""
+    rows = [
+        BoothRow(zone="", name="기타", description="기관", competencies=[]),
+        BoothRow(zone="F", name="부스", description="기관", competencies=[]),
+    ]
 
-    assert check_competencies(rows) == []
+    problems = check_competencies(rows)
+
+    assert len(problems) == 1
+    assert "'부스'" in problems[0]
+
+
+def test_read_rows_reads_code_and_detail(tmp_path: Path) -> None:
+    path = _write(
+        tmp_path,
+        "code,program_id,zone,name,description,detail,competencies\n"
+        "ganzcw,NB26-017,F,드론,건양대,학생용 설명,challenge;analysis;thinking\n",
+    )
+
+    row = read_rows(path)[0]
+
+    assert row.code == "GANZCW"
+    assert row.detail == "학생용 설명"
 
 
 def test_check_competencies_requires_three_for_job_zones() -> None:
@@ -147,8 +166,26 @@ def _args(csv_path: Path, *, dry_run: bool = False) -> argparse.Namespace:
     )
 
 
+HEADER = "code,zone,name,description,detail,competencies\n"
+ROW = "F,드론 시뮬레이션,건양대,설명,challenge;analysis;thinking\n"
+
+
+def _booth(**overrides: Any) -> dict[str, Any]:
+    """CSV ROW와 내용이 같은 서버 부스."""
+    return {
+        "id": "old",
+        "code": "GANZCW",
+        "name": "드론 시뮬레이션",
+        "description": "건양대",
+        "detail": "설명",
+        "zone": "F",
+        "competencies": ["challenge", "analysis", "thinking"],
+        **overrides,
+    }
+
+
 def test_run_creates_missing_booths(tmp_path: Path) -> None:
-    path = _write(tmp_path, "zone,name,description,competencies\nF,드론 시뮬레이션,건양대,\n")
+    path = _write(tmp_path, HEADER + "," + ROW)
     state: dict[str, Any] = {"existing": [], "created": [], "patched": []}
 
     code = run(_args(path), transport=_fake_transport(state))
@@ -157,12 +194,25 @@ def test_run_creates_missing_booths(tmp_path: Path) -> None:
     assert len(state["created"]) == 1
     assert state["created"][0]["name"] == "드론 시뮬레이션"
     assert state["created"][0]["zone"] == "F"
+    assert state["created"][0]["detail"] == "설명"
 
 
 def test_run_skips_existing_booth_by_name(tmp_path: Path) -> None:
-    path = _write(tmp_path, "zone,name,description,competencies\nF,드론 시뮬레이션,건양대,\n")
+    path = _write(tmp_path, HEADER + "," + ROW)
+    state: dict[str, Any] = {"existing": [_booth()], "created": [], "patched": []}
+
+    code = run(_args(path), transport=_fake_transport(state))
+
+    assert code == 0
+    assert state["created"] == []
+    assert state["patched"] == []
+
+
+def test_run_updates_existing_booth_by_code_even_if_renamed(tmp_path: Path) -> None:
+    """노션에서 이름을 바꿔도 code로 찾아 갱신한다 — 이름 매칭이면 새 부스가 하나 더 생긴다."""
+    path = _write(tmp_path, HEADER + "GANZCW," + ROW)
     state: dict[str, Any] = {
-        "existing": [{"id": "old", "name": "드론 시뮬레이션", "competencies": []}],
+        "existing": [_booth(name="드론 시뮬레이터(옛 이름)", competencies=[])],
         "created": [],
         "patched": [],
     }
@@ -171,24 +221,21 @@ def test_run_skips_existing_booth_by_name(tmp_path: Path) -> None:
 
     assert code == 0
     assert state["created"] == []
+    assert state["patched"] == [
+        {"name": "드론 시뮬레이션", "competencies": ["challenge", "analysis", "thinking"]}
+    ]
 
 
-def test_run_updates_competencies_of_existing_booth(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path,
-        "zone,name,description,competencies\n"
-        "F,드론 시뮬레이션,건양대,challenge;analysis;thinking\n",
-    )
-    state: dict[str, Any] = {
-        "existing": [{"id": "old", "name": "드론 시뮬레이션", "competencies": []}],
-        "created": [],
-        "patched": [],
-    }
+def test_run_refuses_unknown_code(tmp_path: Path) -> None:
+    """오타난 code로 새 부스를 만들면 인쇄된 QR과 어긋난다."""
+    path = _write(tmp_path, HEADER + "ZZZZZZ," + ROW)
+    state: dict[str, Any] = {"existing": [_booth()], "created": [], "patched": []}
 
     code = run(_args(path), transport=_fake_transport(state))
 
-    assert code == 0
-    assert state["patched"] == [{"competencies": ["challenge", "analysis", "thinking"]}]
+    assert code == 1
+    assert state["created"] == []
+    assert state["patched"] == []
 
 
 def test_run_skips_patch_when_competencies_already_match_regardless_of_order(
@@ -198,25 +245,10 @@ def test_run_skips_patch_when_competencies_already_match_regardless_of_order(
 
     PATCH하지 않아야 한다. 순서까지 비교하면 매 실행 갱신 대상으로 오판해
     dry-run이 "바뀔 게 없는데 바뀐다"고 거짓말하게 된다.
+    _fake_transport가 GET에서 사전순으로 정렬해 돌려준다.
     """
-    path = _write(
-        tmp_path,
-        "zone,name,description,competencies\n"
-        "F,드론 시뮬레이션,건양대,challenge;analysis;thinking\n",
-    )
-    state: dict[str, Any] = {
-        # 실제 서버라면 이미 사전순(analysis, challenge, thinking)으로 저장돼 있을 상태.
-        # _fake_transport가 GET에서 사전순으로 정렬해 돌려주므로 여기 순서는 상관없다.
-        "existing": [
-            {
-                "id": "old",
-                "name": "드론 시뮬레이션",
-                "competencies": ["challenge", "analysis", "thinking"],
-            }
-        ],
-        "created": [],
-        "patched": [],
-    }
+    path = _write(tmp_path, HEADER + "GANZCW," + ROW)
+    state: dict[str, Any] = {"existing": [_booth()], "created": [], "patched": []}
 
     code = run(_args(path), transport=_fake_transport(state))
 
@@ -225,19 +257,20 @@ def test_run_skips_patch_when_competencies_already_match_regardless_of_order(
 
 
 def test_dry_run_changes_nothing(tmp_path: Path) -> None:
-    path = _write(tmp_path, "zone,name,description,competencies\nF,드론 시뮬레이션,건양대,\n")
-    state: dict[str, Any] = {"existing": [], "created": [], "patched": []}
+    path = _write(
+        tmp_path, HEADER + "," + ROW + "GANZCW,F,새 이름,건양대,설명,challenge;analysis;thinking\n"
+    )
+    state: dict[str, Any] = {"existing": [_booth()], "created": [], "patched": []}
 
     code = run(_args(path, dry_run=True), transport=_fake_transport(state))
 
     assert code == 0
     assert state["created"] == []
+    assert state["patched"] == []
 
 
 def test_bad_competency_count_stops_before_any_request(tmp_path: Path) -> None:
-    path = _write(
-        tmp_path, "zone,name,description,competencies\nF,드론 시뮬레이션,건양대,challenge\n"
-    )
+    path = _write(tmp_path, HEADER + ",F,드론 시뮬레이션,건양대,,challenge\n")
     state: dict[str, Any] = {"existing": [], "created": [], "patched": []}
 
     code = run(_args(path), transport=_fake_transport(state))

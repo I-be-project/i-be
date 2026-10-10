@@ -435,6 +435,7 @@ class SessionService:
                 visited=booth.id in visited_ids,
                 zone=booth.zone,
                 description=booth.description,
+                detail=booth.detail,
                 competencies=list(booth.competencies),
                 visited_at=visited_at.get(booth.id),
             )
