@@ -85,7 +85,7 @@ async def export_student(
     booths: BoothRepoDep,
     visits: BoothVisitRepoDep,
 ) -> ExportStudent:
-    """학생 1명 — 목록 한 항목과 같은 모양. 없거나 삭제·테스트 계정이면 404."""
+    """학생 1명 — 목록 한 항목과 같은 모양. 없거나 삭제된 학생이면 404. 테스트 계정도 내준다(협력사 시험용)."""
     rows, answers = await repo.page(after=None, limit=1, student_id=student_id)
     if not rows:
         raise NotFoundError("학생을 찾을 수 없습니다.")
