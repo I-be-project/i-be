@@ -49,7 +49,9 @@ class ExportVisitedBooth(BaseModel):
 
 class ExportStudent(BaseModel):
     id: UUID
-    kind: str = Field(..., description="student(학교 소속) | guest(개인 참여자)")
+    kind: str = Field(
+        ..., description="student(학교 소속) | guest(개인 참여자) | test(시험 계정, 1명 조회에서만)"
+    )
     school: str = Field(..., description="개인 참여자는 ''")
     grade: int = Field(..., description="개인 참여자는 0")
     class_no: int = Field(..., description="개인 참여자는 0")

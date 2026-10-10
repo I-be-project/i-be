@@ -67,6 +67,7 @@
 ### `GET /api/export/v1/students/{id}` — 1명
 
 목록 `items[]`의 한 항목과 같은 객체. 없으면 `404`.
+시험용 테스트 계정(`kind: "test"`)은 목록에는 없고 이 1명 조회로만 나온다.
 
 ### `GET /api/export/v1/booths` — 전체 부스
 
@@ -81,7 +82,7 @@
 
 | 필드 | 설명 |
 |---|---|
-| `kind` | `student`(학교 소속) \| `guest`(개인 참여자) |
+| `kind` | `student`(학교 소속) \| `guest`(개인 참여자) \| `test`(시험 계정 — 1명 조회에서만) |
 | `school` · `grade` · `class_no` · `student_no` | 개인 참여자는 `""` · `0` · `0` · `0` |
 | `gender` | `male` \| `female` |
 | `birth_date` | `YYYYMMDD` \| `null` |
@@ -108,3 +109,4 @@
 |---|---|
 | 2026-10-07 | 최초 작성 |
 | 2026-10-08 | 학생 객체(목록·1명 공통)에 `booths`·`competency_scores` 추가, `GET /booths` 추가 |
+| 2026-10-10 | 1명 조회가 테스트 계정(`kind: "test"`)도 반환 — 협력사 실경로 시험용. 목록은 그대로 제외 |
