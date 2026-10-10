@@ -13,15 +13,20 @@ Usage:
 옵션:
   --dry-run  무엇이 등록·갱신될지만 출력하고 아무것도 바꾸지 않는다
 
-CSV 형식(헤더 필수): zone,name,description,competencies
-  zone          F·L·Y·C 중 하나
-  name          부스 이름 — 직업체험은 체험주제, 역량체험은 부스명
-  description   직업체험은 기관명, 역량체험은 미션 활동
-  competencies  역량 키를 ;로 이어 쓴다. 주최측 매핑 자료가 오기 전에는 비워 둔다
+CSV 형식(헤더 필수): code,program_id,zone,name,description,detail,competencies
+  code          발급된 6자 부스 코드. 새 부스는 비워 둔다
+  program_id    노션 프로그램ID(NB26-xxx). 스크립트는 읽지 않는다 — 노션과 대조용
+  zone          F·L·Y·C 중 하나, 존이 없는 부스는 비워 둔다
+  name          부스 이름
+  description   운영기관
+  detail        학생용 설명
+  competencies  역량 키를 ;로 이어 쓴다
 
-이미 등록된 부스는 **이름으로** 판별해 건너뛴다(체험주제 57개는 서로 모두 다르다).
-건너뛴 부스도 역량 칸이 채워져 있으면 역량만 갱신한다 — 자료가 왔을 때 CSV의 역량 칸을
-채워 다시 돌리면 끝나게 하기 위함이다. 이름·설명·존은 갱신하지 않는다(관리자 화면에서 고친다).
+CSV는 노션 「공식 부스 마스터」 내용을 옮긴 것이다. 노션이 원본이다.
+
+code가 있으면 그 부스를 찾아 이름·설명·존·역량을 CSV 값으로 맞춘다. code가 없으면
+이름으로 찾고, 그래도 없으면 새로 등록한다. 새로 발급된 code는 노션 DB부스ID 칸에
+옮겨 적어야 다음 실행에서 code로 매칭된다(이름이 바뀌어도 중복 등록되지 않는다).
 """
 
 from __future__ import annotations
@@ -49,8 +54,8 @@ COMPETENCY_KEYS = (
     "planning",
 )
 
-# 직업체험 부스는 역량 3개, 역량체험 부스는 1개.
-_REQUIRED_COUNT = {"F": 3, "L": 3, "Y": 3, "C": 1}
+# 직업체험 부스는 역량 3개, 역량체험 부스는 1개, 존 없는 부스(기타)는 0개.
+_REQUIRED_COUNT = {"F": 3, "L": 3, "Y": 3, "C": 1, "": 0}
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,6 +66,8 @@ class BoothRow:
     name: str
     description: str
     competencies: list[str] = field(default_factory=list)
+    code: str = ""
+    detail: str = ""
 
 
 def read_rows(path: Path) -> list[BoothRow]:
@@ -75,6 +82,8 @@ def read_rows(path: Path) -> list[BoothRow]:
                     name=(raw.get("name") or "").strip(),
                     description=(raw.get("description") or "").strip(),
                     competencies=[c for c in competencies if c],
+                    code=(raw.get("code") or "").strip().upper(),
+                    detail=(raw.get("detail") or "").strip(),
                 )
             )
     return rows
@@ -83,17 +92,14 @@ def read_rows(path: Path) -> list[BoothRow]:
 def check_competencies(rows: list[BoothRow]) -> list[str]:
     """zone과 역량 칸을 검사해 문제를 문자열 목록으로 돌려준다. 문제가 없으면 빈 목록이다.
 
-    zone은 모든 행에서 검사한다 — 오타를 여기서 안 막으면 등록 요청 중간에 서버가
-    422로 죽고, 그때까지 이미 만든 부스는 남는다(삭제하면 인쇄한 QR이 무효가 되니 되돌리기
-    비싸다). 역량 칸은 비어 있으면 통과다(주최측 매핑 자료가 오기 전 상태가 그렇다).
-    한 줄이라도 채워져 있으면 그 줄은 개수와 키를 모두 만족해야 한다.
+    요청 전에 모두 막는다 — 등록 요청 중간에 서버가 422로 죽으면 그때까지 만든 부스가
+    남는다(삭제하면 인쇄한 QR이 무효가 되니 되돌리기 비싸다). 역량은 존별 개수를 정확히
+    맞춰야 한다 — 비어 있으면 갱신 시 기존 역량이 지워진다.
     """
     problems = []
     for index, row in enumerate(rows, start=2):  # 2 = 헤더 다음 줄
         if row.zone not in _REQUIRED_COUNT:
             problems.append(f"{index}행 '{row.name}': 알 수 없는 zone '{row.zone}'")
-        if not row.competencies:
-            continue
         unknown = [c for c in row.competencies if c not in COMPETENCY_KEYS]
         if unknown:
             problems.append(f"{index}행 '{row.name}': 알 수 없는 역량 {', '.join(unknown)}")
@@ -142,6 +148,7 @@ class AdminClient:
             json={
                 "name": row.name,
                 "description": row.description or None,
+                "detail": row.detail or None,
                 "zone": row.zone,
                 "competencies": row.competencies,
             },
@@ -149,16 +156,30 @@ class AdminClient:
         res.raise_for_status()
         return dict(res.json())
 
-    def set_competencies(self, booth_id: str, competencies: list[str]) -> None:
+    def update(self, booth_id: str, changes: dict[str, Any]) -> None:
         res = self._http.patch(
-            f"/api/admin/booths/{booth_id}",
-            headers=self._headers(),
-            json={"competencies": competencies},
+            f"/api/admin/booths/{booth_id}", headers=self._headers(), json=changes
         )
         res.raise_for_status()
 
     def close(self) -> None:
         self._http.close()
+
+
+def diff(found: dict[str, Any], row: BoothRow) -> dict[str, Any]:
+    """서버의 부스와 CSV 행이 다른 필드만 PATCH 본문으로 만든다. 같으면 빈 dict."""
+    want: dict[str, Any] = {
+        "name": row.name,
+        "description": row.description or None,
+        "detail": row.detail or None,
+        "zone": row.zone,
+    }
+    changes = {k: v for k, v in want.items() if found.get(k) != v}
+    # 서버는 역량을 사전순으로 돌려준다(booth_repo.py의 array_agg ... order by).
+    # CSV는 자연 순서라 list 비교는 갱신 후에도 영원히 "다르다"로 오판한다.
+    if sorted(found.get("competencies") or []) != sorted(row.competencies):
+        changes["competencies"] = row.competencies
+    return changes
 
 
 def run(args: argparse.Namespace, *, transport: httpx.BaseTransport | None = None) -> int:
@@ -177,11 +198,21 @@ def run(args: argparse.Namespace, *, transport: httpx.BaseTransport | None = Non
     client = AdminClient(args.base_url, transport=transport)
     try:
         client.login(args.username, args.password)
-        existing = {str(b["name"]): b for b in client.booths()}
+        booths = client.booths()
+        by_code = {str(b["code"]): b for b in booths}
+        by_name = {str(b["name"]): b for b in booths}
 
-        created = updated = skipped = 0
+        created = updated = skipped = missing = 0
         for row in rows:
-            found = existing.get(row.name)
+            if row.code:
+                found = by_code.get(row.code)
+                if found is None:
+                    # 오타난 code로 새 부스를 만들면 인쇄된 QR과 어긋난다 — 등록하지 않는다.
+                    print(f"[없는 code] {row.code} {row.name}", file=sys.stderr)
+                    missing += 1
+                    continue
+            else:
+                found = by_name.get(row.name)
             if found is None:
                 if args.dry_run:
                     print(f"[등록 예정] {row.zone} {row.name}")
@@ -191,24 +222,25 @@ def run(args: argparse.Namespace, *, transport: httpx.BaseTransport | None = Non
                 created += 1
                 continue
 
-            # 서버는 역량을 사전순으로 돌려준다(booth_repo.py의 array_agg ... order by).
-            # CSV는 자연 순서라 list 비교는 갱신 후에도 영원히 "다르다"로 오판한다.
-            if row.competencies and sorted(found.get("competencies") or []) != sorted(
-                row.competencies
-            ):
+            changes = diff(found, row)
+            if changes:
+                label = f"{found['code']} {found['name']}"
                 if args.dry_run:
-                    print(f"[역량 갱신 예정] {row.name} → {', '.join(row.competencies)}")
+                    print(f"[갱신 예정] {label} → {changes}")
                 else:
-                    client.set_competencies(str(found["id"]), row.competencies)
-                    print(f"[역량 갱신] {row.name} → {', '.join(row.competencies)}")
+                    client.update(str(found["id"]), changes)
+                    print(f"[갱신] {label} → {changes}")
                 updated += 1
                 continue
 
             skipped += 1
 
         prefix = "(dry-run) " if args.dry_run else ""
-        print(f"\n{prefix}등록 {created}건 · 역량 갱신 {updated}건 · 건너뜀 {skipped}건")
-        return 0
+        print(
+            f"\n{prefix}등록 {created}건 · 갱신 {updated}건 · 건너뜀 {skipped}건"
+            f" · 없는 code {missing}건"
+        )
+        return 1 if missing else 0
     except httpx.HTTPStatusError as exc:
         status = exc.response.status_code
         hint = " (아이디/비밀번호 확인)" if status == 401 else ""
