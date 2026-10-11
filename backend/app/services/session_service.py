@@ -239,7 +239,7 @@ class SessionService:
             card=await self._build_card_summary(persona.id),
         )
 
-    async def get_public_profile(self, code: str) -> PublicProfileSummary:
+    async def _get_shared_student(self, code: str) -> StudentRecord:
         # 카드 QR의 짧은 코드, 또는 이미 나간 예전 서명 코드(UUID+서명) 둘 다 받는다.
         if is_card_code(code):
             record = await self._students.get_by_card_code(code)
@@ -247,6 +247,14 @@ class SessionService:
             record = await self._students.get_by_id(read_profile_share_code(code, self._settings))
         if record is None or record.deleted_at is not None:
             raise NotFoundError("공유 페이지를 찾을 수 없습니다.")
+        return record
+
+    async def resolve_share_code(self, code: str) -> UUID:
+        """공개 페이지 코드 → 학생 id. 없거나 삭제된 계정이면 404."""
+        return (await self._get_shared_student(code)).id
+
+    async def get_public_profile(self, code: str) -> PublicProfileSummary:
+        record = await self._get_shared_student(code)
         student_id = record.id
         # 표시 이름만 공개한다. 원본 사진 URL·성별·학적 정보는 응답에 넣지 않는다.
         booths, competencies = await self._list_booth_statuses(student_id)
