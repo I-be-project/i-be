@@ -6,6 +6,7 @@ import { TabPage, ProfileFeedback } from "@/components/tabs/TabPage";
 import { useProfileView, MyPageLink } from "@/components/tabs/ProfileView";
 import { CardActions } from "@/components/tabs/CardActions";
 import { FlippablePersonaCard } from "@/components/tabs/FlippablePersonaCard";
+import { useNabiImage } from "@/hooks/useNabiImage";
 import { SOFT_CARD } from "@/components/tabs/BoothList";
 import { competencyLabel } from "@/lib/competencies";
 
@@ -13,12 +14,15 @@ import { competencyLabel } from "@/lib/competencies";
 const KEYWORD_COLORS = ["text-hm-blue", "text-hm-coral", "text-hm-teal"];
 
 export default function HomePage() {
-  const { profile, readOnly, ...feedback } = useProfileView();
+  const { profile, readOnly, basePath, ...feedback } = useProfileView();
+  const cardEnabled = !!(profile?.card?.card_image_url || profile?.persona);
+  // 공개 페이지 basePath는 /p/<code>.
+  const nabiImageUrl = useNabiImage(cardEnabled, readOnly ? basePath.split("/")[2] ?? null : null);
   return <TabPage action={readOnly ? <MyPageLink /> : undefined}>
     <ProfileFeedback {...feedback} />
     {!feedback.loading && !feedback.error && profile && <>
       <section aria-label="페르소나 카드" className={`${SOFT_CARD} overflow-hidden p-4 sm:p-5`}>
-        <FlippablePersonaCard enabled={!!(profile.card?.card_image_url || profile.persona)} footer={
+        <FlippablePersonaCard enabled={cardEnabled} backImageUrl={nabiImageUrl} footer={
           !!profile.persona?.keywords.length && <p className="mt-2 flex flex-wrap justify-center gap-x-3.5 gap-y-1 text-base font-extrabold" aria-label="나의 역량 키워드">
             {profile.persona.keywords.map((keyword, i) => <span key={keyword} className={KEYWORD_COLORS[i % KEYWORD_COLORS.length]}>#{competencyLabel(keyword)}</span>)}
           </p>

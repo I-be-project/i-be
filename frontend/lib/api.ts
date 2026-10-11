@@ -265,6 +265,21 @@ export function getPublicProfile(code: string): Promise<PublicProfileSummary> {
   });
 }
 
+// GET /api/students/me/nabi · /shared/{code}/nabi — 카드 뒷면 나비 그림. done일 때만 image_url.
+export interface NabiResult {
+  status: "done" | "processing" | "pending" | "failed" | "unavailable";
+  image_url: string | null;
+  stage: number | null;
+}
+
+export function getMyNabi(token: string): Promise<NabiResult> {
+  return request("/api/students/me/nabi", { method: "GET", headers: { Authorization: `Bearer ${token}` } });
+}
+
+export function getPublicNabi(code: string): Promise<NabiResult> {
+  return request(`/api/students/shared/${encodeURIComponent(code)}/nabi`, { method: "GET", cache: "no-store" });
+}
+
 export function restartSurvey(token: string, requestId: string, sourceSessionId: string): Promise<SaveAnswerResponse> {
   return request("/api/sessions/restart", {
     method: "POST",
