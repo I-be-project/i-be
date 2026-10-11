@@ -25,14 +25,13 @@ AI 기반 진로 탐색 경험. 3개 저장소(`backend`·`frontend`·`docs`)를
 
 - Conventional Commits 접두사 + 한국어 설명: `feat:`, `fix:`, `chore:`, `docs:`, `design:`
 - 예: `fix: 로그인 비밀번호 가이드를 4자리로 수정`
-- 무엇을 왜 바꿨는지 한 줄로 명확하게
 
 ### PR
 
 - 제목: 커밋 메시지와 동일한 컨벤션 (접두사 + 한국어). 여러 성격이 섞이면 대표 성격으로 요약
 - 본문: `## 개요` + `## 변경 내용`(항목별 목록) 구성. UI 문구 변경은 before → after로 표기
 - 생성 전 `git log origin/<base>..origin/<head>`로 포함될 커밋 확인, 동일 base/head의 열린 PR 중복 여부 체크
-- base는 접두사 브랜치 PR이면 `develop`, 배포 PR이면 `production`
+- `backend/**`가 포함되면 본문에 배포 영향(자동 배포, 서버 `.env` 추가 등)을 적는다
 
 ## 배포 규칙
 
@@ -96,13 +95,7 @@ AI 기반 진로 탐색 경험. 3개 저장소(`backend`·`frontend`·`docs`)를
 
 - **backend**: `uv`로만 관리. 추가는 `uv add`, 실행은 `uv run`. `uv.lock`을 함께 커밋한다.
 - **frontend**: `npm`으로 관리. `package-lock.json`을 함께 커밋한다.
-- 락파일 없이 의존성만 바꾸거나, 전역(global) 설치에 의존하는 코드를 만들지 않는다.
 - 버전 고정에 특별한 이유가 있으면 해당 라인에 주석으로 근거를 남긴다 (예: `bcrypt<5` 고정 사유).
-
-## 변경 범위
-
-- 하나의 커밋/PR은 가급적 한 서브프로젝트(`backend`/`frontend`/`docs`)에 국한한다.
-- 부득이 여러 프로젝트를 함께 바꾸면 PR 본문에 프로젝트별로 변경 내용을 나눠 적고, 배포 영향(특히 `backend/**` → 자동 배포)을 명시한다.
 
 ## 언어
 
