@@ -97,6 +97,16 @@ class DraftService:
 
         feedback: 다시 쓸 때 붙이는 이전 결과와 검수 의견(_text_feedback).
         """
+        system, user = await self.persona_prompts(session_id, feedback=feedback)
+        result = await self._codex.generate_json(
+            f"{system}\n\n---\n\n{user}", PERSONA_OUTPUT_SCHEMA
+        )
+        return await self._drafts.save_text(session_id, student_id, to_draft_text(result), result)
+
+    async def persona_prompts(
+        self, session_id: UUID, *, feedback: str | None = None
+    ) -> tuple[str, str]:
+        """세션 답변 → (시스템 프롬프트, 사용자 프롬프트). codex·API 생성이 같은 입력을 쓴다."""
         records = await self._sessions.list_answers(session_id)
         inputs = build_persona_inputs({r.stage: r.payload for r in records}, career_pool=[])
         user_prompt = build_user_prompt(
@@ -113,10 +123,7 @@ class DraftService:
         )
         if feedback:
             user_prompt += f"\n\n{feedback}"
-        result = await self._codex.generate_json(
-            f"{DEFAULT_SYSTEM_PROMPT}\n\n---\n\n{user_prompt}", PERSONA_OUTPUT_SCHEMA
-        )
-        return await self._drafts.save_text(session_id, student_id, to_draft_text(result), result)
+        return DEFAULT_SYSTEM_PROMPT, user_prompt
 
     async def regenerate_text(self, draft_id: UUID) -> None:
         draft = await self._require(draft_id)

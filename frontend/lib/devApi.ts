@@ -39,6 +39,8 @@ export interface StudentAnswers {
   q7b_second: string | null;
   q8_response: string | null;
   q9_response: string | null;
+  // Q1~Q6 "질문 → 고른 선택지" 문구.
+  q1to6_texts: string[];
 }
 
 export interface DefaultPrompts {
@@ -69,10 +71,23 @@ export interface FuturePhotoResult {
   width: number;
   height: number;
   elapsed_seconds: number;
+  // Vertex 응답 토큰 기준 추정 비용($). codex는 null.
+  cost_usd: number | null;
 }
 
-export function listDevStudents(q?: string): Promise<{ students: DevStudent[] }> {
-  const query = q ? `?q=${encodeURIComponent(q)}` : "";
+export function listDevStudents(
+  q?: string,
+  filter?: { school: string; grade?: number; class_no?: number }
+): Promise<{ students: DevStudent[] }> {
+  const params = new URLSearchParams();
+  if (q) params.set("q", q);
+  if (filter) {
+    params.set("school", filter.school);
+    if (filter.grade !== undefined) params.set("grade", String(filter.grade));
+    if (filter.class_no !== undefined) params.set("class_no", String(filter.class_no));
+    params.set("limit", "200");
+  }
+  const query = params.size ? `?${params}` : "";
   return request(`/api/dev/students${query}`, { method: "GET" });
 }
 
@@ -103,6 +118,8 @@ export function generatePersona(body: {
 export function generateFuturePhoto(body: {
   student_id: string;
   prompt: string;
+  provider?: "codex" | "vertex";
+  model?: string;
 }): Promise<FuturePhotoResult> {
   return request(
     "/api/dev/future-photo",
@@ -110,6 +127,41 @@ export function generateFuturePhoto(body: {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
+    },
+    GENERATE_TIMEOUT_MS
+  );
+}
+
+// ── API 초안 (/dev/api-draft) ──────────────────────────────────
+// codex 대신 OpenRouter(페르소나) + Vertex AI(이미지)로 학생 한 명을 만든다. 저장하지 않는다.
+
+export interface ApiDraftResult {
+  persona: PersonaFields | null;
+  name: string | null;
+  headline: string | null;
+  base_career: string | null;
+  tagline: string | null;
+  persona_model: string;
+  persona_error: string | null;
+  persona_seconds: number;
+  persona_cost_usd: number | null;
+  image_base64: string | null;
+  image_model: string;
+  image_error: string | null;
+  image_seconds: number;
+  image_cost_usd: number | null;
+  card_base64: string | null;
+}
+
+export type PersonaFields = Omit<PersonaResult, "user_prompt" | "elapsed_seconds">;
+
+export function generateApiDraft(studentId: string): Promise<ApiDraftResult> {
+  return request(
+    "/api/dev/api-draft",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ student_id: studentId }),
     },
     GENERATE_TIMEOUT_MS
   );

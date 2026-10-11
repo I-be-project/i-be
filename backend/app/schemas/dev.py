@@ -6,7 +6,7 @@ dev는 로컬 Codex CLI로만 동작한다 — OpenRouter(AIClient)를 쓰지 �
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -48,6 +48,9 @@ class StudentAnswersResponse(BaseModel):
     q7b_second: str | None
     q8_response: str | None
     q9_response: str | None
+    q1to6_texts: list[str] = Field(
+        default_factory=list, description='Q1~Q6 "질문 → 고른 선택지" 문구'
+    )
 
 
 class DefaultPromptsResponse(BaseModel):
@@ -67,7 +70,11 @@ class GeneratePersonaRequest(BaseModel):
         max_length=20,
         description="Career Direction Pool 항목(줄 단위). 비우면 Pair Code 기본 풀을 쓴다.",
     )
-    model: str | None = Field(None, description="codex 모델 override. 미지정 시 codex 기본값")
+    provider: Literal["codex", "vertex"] = "codex"
+    model: str | None = Field(
+        None,
+        description="모델 override. 미지정 시 provider 기본값(codex 기본 / VERTEX_IMAGE_MODEL)",
+    )
 
 
 class GeneratePersonaResponse(BaseModel):
@@ -92,7 +99,11 @@ class GeneratePersonaResponse(BaseModel):
 class GenerateFuturePhotoRequest(BaseModel):
     student_id: UUID
     prompt: str = Field(..., min_length=1, max_length=4000, description="편집 가능한 생성 프롬프트")
-    model: str | None = Field(None, description="codex 모델 override. 미지정 시 codex 기본값")
+    provider: Literal["codex", "vertex"] = "codex"
+    model: str | None = Field(
+        None,
+        description="모델 override. 미지정 시 provider 기본값(codex 기본 / VERTEX_IMAGE_MODEL)",
+    )
 
 
 class GenerateFuturePhotoResponse(BaseModel):
@@ -101,6 +112,36 @@ class GenerateFuturePhotoResponse(BaseModel):
     width: int
     height: int
     elapsed_seconds: float
+    cost_usd: float | None = Field(
+        None, description="Vertex 응답 토큰 기준 추정 비용($). codex는 null"
+    )
+
+
+class ApiDraftRequest(BaseModel):
+    student_id: UUID
+
+
+class ApiDraftResponse(BaseModel):
+    """API(OpenRouter 페르소나 + Vertex 이미지)로 만든 초안 1건. 저장하지 않는다.
+
+    페르소나·이미지는 따로 실패할 수 있다 — 실패한 쪽은 *_error에 사유를 담는다.
+    """
+
+    persona: dict[str, Any] | None
+    name: str | None = Field(None, description="카드 문구 — 검수 초안과 같은 변환(to_draft_text)")
+    headline: str | None = None
+    base_career: str | None = None
+    tagline: str | None = None
+    persona_model: str
+    persona_error: str | None = None
+    persona_seconds: float
+    persona_cost_usd: float | None = Field(None, description="OpenRouter가 보고한 실제 청구액($)")
+    image_base64: str | None = None
+    image_model: str
+    image_error: str | None = None
+    image_seconds: float
+    image_cost_usd: float | None = Field(None, description="Vertex 응답 토큰 기준 추정 비용($)")
+    card_base64: str | None = Field(None, description="카드 미리보기 PNG. 페르소나가 있어야 만든다")
 
 
 # ──────────────────────────────────────────────────────────────

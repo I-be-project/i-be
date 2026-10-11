@@ -132,6 +132,22 @@ class Settings(BaseSettings):
     # 이미지 생성이 실측 ~60s 걸린다. 여유를 둔 상한.
     codex_timeout_seconds: float = 300.0
 
+    # Vertex AI(Google Cloud) — dev 전용. 미래 사진을 Gemini 이미지 모델로 만들어 codex와 비교한다.
+    # 인증: 서비스 계정에 연결한 API 키(VERTEX_API_KEY)가 우선. 조직 정책
+    # (iam.disableServiceAccountKeyCreation)으로 키 파일을 만들 수 없어 키 파일 방식은 두지 않는다.
+    # 키가 없으면 ADC(gcloud auth application-default login) — 로컬 개발용.
+    # GCP_PROJECT는 키가 있어도 필요하다(global 리전으로 보내려면 프로젝트 경로가 있어야 함).
+    vertex_api_key: str = ""
+    gcp_project: str = ""
+    gcp_location: str = "global"  # Gemini 3 이미지 모델은 global 엔드포인트에서 제공
+    vertex_image_model: str = "gemini-nano-banana-2.1"
+    # 출력 해상도 "1K" | "2K" | "4K". 카드 사진 칸이 폭 1024px이라 1K로 충분하다.
+    # gemini-2.5-flash-image는 이 값을 지원하지 않는다 — 그 모델을 쓸 땐 ""로 둔다.
+    vertex_image_size: str = "1K"
+
+    # API 초안 생성(/dev/api-draft) — 페르소나 텍스트를 codex 대신 OpenRouter로 만든다.
+    api_persona_model: str = "openai/gpt-6-luna"
+
     # Worker
     card_worker_enabled: bool = True
     card_worker_concurrency: int = 10
