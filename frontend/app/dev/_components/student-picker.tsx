@@ -1,6 +1,7 @@
 "use client"
 
-// DB에서 학생을 골라주는 선택기 — 페르소나·미래 사진 두 화면이 함께 쓴다.
+// DB에서 학생을 골라주는 선택기 — 페르소나·미래 사진·API 초안 화면이 함께 쓴다.
+// 학교·반을 고르면 그 반 학생만, 이름 검색과 함께 쓸 수 있다.
 //
 // requires로 "이 화면이 요구하는 조건"을 받아, 조건을 못 채우는 학생은 고를 수 없게 한다.
 // (사진 없는 학생을 미래 사진 화면에서 고르면 서버 404가 날 뿐이라 미리 막는다.)
@@ -11,7 +12,15 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { cn } from "@/lib/utils"
-import { listDevStudents, type DevStudent } from "@/lib/devApi"
+import {
+  listClasses,
+  listDevStudents,
+  listSchools,
+  type DevClass,
+  type DevStudent,
+} from "@/lib/devApi"
+
+const SELECT_CLASS = "h-9 min-w-0 flex-1 rounded-md border bg-background px-2 text-sm"
 
 interface Props {
   requires: "answers" | "photo"
@@ -25,9 +34,31 @@ function isEligible(student: DevStudent, requires: Props["requires"]): boolean {
 
 export function StudentPicker({ requires, selected, onSelect }: Props) {
   const [query, setQuery] = useState("")
+  const [schools, setSchools] = useState<string[]>([])
+  const [school, setSchool] = useState("")
+  const [classes, setClasses] = useState<DevClass[]>([])
+  // "학년-반". 비우면 학교 전체.
+  const [klass, setKlass] = useState("")
   const [students, setStudents] = useState<DevStudent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    listSchools()
+      .then(setSchools)
+      .catch((e: Error) => setError(e.message))
+  }, [])
+
+  const pickSchool = (value: string) => {
+    setSchool(value)
+    setKlass("")
+    setClasses([])
+    if (value) {
+      listClasses(value)
+        .then(setClasses)
+        .catch((e: Error) => setError(e.message))
+    }
+  }
 
   // 입력이 멈춘 뒤에 조회한다(글자마다 요청하지 않도록).
   useEffect(() => {
@@ -36,7 +67,11 @@ export function StudentPicker({ requires, selected, onSelect }: Props) {
     // setState하면 타이핑 한 글자마다 연쇄 렌더가 난다(react-hooks/set-state-in-effect).
     const timer = setTimeout(() => {
       setLoading(true)
-      listDevStudents(query || undefined)
+      const [grade, classNo] = klass ? klass.split("-").map(Number) : []
+      listDevStudents(
+        query || undefined,
+        school ? { school, grade, class_no: classNo } : undefined
+      )
         .then((data) => {
           if (cancelled) return
           setStudents(data.students)
@@ -53,10 +88,39 @@ export function StudentPicker({ requires, selected, onSelect }: Props) {
       cancelled = true
       clearTimeout(timer)
     }
-  }, [query])
+  }, [query, school, klass])
 
   return (
     <div className="flex flex-col gap-3">
+      <div className="flex gap-2">
+        <select
+          aria-label="학교"
+          value={school}
+          onChange={(e) => pickSchool(e.target.value)}
+          className={SELECT_CLASS}
+        >
+          <option value="">전체 학교</option>
+          {schools.filter(Boolean).map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        <select
+          aria-label="학년·반"
+          value={klass}
+          onChange={(e) => setKlass(e.target.value)}
+          disabled={!school}
+          className={SELECT_CLASS}
+        >
+          <option value="">전체 반</option>
+          {classes.map((c) => (
+            <option key={`${c.grade}-${c.class_no}`} value={`${c.grade}-${c.class_no}`}>
+              {c.grade}학년 {c.class_no}반 ({c.completed}/{c.total})
+            </option>
+          ))}
+        </select>
+      </div>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input

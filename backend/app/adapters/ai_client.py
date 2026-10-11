@@ -176,11 +176,13 @@ class AIClient:
         self,
         purpose: AIPurpose,
         messages: list[dict[str, Any]],
+        *,
+        model: str | None = None,
         **kwargs: Any,
     ) -> Any:
         client = self._get_chat()
         return await client.chat.completions.create(
-            model=self._models[purpose],
+            model=model or self._models[purpose],
             # SDK는 role별 TypedDict를 요구하지만 프롬프트 빌더는 평범한 dict를 만든다.
             # 런타임 표현이 동일하므로 캐스팅만 한다.
             messages=cast("list[ChatCompletionMessageParam]", messages),

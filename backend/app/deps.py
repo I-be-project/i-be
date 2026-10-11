@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
@@ -18,6 +19,7 @@ from app.adapters.codex_client import CodexClient
 from app.adapters.db_pool import DBPool
 from app.adapters.nabi_client import NabiClient
 from app.adapters.storage_client import StorageClient
+from app.adapters.vertex_image_client import VertexImageClient
 from app.config import Settings, get_settings
 from app.core.errors import UnauthorizedError
 from app.core.security import TokenKind, decode_token
@@ -70,6 +72,15 @@ def get_codex_client(settings: SettingsDep) -> CodexClient:
 
 
 CodexClientDep = Annotated[CodexClient, Depends(get_codex_client)]
+
+
+@lru_cache(maxsize=1)
+def get_vertex_image_client() -> VertexImageClient:
+    """dev 전용 Vertex AI 이미지 어댑터. ADC 로딩을 한 번만 하도록 프로세스당 하나."""
+    return VertexImageClient.from_settings(get_settings())
+
+
+VertexImageClientDep = Annotated[VertexImageClient, Depends(get_vertex_image_client)]
 
 
 def get_draft_repo(pool: DBPoolDep) -> DraftRepository:

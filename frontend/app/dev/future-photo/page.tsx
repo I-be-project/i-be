@@ -1,14 +1,15 @@
 "use client"
 
 // 학생 선택 → DB에 저장된 사진 + 편집한 프롬프트 → 10년 뒤 모습 생성.
-// 사진은 서버가 S3에서 직접 읽어 codex에 첨부한다(업로드 UI 없음).
+// 사진은 서버가 S3에서 직접 읽어 첨부한다(업로드 UI 없음). 입력은 검수 초안 생성과 같다.
+// 모델은 codex(기본) 또는 Vertex AI(Google Cloud) Gemini 이미지 모델 중에서 골라 비교한다.
 //
 // 결과는 저장하지 않는다 — 새로고침하면 사라진다. 원본과의 대조는 항상 되지만
 // 실행 간(프롬프트 A vs B) 비교는 화면을 벗어나지 않는 선에서만 가능하다.
 
 import { useEffect, useState } from "react"
 import Link from "next/link"
-import { ArrowLeft, Clock, Download, HardDrive, Loader2, Sparkles } from "lucide-react"
+import { ArrowLeft, Clock, DollarSign, Download, HardDrive, Loader2, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
@@ -21,6 +22,14 @@ import {
   type FuturePhotoResult,
 } from "@/lib/devApi"
 
+// Vertex AI Gemini 이미지 모델. gemini-2.5-flash-image는 해상도 지정(VERTEX_IMAGE_SIZE)을
+// 지원하지 않아 뺐다. 가격은 1K 기준 대략치(입력 이미지 3장·사고 토큰 포함 시 더 나온다).
+const VERTEX_MODELS = [
+  { id: "gemini-nano-banana-2.1", label: "Nano Banana 2.1 (기본) · ~$0.04–0.06" },
+  { id: "gemini-3.1-flash-image", label: "Gemini 3.1 Flash Image (Nano Banana 2) · ~$0.07" },
+  { id: "gemini-3-pro-image", label: "Gemini 3 Pro Image (Nano Banana Pro) · ~$0.13" },
+]
+
 function download(src: string, name?: string): void {
   const link = document.createElement("a")
   link.href = src
@@ -31,6 +40,8 @@ function download(src: string, name?: string): void {
 export default function DevFuturePhotoPage() {
   const [student, setStudent] = useState<DevStudent | null>(null)
   const [prompt, setPrompt] = useState("")
+  // "" = codex, 그 밖은 Vertex AI 모델 id. 기본은 Nano Banana 2.1(비용·얼굴 보존 비교 결과)
+  const [model, setModel] = useState(VERTEX_MODELS[0].id)
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<FuturePhotoResult | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -47,7 +58,13 @@ export default function DevFuturePhotoPage() {
     setError(null)
     setResult(null)
     try {
-      setResult(await generateFuturePhoto({ student_id: student.id, prompt }))
+      setResult(
+        await generateFuturePhoto(
+          model
+            ? { student_id: student.id, prompt, provider: "vertex", model }
+            : { student_id: student.id, prompt }
+        )
+      )
     } catch (e) {
       setError(e instanceof Error ? e.message : "생성에 실패했습니다.")
     } finally {
@@ -66,7 +83,7 @@ export default function DevFuturePhotoPage() {
 
       <header className="mb-6">
         <Badge variant="secondary" className="mb-2">
-          codex · 이미지
+          {model ? "Vertex AI" : "codex"} · 이미지
         </Badge>
         <h1 className="text-2xl font-bold tracking-tight">10년 뒤 사진 생성</h1>
         <p className="mt-1.5 text-sm text-muted-foreground">
@@ -90,8 +107,27 @@ export default function DevFuturePhotoPage() {
           </section>
 
           <section className="flex flex-col gap-2">
+            <label htmlFor="model" className="text-sm font-medium">
+              2. 모델
+            </label>
+            <select
+              id="model"
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="h-9 rounded-md border bg-background px-3 text-sm"
+            >
+              <option value="">codex (로컬 · 검수 초안과 동일)</option>
+              {VERTEX_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </section>
+
+          <section className="flex flex-col gap-2">
             <label htmlFor="prompt" className="text-sm font-medium">
-              2. 프롬프트
+              3. 프롬프트
             </label>
             <Textarea
               id="prompt"
@@ -120,7 +156,12 @@ export default function DevFuturePhotoPage() {
           )}
         </div>
 
-        <Comparison student={student} result={result} loading={loading} />
+        <Comparison
+          student={student}
+          result={result}
+          loading={loading}
+          engine={model || "codex"}
+        />
       </div>
     </div>
   )
@@ -131,10 +172,12 @@ function Comparison({
   student,
   result,
   loading,
+  engine,
 }: {
   student: DevStudent | null
   result: FuturePhotoResult | null
   loading: boolean
+  engine: string
 }) {
   if (!student) {
     return (
@@ -171,7 +214,7 @@ function Comparison({
           {loading ? (
             <Empty>
               <Loader2 className="mb-2 size-6 animate-spin" />
-              codex가 만드는 중…
+              만드는 중… ({engine})
             </Empty>
           ) : result ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -195,6 +238,12 @@ function Comparison({
             <HardDrive className="size-3.5" />
             {(result.size_bytes / 1024 / 1024).toFixed(2)} MB
           </span>
+          {result.cost_usd !== null && (
+            <span className="inline-flex items-center gap-1.5" title="응답 토큰 × 공개 단가로 추정">
+              <DollarSign className="size-3.5" />
+              {result.cost_usd.toFixed(4)} (≈₩{Math.round(result.cost_usd * 1400)})
+            </span>
+          )}
           <Button
             variant="outline"
             size="sm"
