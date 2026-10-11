@@ -16,6 +16,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from app.adapters.ai_client import AIClient
 from app.adapters.codex_client import CodexClient
 from app.adapters.db_pool import DBPool
+from app.adapters.nabi_client import NabiClient
 from app.adapters.storage_client import StorageClient
 from app.config import Settings, get_settings
 from app.core.errors import UnauthorizedError
@@ -53,6 +54,14 @@ def get_ai_client(request: Request) -> AIClient:
 SettingsDep = Annotated[Settings, Depends(get_settings)]
 DBPoolDep = Annotated[DBPool, Depends(get_db_pool)]
 AIClientDep = Annotated[AIClient, Depends(get_ai_client)]
+
+
+def get_nabi_client(request: Request) -> NabiClient:
+    client: NabiClient = request.app.state.nabi_client
+    return client
+
+
+NabiClientDep = Annotated[NabiClient, Depends(get_nabi_client)]
 
 
 def get_codex_client(settings: SettingsDep) -> CodexClient:

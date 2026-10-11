@@ -7,9 +7,14 @@ from typing import Annotated
 from fastapi import APIRouter, File, Response, UploadFile
 
 from app.core.errors import DomainError
-from app.deps import AuthServiceDep, CurrentStudentDep, SessionServiceDep
+from app.deps import AuthServiceDep, CurrentStudentDep, NabiClientDep, SessionServiceDep
 from app.schemas.auth import PhotoUploadResponse
-from app.schemas.students import ProfileSummary, PublicProfileSummary, UpdateProfileRequest
+from app.schemas.students import (
+    NabiResult,
+    ProfileSummary,
+    PublicProfileSummary,
+    UpdateProfileRequest,
+)
 
 router = APIRouter(prefix="/api/students", tags=["students"])
 
@@ -23,6 +28,24 @@ async def get_shared_profile(
     """로그인 없이 테스트 계정의 공개 항목만 조회한다."""
     response.headers["Cache-Control"] = "no-store"
     return await sessions.get_public_profile(code)
+
+
+@router.get("/shared/{code}/nabi", response_model=NabiResult)
+async def get_shared_nabi(
+    code: str,
+    sessions: SessionServiceDep,
+    nabi: NabiClientDep,
+    response: Response,
+) -> NabiResult:
+    """공개 페이지 카드 뒷면용 나비 그림."""
+    response.headers["Cache-Control"] = "no-store"
+    return await nabi.get_result(await sessions.resolve_share_code(code))
+
+
+@router.get("/me/nabi", response_model=NabiResult)
+async def get_my_nabi(student_id: CurrentStudentDep, nabi: NabiClientDep) -> NabiResult:
+    """카드 뒷면용 나비 그림. 나비를 확인하지 못하면 status=unavailable."""
+    return await nabi.get_result(student_id)
 
 
 # 학생 사진으로 허용하는 MIME 타입.

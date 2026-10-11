@@ -90,6 +90,10 @@ class Settings(BaseSettings):
     # 받는 쪽에만 전달하고, 끊을 때는 값을 바꾸거나 비운다: openssl rand -hex 32
     export_api_key: str = ""
 
+    # 나비(페인트팜) 결과 조회 API — 카드 뒷면의 나비 그림. 토큰이 비어 있으면 조회하지 않는다.
+    nabi_api_url: str = "https://nabi-simulator.vercel.app/api/results"
+    nabi_api_token: str = ""
+
     # AI — OpenRouter 키 하나로 chat·image 통합.
     openrouter_api_key: str = ""
 

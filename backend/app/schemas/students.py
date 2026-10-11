@@ -118,3 +118,14 @@ class PublicProfileSummary(BaseModel):
     card: CardSummary | None = None
     booths: list[ProfileBoothStatus] = Field(default_factory=list)
     competencies: list[ProfileCompetencyScore] = Field(default_factory=list)
+
+
+class NabiResult(BaseModel):
+    """나비 그림 조회 결과 — 카드 뒷면. done일 때만 image_url(30일 서명 주소)·stage가 있다.
+
+    unavailable: 토큰 미설정·나비 장애 등으로 확인하지 못함(기본 뒷면을 그대로 쓴다).
+    """
+
+    status: Literal["done", "processing", "pending", "failed", "unavailable"]
+    image_url: str | None = None
+    stage: int | None = None

@@ -15,6 +15,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.adapters.ai_client import AIClient
 from app.adapters.db_pool import DBPool
+from app.adapters.nabi_client import NabiClient
 from app.adapters.storage_client import StorageClient
 from app.config import get_settings
 from app.core.errors import register_exception_handlers
@@ -47,6 +48,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # AI 클라이언트 — 싱글톤 (httpx 연결 풀 공유)
     ai_client = AIClient.from_settings(settings)
     app.state.ai_client = ai_client
+    # 나비 클라이언트 — 학생별 짧은 캐시를 요청 간에 공유하려고 싱글톤으로 둔다.
+    nabi_client = NabiClient.from_settings(settings)
+    app.state.nabi_client = nabi_client
 
     # DB 풀 — 옵션 (DATABASE_ENABLED=false면 건너뜀, 예: 이미지 단독 테스트 시)
     db_pool: DBPool | None = None
@@ -87,6 +91,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             await db_pool.disconnect()
 
         await ai_client.aclose()
+        await nabi_client.aclose()
         logger.info("app.shutdown")
 
 
