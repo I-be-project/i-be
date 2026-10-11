@@ -85,21 +85,19 @@ export function ZoneSection({ zone, booths, personaKeywords = [], onSelect }: { 
 }
 
 // 추천 탭 — 페르소나 역량·분야와 맞는 부스. 여러 존이 섞이므로 행마다 존 블록을 붙인다.
-export function RecommendSection({ booths, personaKeywords = [], onSelect }: { booths: ProfileBoothStatus[]; personaKeywords?: string[]; onSelect?: (booth: ProfileBoothStatus) => void }) {
-  return <section className={`${SOFT_CARD} p-4`} aria-label="추천 부스">
-    <header className="mb-1.5">
-      <h2 className="text-[20px] font-extrabold leading-snug text-hm-blue">지금 가 볼 만한 부스</h2>
-    </header>
-    <BoothRows booths={booths} personaKeywords={personaKeywords} onSelect={onSelect} showZone empty="아직 추천할 부스가 없어. 존을 골라 둘러봐." />
+export function RecommendSection({ booths, personaKeywords = [], onSelect, title, ariaLabel = "추천 부스", empty = "아직 추천할 부스가 없어. 존을 골라 둘러봐." }: { booths: ProfileBoothStatus[]; personaKeywords?: string[]; onSelect?: (booth: ProfileBoothStatus) => void; title?: string; ariaLabel?: string; empty?: string }) {
+  return <section className={`${SOFT_CARD} p-4`} aria-label={ariaLabel}>
+    {title && <h2 className="mb-1.5 text-[20px] font-extrabold leading-snug text-hm-blue">{title}</h2>}
+    <BoothRows booths={booths} personaKeywords={personaKeywords} onSelect={onSelect} showZone empty={empty} />
   </section>;
 }
 
 function BoothRows({ booths, personaKeywords = [], showZone = false, empty = "조건에 맞는 부스가 없어.", onSelect }: { booths: ProfileBoothStatus[]; personaKeywords?: string[]; showZone?: boolean; empty?: string; onSelect?: (booth: ProfileBoothStatus) => void }) {
   const mine = new Set(personaKeywords.map((keyword) => competencyLabel(keyword.trim().replace(/^#/, ""))));
-  if (!booths.length) return <p className="border-t border-[#e9eff5] py-6 text-center text-sm text-hm-blue/60">{empty}</p>;
+  if (!booths.length) return <p className={cn("py-6 text-center text-sm text-hm-blue/60", !showZone && "border-t border-[#e9eff5]")}>{empty}</p>;
   return <ul>{booths.map((booth) => {
     const zone = booth.zone ?? "";
-    return <li key={booth.id} className="border-t border-[#e9eff5]">
+    return <li key={booth.id} className={cn("border-t border-[#e9eff5]", showZone && "first:border-t-0")}>
       <button type="button" onClick={() => onSelect?.(booth)} className="flex w-full justify-between gap-2.5 py-2.5 text-left">
       <div className="min-w-0">
         <h3 className={cn("break-keep text-[15px] font-extrabold leading-snug", booth.visited ? "text-hm-blue/40" : "text-hm-blue")}>
