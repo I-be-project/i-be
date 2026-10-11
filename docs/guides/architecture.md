@@ -79,6 +79,7 @@
 | RDB | Supabase Postgres | 구조화 데이터, jsonb |
 | 파일 | AWS S3 (+선택 CloudFront) | 사진·카드 이미지, presigned URL |
 | AI | OpenRouter | chat(분석·페르소나·프롬프트) + image(카드) |
+| 나비 그림 | 나비(페인트팜) 결과 조회 API | 카드 뒷면 그림. 백엔드가 토큰으로 조회해 서명 주소만 전달 |
 | 인증 | JWT (학생/운영진/관리자) | 무상태 토큰 |
 | CI/CD | GitHub Actions → SSH 배포 | **`production`에 `backend/**` 푸시** 시 재배포 |
 
@@ -106,7 +107,7 @@ Worker      jobs 큐 폴링 → CardService 호출 (자체 로직 없음)  🔴 
 | 라우터 | 프리픽스 | 용도 |
 |---|---|---|
 | `auth` | `/api/auth` | 학생 가입·로그인·토큰 갱신 |
-| `students` | `/api/students` | 사진 업로드, 프로필 조회·수정·삭제 |
+| `students` | `/api/students` | 사진 업로드, 프로필 조회·수정·삭제, 카드 뒷면 나비 그림(`/me/nabi`·`/shared/{code}/nabi`) |
 | `sessions` | `/api/sessions` | 답변 저장, 설문 완료, 다음 질문 |
 | `questions` | `/api/generate` | AI 질문·페르소나 생성 (학생 토큰 필요) |
 | `student_booths` | `/api/booths` | 학생용 부스 조회·방문 인증(QR) |
@@ -287,7 +288,8 @@ Lightsail 인스턴스 (2GB/2vCPU, Dual-stack)
    └─ FastAPI 컨테이너 (8000은 외부 비공개)
         ├─→ Supabase Postgres  (직접연결 :5432, IPv6)
         ├─→ AWS S3            (uploads/ ai-images/ cards/, presigned URL)
-        └─→ OpenRouter        (chat + image)
+        ├─→ OpenRouter        (chat + image)
+        └─→ 나비 결과 API      (카드 뒷면 그림, 학생별 20초 캐시)
 
 프론트: Vercel (별도 배포, GitHub 연동)
 ```
@@ -361,3 +363,4 @@ Lightsail 인스턴스 (2GB/2vCPU, Dual-stack)
 | 2026-08-15 | 현행화 — 프론트 실연동·Vercel 배포, 스키마 3개(`rewards` 없음), 계정 종류(`kind`) 3종, 부스 QR 방문, 운영진 콘솔, 4탭 구조, 토큰 만료 12h, 배포 브랜치 `production`, S3 프리픽스 3종 반영. 카드 파이프라인·감사로그를 🔴 미구현으로 명시 |
 | 2026-09-11 | 부스에 존(F·L·Y·C)과 NCS 역량 10개 연결 추가. 성향 탭 차트 축을 부스에서 역량으로 교체. QR 일괄 인쇄 페이지 추가 |
 | 2026-10-10 | `backend-design.md`(설계 의도 문서) 삭제에 따라 관련 문서 링크 제거 |
+| 2026-10-11 | 카드 뒷면 나비 그림 추가 — 백엔드가 나비 결과 조회 API를 대신 호출(`NABI_API_TOKEN`)해 개인·공개 페이지에 전달 |

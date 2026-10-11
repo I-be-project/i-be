@@ -5,7 +5,8 @@ import Image from "next/image";
 import { RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function FlippablePersonaCard({ children, enabled, footer }: { children: ReactNode; enabled: boolean; footer?: ReactNode }) {
+// backImageUrl: 나비 그림(있을 때만). 없으면 기본 안내 이미지.
+export function FlippablePersonaCard({ children, enabled, footer, backImageUrl }: { children: ReactNode; enabled: boolean; footer?: ReactNode; backImageUrl?: string | null }) {
   const [flipped, setFlipped] = useState(false);
   if (!enabled) return <>{children}{footer}</>;
 
@@ -27,7 +28,10 @@ export function FlippablePersonaCard({ children, enabled, footer }: { children: 
       <div className={cn("relative grid transition-transform duration-500 [transform-style:preserve-3d] motion-reduce:transition-none", flipped && "[transform:rotateY(-180deg)]")}>
         <div aria-hidden={flipped} className="col-start-1 row-start-1 [backface-visibility:hidden]">{children}</div>
         <div aria-hidden={!flipped} className="absolute inset-0 overflow-hidden rounded-xl bg-white [backface-visibility:hidden] [transform:rotateY(180deg)]">
-          <Image src="/persona-card-back-v3.png" alt="15:00 이후, 나비한마당이 끝나고 내가 체험한 역량만큼 달라진 미래의 내 모습을 확인해보세요!" fill sizes="(max-width: 768px) 100vw, 632px" className="rounded-xl object-fill" />
+          {backImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={backImageUrl} alt="부스 체험으로 달라진 미래의 내 모습" className="h-full w-full rounded-xl object-cover" />
+          ) : <Image src="/persona-card-back-v3.png" alt="15:00 이후, 나비한마당이 끝나고 내가 체험한 역량만큼 달라진 미래의 내 모습을 확인해보세요!" fill sizes="(max-width: 768px) 100vw, 632px" className="rounded-xl object-fill" />}
         </div>
       </div>
     </div>
