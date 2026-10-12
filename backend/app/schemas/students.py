@@ -50,11 +50,19 @@ class PersonaSummary(BaseModel):
     fields: list[str] = Field(default_factory=list)
 
 
+class CardPhotoRequest(BaseModel):
+    choice: Literal["ai", "character"]
+
+
 class CardSummary(BaseModel):
     """발급된 카드 요약. 이미지가 아직 없으면 상위에서 card 자체를 null로 내린다."""
 
     card_image_url: str | None = Field(
         None, description="카드 이미지 Presigned GET URL (만료 있음). 키가 없으면 null"
+    )
+    photo_choice: Literal["ai", "character"] | None = Field(
+        None,
+        description="카드 사진 선택 — ai(AI 사진) | character(캐릭터). AI 사진이 없어 고를 수 없으면 null",
     )
 
 

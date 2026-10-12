@@ -314,6 +314,20 @@ class DraftRepository(BaseRepository):
             row = await conn.fetchrow(f"{_SELECT} where d.id = $1", draft_id)
         return _to_record(row) if row else None
 
+    async def get_by_session(self, session_id: UUID) -> DraftRecord | None:
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(f"{_SELECT} where d.session_id = $1", session_id)
+        return _to_record(row) if row else None
+
+    async def set_persona_image(self, session_id: UUID, image_key: str | None) -> None:
+        """확정본 카드에 들어간 사진. None이면 캐릭터(폴백) 카드를 고른 상태."""
+        async with self._pool.acquire() as conn:
+            await conn.execute(
+                "update generated.personas set image_key = $2 where session_id = $1",
+                session_id,
+                image_key,
+            )
+
     async def list_drafts(
         self,
         *,

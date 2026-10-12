@@ -22,6 +22,10 @@ class PersonaRecord:
     keywords: list[str]
     fields: list[str]
     created_at: datetime
+    # 카드에 들어간 AI 사진. None이면 학생이 캐릭터(폴백) 카드를 고른 상태다.
+    image_key: str | None = None
+    # 초안에 남아 있는 AI 사진 원본 — 학생이 AI 사진/캐릭터를 바꿔 고를 수 있는지 판단한다.
+    ai_image_key: str | None = None
 
 
 def _json_str_list(raw: object) -> list[str]:
@@ -73,11 +77,13 @@ class PersonaRepository(BaseRepository):
         )
 
     async def get_by_session(self, session_id: UUID) -> PersonaRecord | None:
-        """세션에 연결된 페르소나 1개. 없으면 None."""
-        query = f"""
-            select {_COLUMNS}
-            from generated.personas
-            where session_id = $1
+        """세션에 연결된 페르소나 1개. 없으면 None. 초안의 AI 사진 원본도 함께 읽는다."""
+        query = """
+            select p.id, p.session_id, p.name, p.tagline, p.keywords, p.fields, p.created_at,
+                   p.image_key, d.image_key as ai_image_key
+            from generated.personas p
+            left join generated.persona_drafts d on d.session_id = p.session_id
+            where p.session_id = $1
         """
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(query, session_id)
@@ -91,4 +97,6 @@ class PersonaRepository(BaseRepository):
             keywords=_json_str_list(row["keywords"]),
             fields=_json_str_list(row["fields"]),
             created_at=row["created_at"],
+            image_key=row["image_key"],
+            ai_image_key=row["ai_image_key"],
         )
