@@ -402,6 +402,19 @@
         ]
       },
       {
+        "title": "카드 사진 고르기 (AI 사진이 있을 때 한 번)",
+        "frames": [
+          {
+            "name": "선택 팝업",
+            "src": "/storyboard/s11-home-photo-choice.jpg",
+            "size": [
+              780,
+              1688
+            ]
+          }
+        ]
+      },
+      {
         "title": "카드 뒷면 · 나비 그림 있음",
         "frames": [
           {
