@@ -98,7 +98,7 @@ async def choose_my_card_photo(
     drafts: DraftServiceDep,
     sessions: SessionServiceDep,
 ) -> ProfileSummary:
-    """공개된 카드의 사진을 AI 사진 / 캐릭터 중에서 고른다(카드를 다시 합성). 바뀐 프로필을 돌려준다."""
+    """공개된 카드의 사진을 AI 사진 / 캐릭터 중 하나로 확정한다(한 번만). 바뀐 프로필을 돌려준다."""
     await drafts.choose_card_photo(student_id, use_ai=req.choice == "ai")
     return await sessions.get_profile_summary(student_id)
 

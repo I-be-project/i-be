@@ -60,9 +60,12 @@ class CardSummary(BaseModel):
     card_image_url: str | None = Field(
         None, description="카드 이미지 Presigned GET URL (만료 있음). 키가 없으면 null"
     )
-    photo_choice: Literal["ai", "character"] | None = Field(
-        None,
-        description="카드 사진 선택 — ai(AI 사진) | character(캐릭터). AI 사진이 없어 고를 수 없으면 null",
+    photo_choice_needed: bool = Field(
+        False,
+        description="AI 사진이 있고 아직 고르지 않음 — 홈에서 AI 사진/캐릭터 선택 팝업을 띄운다",
+    )
+    ai_photo_url: str | None = Field(
+        None, description="선택 팝업에 보여줄 AI 사진 Presigned URL. photo_choice_needed일 때만"
     )
 
 

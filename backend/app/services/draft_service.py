@@ -11,7 +11,7 @@ from uuid import UUID, uuid4
 
 from app.adapters.codex_client import CodexClient
 from app.adapters.storage_client import StorageClient
-from app.core.errors import DomainError, NotFoundError
+from app.core.errors import ConflictError, DomainError, NotFoundError
 from app.core.images import crop_top, to_codex_input
 from app.core.logging import get_logger
 from app.core.prompts.future_photo_prompt import (
@@ -235,10 +235,10 @@ class DraftService:
         return key
 
     async def choose_card_photo(self, student_id: UUID, *, use_ai: bool) -> None:
-        """학생이 공개된 카드의 사진을 AI 사진 / 캐릭터 중에서 고른다. 언제든 다시 바꿀 수 있다.
+        """학생이 공개된 카드의 사진을 AI 사진 / 캐릭터 중 하나로 확정한다. 한 번 고르면 바꿀 수 없다.
 
         AI 사진 원본은 초안에 남아 있으므로 카드만 다시 합성해 같은 키에 덮어쓰고,
-        확정본의 image_key로 선택 상태를 기록한다(None = 캐릭터).
+        확정본에 고른 사진(None = 캐릭터)과 고른 시각을 기록한다.
         """
         session = await self._sessions.get_latest_completed_for_student(student_id)
         draft = await self._drafts.get_by_session(session.id) if session else None
@@ -246,8 +246,13 @@ class DraftService:
             raise NotFoundError("공개된 카드가 없습니다.")
         if draft.image_key is None:
             raise DomainError("고를 수 있는 AI 사진이 없습니다.")
+        if await self._drafts.persona_photo_chosen(draft.session_id):
+            raise ConflictError("이미 카드 사진을 골랐습니다.")
         await self.upload_card(draft, use_image=use_ai)
-        await self._drafts.set_persona_image(draft.session_id, draft.image_key if use_ai else None)
+        if not await self._drafts.choose_persona_photo(
+            draft.session_id, draft.image_key if use_ai else None
+        ):
+            raise ConflictError("이미 카드 사진을 골랐습니다.")
 
     async def upload_card(self, draft: DraftRecord, *, use_image: bool = True) -> str:
         """카드 합성 → S3 cards/. 키가 초안마다 고정이라 다시 부르면 같은 파일을 덮어쓴다.

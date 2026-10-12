@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import AbstractAsyncContextManager
-from typing import Any, Literal, Protocol
+from typing import Any, Protocol
 from uuid import UUID
 
 from app.config import Settings
@@ -464,10 +464,13 @@ class SessionService:
             card.card_image_key,
             ttl_seconds=self._settings.share_link_ttl_hours * 3600,
         )
-        choice: Literal["ai", "character"] | None = None
-        if persona.ai_image_key is not None:
-            choice = "ai" if persona.image_key is not None else "character"
-        return CardSummary(card_image_url=url, photo_choice=choice)
+        # AI 사진이 있고 아직 고르지 않았으면 홈에서 선택 팝업을 띄운다. 한 번 고르면 끝.
+        if persona.ai_image_key is None or persona.photo_chosen_at is not None:
+            return CardSummary(card_image_url=url)
+        ai_url = await self._storage.create_signed_url(
+            persona.ai_image_key, ttl_seconds=self._settings.share_link_ttl_hours * 3600
+        )
+        return CardSummary(card_image_url=url, photo_choice_needed=True, ai_photo_url=ai_url)
 
     # 세션 시작/다음 질문 흐름은 아직 별도 작업 영역 — 스텁 유지.
     async def start(self, *args: object, **kwargs: object) -> object:

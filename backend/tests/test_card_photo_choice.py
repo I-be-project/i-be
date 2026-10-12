@@ -1,4 +1,4 @@
-"""카드 사진 선택 — 공개된 카드를 AI 사진 / 캐릭터로 바꿔 다시 합성한다."""
+"""카드 사진 선택 — 공개된 카드를 AI 사진 / 캐릭터 중 하나로 한 번만 확정한다."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from uuid import UUID, uuid4
 import pytest
 from PIL import Image
 
-from app.core.errors import DomainError, NotFoundError
+from app.core.errors import ConflictError, DomainError, NotFoundError
 from app.repositories.persona_repo import PersonaRecord
 from app.services.draft_service import DraftService
 
@@ -30,15 +30,22 @@ def _draft(*, status: str = "approved", image_key: str | None = "ai-images/a.png
 
 
 class _Drafts:
-    def __init__(self, draft: Any) -> None:
+    def __init__(self, draft: Any, *, chosen: bool = False) -> None:
         self.draft = draft
+        self.chosen = chosen
         self.persona_image: Any = "unset"
 
     async def get_by_session(self, session_id: UUID) -> Any:
         return self.draft
 
-    async def set_persona_image(self, session_id: UUID, image_key: str | None) -> None:
-        self.persona_image = image_key
+    async def persona_photo_chosen(self, session_id: UUID) -> bool:
+        return self.chosen
+
+    async def choose_persona_photo(self, session_id: UUID, image_key: str | None) -> bool:
+        if self.chosen:
+            return False
+        self.chosen, self.persona_image = True, image_key
+        return True
 
 
 class _Storage:
@@ -65,8 +72,8 @@ class _Students:
         return "ABCD1234"
 
 
-def _service(draft: Any) -> tuple[DraftService, _Drafts, _Storage]:
-    drafts, storage = _Drafts(draft), _Storage()
+def _service(draft: Any, *, chosen: bool = False) -> tuple[DraftService, _Drafts, _Storage]:
+    drafts, storage = _Drafts(draft, chosen=chosen), _Storage()
     service = DraftService(
         codex=cast(Any, None),
         storage=cast(Any, storage),
@@ -95,6 +102,14 @@ async def test_choose_ai_rerenders_with_ai_photo() -> None:
     assert drafts.persona_image == "ai-images/a.png"
 
 
+async def test_choice_is_final() -> None:
+    """한 번 고르면 다시 고를 수 없다 — 카드도 다시 합성하지 않는다."""
+    service, _, storage = _service(_draft(), chosen=True)
+    with pytest.raises(ConflictError):
+        await service.choose_card_photo(uuid4(), use_ai=False)
+    assert storage.cards == []
+
+
 async def test_choose_without_ai_photo_is_rejected() -> None:
     service, _, _ = _service(_draft(image_key=None))
     with pytest.raises(DomainError):
@@ -108,28 +123,30 @@ async def test_choose_before_card_is_published_is_not_found() -> None:
 
 
 @pytest.mark.parametrize(
-    ("image_key", "ai_image_key", "expected"),
-    [
-        ("ai-images/a.png", "ai-images/a.png", "ai"),
-        (None, "ai-images/a.png", "character"),
-        (None, None, None),
-    ],
+    ("ai_image_key", "chosen", "needed"),
+    [("ai-images/a.png", False, True), ("ai-images/a.png", True, False), (None, False, False)],
 )
-async def test_profile_card_reports_photo_choice(
-    image_key: str | None, ai_image_key: str | None, expected: str | None
+async def test_profile_card_asks_for_choice_only_once(
+    ai_image_key: str | None, chosen: bool, needed: bool
 ) -> None:
+    """AI 사진이 있고 아직 고르지 않았을 때만 홈 선택 팝업을 띄운다. 폴백만 있으면 띄우지 않는다."""
+    from datetime import UTC, datetime
+
     from app.services.session_service import SessionService
 
     persona = PersonaRecord(
         id=uuid4(), session_id=uuid4(), name="n", tagline="t", keywords=[], fields=[],
-        created_at=cast(Any, None), image_key=image_key, ai_image_key=ai_image_key,
+        created_at=cast(Any, None), image_key=ai_image_key, ai_image_key=ai_image_key,
+        photo_chosen_at=datetime.now(UTC) if chosen else None,
     )  # fmt: skip
     service = SessionService.__new__(SessionService)
     service._cards = cast(Any, SimpleNamespace(get_by_persona=_card))
     service._storage = cast(Any, SimpleNamespace(create_signed_url=_signed))
     service._settings = cast(Any, SimpleNamespace(share_link_ttl_hours=1))
     card = await service._build_card_summary(persona)
-    assert card is not None and card.photo_choice == expected
+    assert card is not None
+    assert card.photo_choice_needed is needed
+    assert (card.ai_photo_url is not None) is needed
 
 
 async def _card(persona_id: UUID) -> Any:
