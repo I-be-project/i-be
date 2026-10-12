@@ -44,8 +44,8 @@ type VisitedBooth = { zone?: BoothZone };
 /**
  * 참여한 부스를 존별로 센다.
  *
- * F/L/Y/C는 참여가 없어도 0으로 넣는다. 미지정('')은 존을 모르는 기존 등록분이라
- * 평소엔 칸을 차지할 이유가 없어, 실제로 있을 때만 맨 뒤에 붙인다.
+ * F/L/Y/C는 참여가 없어도 0으로 넣는다. 존이 없는 부스('')는 칸을 만들지 않는다 —
+ * 스탬프 요약에 "미지정"이 보이지 않게 한다(총 참여 수에는 그대로 들어간다).
  */
 export function countVisitedByZone(
   visited: readonly VisitedBooth[]
@@ -56,9 +56,7 @@ export function countVisitedByZone(
     counted.set(zone, (counted.get(zone) ?? 0) + 1);
   }
 
-  const rows = ZONE_ORDER.map((zone) => ({ zone, count: counted.get(zone) ?? 0 }));
-  const unassigned = counted.get("") ?? 0;
-  return unassigned > 0 ? [...rows, { zone: "" as BoothZone, count: unassigned }] : rows;
+  return ZONE_ORDER.map((zone) => ({ zone, count: counted.get(zone) ?? 0 }));
 }
 
 // 직업체험 부스는 역량 3개, 역량체험 부스는 1개.
