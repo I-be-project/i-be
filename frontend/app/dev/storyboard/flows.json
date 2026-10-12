@@ -1,9 +1,8 @@
 [
   {
     "title": "1. 시작 · 가입",
-    "cases": [
+    "steps": [
       {
-        "title": "처음 방문",
         "frames": [
           {
             "name": "웰컴",
@@ -16,7 +15,6 @@
         ]
       },
       {
-        "title": "로그인",
         "frames": [
           {
             "name": "로그인",
@@ -24,25 +22,21 @@
             "size": [
               780,
               1760
-            ]
-          }
-        ]
-      },
-      {
-        "title": "회원가입",
-        "frames": [
+            ],
+            "branch": "이미 가입함"
+          },
           {
             "name": "회원가입",
             "src": "/storyboard/s03-signup.jpg",
             "size": [
               780,
               2408
-            ]
+            ],
+            "branch": "처음 왔음"
           }
         ]
       },
       {
-        "title": "로그인한 상태로 방문",
         "frames": [
           {
             "name": "웰컴 (로그인)",
@@ -58,20 +52,23 @@
   },
   {
     "title": "2. 탐험 설문",
-    "cases": [
+    "steps": [
       {
-        "title": "탐험 브리핑",
         "frames": [
           {
-            "name": "장면",
+            "name": "탐험 브리핑 · 장면",
             "src": "/storyboard/s05-explore.jpg",
             "size": [
               780,
               1688
             ]
-          },
+          }
+        ]
+      },
+      {
+        "frames": [
           {
-            "name": "시트 펼침",
+            "name": "탐험 브리핑 · 시트 펼침",
             "src": "/storyboard/s05-explore-open.jpg",
             "size": [
               780,
@@ -81,18 +78,21 @@
         ]
       },
       {
-        "title": "낮 Q1 선착장",
         "frames": [
           {
-            "name": "장면",
+            "name": "낮 Q1 선착장 · 장면",
             "src": "/storyboard/s06-q1.jpg",
             "size": [
               780,
               1688
             ]
-          },
+          }
+        ]
+      },
+      {
+        "frames": [
           {
-            "name": "선택",
+            "name": "낮 Q1 선착장 · 선택",
             "src": "/storyboard/s06-q1-open.jpg",
             "size": [
               780,
@@ -102,18 +102,21 @@
         ]
       },
       {
-        "title": "낮 Q2 역할",
         "frames": [
           {
-            "name": "장면",
+            "name": "낮 Q2 역할 · 장면",
             "src": "/storyboard/s06-q2.jpg",
             "size": [
               780,
               1688
             ]
-          },
+          }
+        ]
+      },
+      {
+        "frames": [
           {
-            "name": "선택",
+            "name": "낮 Q2 역할 · 선택",
             "src": "/storyboard/s06-q2-open.jpg",
             "size": [
               780,
@@ -123,18 +126,21 @@
         ]
       },
       {
-        "title": "낮 Q3 코스 변경",
         "frames": [
           {
-            "name": "장면",
+            "name": "낮 Q3 코스 변경 · 장면",
             "src": "/storyboard/s06-q3.jpg",
             "size": [
               780,
               1688
             ]
-          },
+          }
+        ]
+      },
+      {
+        "frames": [
           {
-            "name": "선택",
+            "name": "낮 Q3 코스 변경 · 선택",
             "src": "/storyboard/s06-q3-open.jpg",
             "size": [
               780,
@@ -144,18 +150,21 @@
         ]
       },
       {
-        "title": "낮 Q4 도구 창고",
         "frames": [
           {
-            "name": "장면",
+            "name": "낮 Q4 도구 창고 · 장면",
             "src": "/storyboard/s06-q4.jpg",
             "size": [
               780,
               1688
             ]
-          },
+          }
+        ]
+      },
+      {
+        "frames": [
           {
-            "name": "선택",
+            "name": "낮 Q4 도구 창고 · 선택",
             "src": "/storyboard/s06-q4-open.jpg",
             "size": [
               780,
@@ -165,18 +174,21 @@
         ]
       },
       {
-        "title": "낮 Q5 갈림길",
         "frames": [
           {
-            "name": "장면",
+            "name": "낮 Q5 갈림길 · 장면",
             "src": "/storyboard/s06-q5.jpg",
             "size": [
               780,
               1688
             ]
-          },
+          }
+        ]
+      },
+      {
+        "frames": [
           {
-            "name": "선택",
+            "name": "낮 Q5 갈림길 · 선택",
             "src": "/storyboard/s06-q5-open.jpg",
             "size": [
               780,
@@ -186,18 +198,21 @@
         ]
       },
       {
-        "title": "낮 Q6 오늘의 기록",
         "frames": [
           {
-            "name": "장면",
+            "name": "낮 Q6 오늘의 기록 · 장면",
             "src": "/storyboard/s06-q6.jpg",
             "size": [
               780,
               1688
             ]
-          },
+          }
+        ]
+      },
+      {
+        "frames": [
           {
-            "name": "선택",
+            "name": "낮 Q6 오늘의 기록 · 선택",
             "src": "/storyboard/s06-q6-open.jpg",
             "size": [
               780,
@@ -207,18 +222,21 @@
         ]
       },
       {
-        "title": "캠프의 밤",
         "frames": [
           {
-            "name": "장면",
+            "name": "캠프의 밤 · 장면",
             "src": "/storyboard/s07-evening.jpg",
             "size": [
               780,
               1688
             ]
-          },
+          }
+        ]
+      },
+      {
+        "frames": [
           {
-            "name": "시트 펼침",
+            "name": "캠프의 밤 · 시트 펼침",
             "src": "/storyboard/s07-evening-open.jpg",
             "size": [
               780,
@@ -228,18 +246,21 @@
         ]
       },
       {
-        "title": "밤 Q7-A 공간",
         "frames": [
           {
-            "name": "선택",
+            "name": "밤 Q7-A 공간 · 선택",
             "src": "/storyboard/s08-q7a.jpg",
             "size": [
               780,
               1688
             ]
-          },
+          }
+        ]
+      },
+      {
+        "frames": [
           {
-            "name": "다음 질문 생성 중",
+            "name": "밤 Q7-A · 다음 질문 생성 중",
             "src": "/storyboard/s08-generating.jpg",
             "size": [
               780,
@@ -249,10 +270,9 @@
         ]
       },
       {
-        "title": "밤 Q7-B 도구",
         "frames": [
           {
-            "name": "선택",
+            "name": "밤 Q7-B 도구",
             "src": "/storyboard/s08-q7b.jpg",
             "size": [
               780,
@@ -262,10 +282,9 @@
         ]
       },
       {
-        "title": "밤 Q8 방식",
         "frames": [
           {
-            "name": "선택",
+            "name": "밤 Q8 방식",
             "src": "/storyboard/s08-q8.jpg",
             "size": [
               780,
@@ -275,10 +294,9 @@
         ]
       },
       {
-        "title": "밤 Q9 대상 · 완료",
         "frames": [
           {
-            "name": "선택",
+            "name": "밤 Q9 대상 · 완료",
             "src": "/storyboard/s08-q9.jpg",
             "size": [
               780,
@@ -288,7 +306,6 @@
         ]
       },
       {
-        "title": "사진 등록",
         "frames": [
           {
             "name": "사진 등록",
@@ -301,10 +318,9 @@
         ]
       },
       {
-        "title": "대원증 대기",
         "frames": [
           {
-            "name": "대기",
+            "name": "대원증 대기",
             "src": "/storyboard/s10-pending-card-wait.jpg",
             "size": [
               780,
@@ -317,9 +333,8 @@
   },
   {
     "title": "3. 부스 참여",
-    "cases": [
+    "steps": [
       {
-        "title": "QR 스캔",
         "frames": [
           {
             "name": "QR 스캔",
@@ -332,7 +347,6 @@
         ]
       },
       {
-        "title": "처음 방문한 부스",
         "frames": [
           {
             "name": "방문 인증",
@@ -340,42 +354,36 @@
             "size": [
               780,
               1688
-            ]
-          }
-        ]
-      },
-      {
-        "title": "방문 기록 후",
-        "frames": [
-          {
-            "name": "기록 완료",
-            "src": "/storyboard/s22-checkin-done.jpg",
-            "size": [
-              780,
-              1688
-            ]
-          }
-        ]
-      },
-      {
-        "title": "로그인 안 한 상태",
-        "frames": [
+            ],
+            "branch": "처음 방문한 부스"
+          },
           {
             "name": "미로그인 QR",
             "src": "/storyboard/s23-checkin-loggedout.jpg",
             "size": [
               780,
               1760
-            ]
+            ],
+            "branch": "로그인 안 한 상태",
+            "end": true
+          },
+          {
+            "name": "설문 미완료",
+            "src": "/storyboard/s24-checkin-blocked.jpg",
+            "size": [
+              780,
+              1688
+            ],
+            "branch": "설문을 안 끝낸 상태",
+            "end": true
           }
         ]
       },
       {
-        "title": "설문을 안 끝낸 상태",
         "frames": [
           {
-            "name": "설문 미완료",
-            "src": "/storyboard/s24-checkin-blocked.jpg",
+            "name": "기록 완료",
+            "src": "/storyboard/s22-checkin-done.jpg",
             "size": [
               780,
               1688
@@ -387,12 +395,24 @@
   },
   {
     "title": "4. 개인 페이지 (3탭)",
-    "cases": [
+    "steps": [
       {
-        "title": "홈",
         "frames": [
           {
-            "name": "앞면",
+            "name": "카드 사진 고르기 시트",
+            "src": "/storyboard/s11-home-photo-choice.jpg",
+            "size": [
+              780,
+              1688
+            ],
+            "branch": "AI 사진이 있을 때 한 번"
+          }
+        ]
+      },
+      {
+        "frames": [
+          {
+            "name": "홈 · 앞면",
             "src": "/storyboard/s11-home.jpg",
             "size": [
               780,
@@ -402,57 +422,43 @@
         ]
       },
       {
-        "title": "카드 사진 고르기 (AI 사진이 있을 때 한 번)",
         "frames": [
           {
-            "name": "선택 팝업",
-            "src": "/storyboard/s11-home-photo-choice.jpg",
-            "size": [
-              780,
-              1688
-            ]
-          }
-        ]
-      },
-      {
-        "title": "카드 뒷면 · 나비 그림 있음",
-        "frames": [
-          {
-            "name": "뒷면",
+            "name": "홈 · 뒷면",
             "src": "/storyboard/s11-home-back.jpg",
             "size": [
               780,
               1688
-            ]
-          }
-        ]
-      },
-      {
-        "title": "카드 뒷면 · 나비 그림 전",
-        "frames": [
+            ],
+            "branch": "나비 그림 있음"
+          },
           {
-            "name": "뒷면 (15:00 안내)",
+            "name": "홈 · 뒷면 (15:00 안내)",
             "src": "/storyboard/s11-home-back-default.jpg",
             "size": [
               780,
               1688
-            ]
+            ],
+            "branch": "나비 그림 전"
           }
         ]
       },
       {
-        "title": "부스",
         "frames": [
           {
-            "name": "목록",
+            "name": "부스 · 목록",
             "src": "/storyboard/s12-booths.jpg",
             "size": [
               780,
               1688
             ]
-          },
+          }
+        ]
+      },
+      {
+        "frames": [
           {
-            "name": "부스 상세 시트",
+            "name": "부스 · 부스 상세 시트",
             "src": "/storyboard/s12-booths-sheet.jpg",
             "size": [
               780,
@@ -462,7 +468,6 @@
         ]
       },
       {
-        "title": "성장",
         "frames": [
           {
             "name": "성장",
@@ -478,9 +483,8 @@
   },
   {
     "title": "5. 공개 페이지",
-    "cases": [
+    "steps": [
       {
-        "title": "홈",
         "frames": [
           {
             "name": "공개 홈",
@@ -493,7 +497,6 @@
         ]
       },
       {
-        "title": "부스",
         "frames": [
           {
             "name": "공개 부스",
@@ -506,7 +509,6 @@
         ]
       },
       {
-        "title": "성장",
         "frames": [
           {
             "name": "공개 성장",
