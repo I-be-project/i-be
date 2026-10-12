@@ -295,7 +295,7 @@
             "src": "/storyboard/s09-photo.jpg",
             "size": [
               780,
-              3150
+              3742
             ]
           }
         ]
@@ -303,14 +303,6 @@
       {
         "title": "대원증 대기",
         "frames": [
-          {
-            "name": "진입 팝업",
-            "src": "/storyboard/s10-pending-card.jpg",
-            "size": [
-              780,
-              1688
-            ]
-          },
           {
             "name": "대기",
             "src": "/storyboard/s10-pending-card-wait.jpg",
