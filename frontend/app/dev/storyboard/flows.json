@@ -290,8 +290,16 @@
         ]
       },
       {
-        "name": "홈 · 뒷면",
+        "name": "홈 · 뒷면 (나비 그림)",
         "src": "/storyboard/s11-home-back.jpg",
+        "size": [
+          780,
+          1688
+        ]
+      },
+      {
+        "name": "홈 · 뒷면 (나비 그림 전)",
+        "src": "/storyboard/s11-home-back-default.jpg",
         "size": [
           780,
           1688
@@ -318,7 +326,7 @@
         "src": "/storyboard/s13-growth.jpg",
         "size": [
           780,
-          2298
+          2138
         ]
       }
     ]
@@ -347,7 +355,7 @@
         "src": "/storyboard/s17-public-growth.jpg",
         "size": [
           780,
-          2298
+          2138
         ]
       }
     ]
