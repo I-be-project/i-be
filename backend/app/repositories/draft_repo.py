@@ -314,6 +314,33 @@ class DraftRepository(BaseRepository):
             row = await conn.fetchrow(f"{_SELECT} where d.id = $1", draft_id)
         return _to_record(row) if row else None
 
+    async def get_by_session(self, session_id: UUID) -> DraftRecord | None:
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(f"{_SELECT} where d.session_id = $1", session_id)
+        return _to_record(row) if row else None
+
+    async def persona_photo_chosen(self, session_id: UUID) -> bool:
+        async with self._pool.acquire() as conn:
+            chosen: bool = await conn.fetchval(
+                "select photo_chosen_at is not null from generated.personas where session_id = $1",
+                session_id,
+            )
+        return bool(chosen)
+
+    async def choose_persona_photo(self, session_id: UUID, image_key: str | None) -> bool:
+        """카드 사진 선택을 확정한다(한 번만). image_key가 None이면 캐릭터. 이미 골랐으면 False."""
+        async with self._pool.acquire() as conn:
+            done = await conn.fetchval(
+                """
+                update generated.personas set image_key = $2, photo_chosen_at = now()
+                where session_id = $1 and photo_chosen_at is null
+                returning true
+                """,
+                session_id,
+                image_key,
+            )
+        return bool(done)
+
     async def list_drafts(
         self,
         *,

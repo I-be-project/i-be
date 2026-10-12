@@ -26,20 +26,19 @@ import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
 
-// 카드 예시 이미지(public/photo-guide/card-layout.png) 안에서 사진이 들어갈 자리.
-// 이미지 크기에 상관없이 겹쳐지도록 비율(%)로 잡는다.
-const PHOTO_SLOT = { left: "18.2%", top: "20.6%", width: "22.3%", height: "59.2%" };
-
 const GOOD_EXAMPLES = [
   "증명사진 (제일 좋아)",
   "정면을 보고 눈·코·입이 다 보이는 사진",
   "혼자 나오고, 얼굴이 크게 찍힌 사진",
 ];
 
+// 실제로 카드 사진을 만들지 못한 사례들 — 이 경우 얼굴 대신 캐릭터 카드가 된다.
 const BAD_EXAMPLES = [
-  "얼굴이 가려진 사진",
+  "손·마스크·머리카락으로 얼굴이 가려진 사진",
   "여러 명이 함께 나온 사진",
   "너무 멀리서 찍어 얼굴이 작은 사진",
+  "어둡거나 흔들려서 얼굴이 흐린 사진",
+  "캐릭터·동물·풍경·화면을 찍은 사진",
 ];
 
 // 설문 후 사진 등록과 기존 사진 수정을 공유한다.
@@ -193,8 +192,7 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
         transition={{ duration: 0.5, ease: "easeOut" }}
         className={cn(
           "relative z-10 mt-auto flex flex-1 flex-col gap-8 rounded-t-[2rem] bg-white px-6 pt-8 shadow-[0_-12px_40px_rgba(37,99,235,0.12)]",
-          // CTA가 떠 있을 때만 그만큼 바닥을 비운다.
-          file ? "pb-40" : "pb-12",
+          "pb-[max(3rem,env(safe-area-inset-bottom))]",
         )}
       >
         {/* 1. 사진이 어디에 쓰이는지 */}
@@ -203,31 +201,20 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
             사진은 어디에 쓰여?
           </h2>
           <p className="mt-1.5 break-keep text-[14px] font-medium leading-relaxed text-ink-muted">
-            행사 당일 받는 카드의 <b className="font-bold text-ink-soft">왼쪽 자리</b>에
-            들어가. 나머지 칸은 네가 방금 답한 내용으로 채워져.
+            AI가 이 사진을 바탕으로 <b className="font-bold text-ink-soft">10년 뒤 네 모습</b>을 그려서
+            카드 <b className="font-bold text-ink-soft">위쪽 큰 칸</b>에 넣어. 아래 글자는 네가 방금 답한 내용으로 채워져.
           </p>
 
-          <div className="relative mt-4 overflow-hidden rounded-2xl ring-1 ring-zinc-200/80">
+          <div className="relative mx-auto mt-4 w-[62%] overflow-hidden rounded-2xl ring-1 ring-zinc-200/80">
             <Image
-              src="/photo-guide/card-layout.png"
-              alt="카드 예시 — 왼쪽에 사진, 오른쪽에 이름과 소개가 들어간다"
-              width={1580}
-              height={996}
+              src="/photo-guide/card-example.png"
+              alt="카드 예시 — 위쪽 큰 칸에 AI가 그린 내 모습, 아래에 이름과 직업이 들어간다"
+              width={640}
+              height={1019}
               className="h-auto w-full select-none"
               draggable={false}
             />
-            {/* 사진이 들어갈 자리를 짚어준다 */}
-            <motion.div
-              aria-hidden
-              animate={{ opacity: [0.55, 1, 0.55] }}
-              transition={{ duration: 2.4, repeat: Infinity, ease: "easeInOut" }}
-              className="pointer-events-none absolute rounded-lg ring-[3px] ring-sky-500 ring-offset-2 ring-offset-white/0"
-              style={PHOTO_SLOT}
-            />
           </div>
-          <p className="mt-2.5 text-center text-[13px] font-bold text-sky-700">
-            파란 칸에 네 사진이 들어가
-          </p>
         </section>
 
         {/* 2. 어떤 사진이 좋은지 */}
@@ -299,8 +286,8 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
               strokeWidth={2.5}
             />
             <p className="break-keep text-[13.5px] font-semibold leading-relaxed text-amber-900">
-              얼굴이 잘 안 보이는 사진을 올리면 카드에 네 얼굴이 제대로 들어가지 않아.
-              다시 찍어서라도 얼굴이 잘 나온 사진으로 올려줘.
+              얼굴을 알아볼 수 없으면 AI가 미래 모습을 그릴 수 없어서, 네 얼굴 대신
+              <b className="font-extrabold"> 캐릭터 카드</b>로 만들어져. 다시 찍어서라도 얼굴이 잘 나온 사진으로 올려줘.
             </p>
           </div>
         </section>
@@ -310,6 +297,11 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
           <h2 className="text-[17px] font-black tracking-tight text-ink">
             {editing ? (file ? "새로 선택한 사진" : "현재 등록한 사진") : "사진 올리기"}
           </h2>
+          {!editing && (
+            <p className="mt-1.5 break-keep text-[14px] font-bold leading-relaxed text-rose-600">
+              한 번 올린 사진은 나중에 바꿀 수 없어. 얼굴이 잘 나온 사진인지 확인하고 올려줘.
+            </p>
+          )}
           {editing && !file && (
             <p role="status" className="mt-2 text-sm font-medium text-ink-muted">
               {photoError
@@ -382,25 +374,24 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
             </div>
           )}
         </section>
-      </motion.section>
 
-      {/* 하단 고정 CTA — 사진을 고른 뒤에만 올라온다.
-          항상 띄우면 가이드 이미지를 계속 가리고, 맨 아래에서는 아무 일도 안 하는 버튼이 된다. */}
-      <AnimatePresence>
-        {file ? (
-          <motion.div
-            initial={{ y: 80, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 80, opacity: 0 }}
-            transition={{ duration: 0.28, ease: "easeOut" }}
-            className="fixed bottom-0 left-1/2 z-20 w-full max-w-2xl -translate-x-1/2 bg-gradient-to-t from-white via-white/95 to-transparent px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-8"
+        {/* 4. 제출 — 페이지 맨 끝에 항상 둔다. 사진을 고르기 전에는 누를 수 없다. */}
+        <section>
+          <CtaButton
+            onClick={handleUpload}
+            disabled={!file || uploading}
+            className="h-auto flex-col gap-0.5 py-3"
           >
-            <CtaButton onClick={handleUpload} disabled={uploading}>
-              {uploading ? "올리는 중..." : "이 사진으로 할래"}
-            </CtaButton>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+            {uploading ? "올리는 중..." : file ? "이 사진으로 할래" : "사진을 먼저 골라 줘"}
+            {/* 결정하는 버튼에 주의사항을 붙인다 — 올린 뒤에는 바꿀 수 없다. */}
+            {!editing && !uploading && (
+              <span className="text-[12px] font-semibold text-white/85">
+                올린 뒤에는 사진을 바꿀 수 없어요
+              </span>
+            )}
+          </CtaButton>
+        </section>
+      </motion.section>
 
       <AnimatePresence>
         {cameraOpen ? (

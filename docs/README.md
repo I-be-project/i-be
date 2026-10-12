@@ -43,6 +43,7 @@
 | [`design-system.md`](guides/design-system.md) | Voyage 디자인 시스템 |
 | [`admin-api.md`](guides/admin-api.md) | 관리자 API 사용 설명서 (관리자 화면용) |
 | [`export-api.md`](guides/export-api.md) | 학생 데이터 내보내기 API (외부 연동용) |
+| [`paintfarm-integration.md`](guides/paintfarm-integration.md) | 페인트팜(나비) 연동 — 주고받는 데이터 |
 
 ## issues/ — 삽질과 인프라 판단
 

@@ -7,9 +7,16 @@ from typing import Annotated
 from fastapi import APIRouter, File, Response, UploadFile
 
 from app.core.errors import DomainError
-from app.deps import AuthServiceDep, CurrentStudentDep, NabiClientDep, SessionServiceDep
+from app.deps import (
+    AuthServiceDep,
+    CurrentStudentDep,
+    DraftServiceDep,
+    NabiClientDep,
+    SessionServiceDep,
+)
 from app.schemas.auth import PhotoUploadResponse
 from app.schemas.students import (
+    CardPhotoRequest,
     NabiResult,
     ProfileSummary,
     PublicProfileSummary,
@@ -82,6 +89,18 @@ async def upload_my_photo(
 
     photo_key = await auth.attach_photo(student_id, data, content_type=content_type)
     return PhotoUploadResponse(photo_key=photo_key)
+
+
+@router.put("/me/card-photo", response_model=ProfileSummary)
+async def choose_my_card_photo(
+    req: CardPhotoRequest,
+    student_id: CurrentStudentDep,
+    drafts: DraftServiceDep,
+    sessions: SessionServiceDep,
+) -> ProfileSummary:
+    """공개된 카드의 사진을 AI 사진 / 캐릭터 중 하나로 확정한다(한 번만). 바뀐 프로필을 돌려준다."""
+    await drafts.choose_card_photo(student_id, use_ai=req.choice == "ai")
+    return await sessions.get_profile_summary(student_id)
 
 
 @router.get("/me", response_model=ProfileSummary)
