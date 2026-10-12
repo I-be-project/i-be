@@ -18,9 +18,24 @@ export function BottomNav({ basePath = "" }: { basePath?: string }) {
   const pathname = usePathname();
 
   const tabs: TabDef[] = [
-    { href: `${basePath}/booths`, label: "부스", icon: MapPin, isActive: (p) => p === `${basePath}/booths` },
-    { href: `${basePath}/home`, label: "홈", icon: Home, isActive: (p) => p === `${basePath}/home` },
-    { href: `${basePath}/growth`, label: "성장", icon: Sprout, isActive: (p) => p.startsWith(`${basePath}/growth`) },
+    {
+      href: `${basePath}/booths`,
+      label: "부스",
+      icon: MapPin,
+      isActive: (p) => p === `${basePath}/booths`,
+    },
+    {
+      href: `${basePath}/home`,
+      label: "홈",
+      icon: Home,
+      isActive: (p) => p === `${basePath}/home`,
+    },
+    {
+      href: `${basePath}/growth`,
+      label: "성장",
+      icon: Sprout,
+      isActive: (p) => p.startsWith(`${basePath}/growth`),
+    },
   ];
 
   return (
@@ -37,16 +52,17 @@ export function BottomNav({ basePath = "" }: { basePath?: string }) {
             <Link
               key={label}
               href={href}
+              // /p/[code]는 동적 라우트라 기본 prefetch가 거의 비어 탭 전환마다 서버 왕복을 기다린다.
+              prefetch
               aria-current={active ? "page" : undefined}
               className={
                 "flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-bold transition-colors " +
-                (active ? "bg-hm-blue/10 text-hm-blue" : "text-hm-blue/45 hover:text-hm-blue/70")
+                (active
+                  ? "bg-hm-blue/10 text-hm-blue"
+                  : "text-hm-blue/45 hover:text-hm-blue/70")
               }
             >
-              <Icon
-                className="h-5 w-5"
-                strokeWidth={active ? 2.4 : 2}
-              />
+              <Icon className="h-5 w-5" strokeWidth={active ? 2.4 : 2} />
               {label}
             </Link>
           );
