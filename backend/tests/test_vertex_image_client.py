@@ -10,7 +10,7 @@ import pytest
 from google.genai import types
 from PIL import Image
 
-from app.adapters.vertex_image_client import VertexImageClient, estimate_cost
+from app.adapters.vertex_image_client import VertexAccount, VertexImageClient, estimate_cost
 from app.core.errors import ExternalServiceError
 
 
@@ -35,12 +35,11 @@ def _client(parts: list[types.Part]) -> tuple[VertexImageClient, _FakeModels]:
     models = _FakeModels(parts)
     fake = SimpleNamespace(aio=SimpleNamespace(models=models))
     client = VertexImageClient(
-        api_key="",
-        project="p",
+        accounts=[VertexAccount("p")],
         location="global",
         model="default-model",
         image_size="1K",
-        client=fake,
+        clients=[fake],
     )
     return client, models
 
@@ -72,7 +71,9 @@ async def test_refusal_text_becomes_error_reason() -> None:
 
 
 async def test_missing_auth_fails_without_client() -> None:
-    client = VertexImageClient(api_key="", project="", location="global", model="m", image_size="")
+    client = VertexImageClient(
+        accounts=[VertexAccount("")], location="global", model="m", image_size=""
+    )
     with pytest.raises(ExternalServiceError, match="GCP_PROJECT"):
         await client.generate_image("prompt", [_img("PNG")], aspect_ratio="4:5")
 

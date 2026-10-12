@@ -33,7 +33,7 @@ from app.routers import (
     student_booths,
     students,
 )
-from app.workers.card_worker import card_worker_loop
+from app.services.card_publisher import build_card_publisher, card_publisher_loop
 from app.workers.photo_cleanup import photo_cleanup_loop
 
 logger = get_logger(__name__)
@@ -64,11 +64,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else None
     )
 
-    # 카드 워커 — DB 활성화 + 명시 활성화 시에만 실행
-    worker_task: asyncio.Task[None] | None = None
-    if settings.database_enabled and settings.card_worker_enabled:
-        worker_task = asyncio.create_task(card_worker_loop(), name="card_worker")
-        logger.info("worker.started", concurrency=settings.card_worker_concurrency)
+    # 카드 자동 공개 — 설문·사진 완료 학생을 폴링해 만든다. 명시 활성화(AUTO_CARD_ENABLED) 시에만.
+    publisher_task: asyncio.Task[None] | None = None
+    if db_pool is not None and settings.auto_card_enabled:
+        publisher = build_card_publisher(
+            settings, db_pool, ai_client, StorageClient.from_settings(settings)
+        )
+        publisher_task = asyncio.create_task(
+            card_publisher_loop(publisher, settings.auto_card_poll_seconds), name="card_publisher"
+        )
 
     try:
         yield
@@ -79,13 +83,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 await cleanup_task
             except asyncio.CancelledError:
                 pass
-        if worker_task is not None:
-            worker_task.cancel()
+        if publisher_task is not None:
+            publisher_task.cancel()
             try:
-                await worker_task
+                await publisher_task
             except asyncio.CancelledError:
                 pass
-            logger.info("worker.stopped")
 
         if db_pool is not None:
             await db_pool.disconnect()
