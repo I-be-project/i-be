@@ -5,9 +5,9 @@ import { useEffect, useRef, useState } from "react"
 import { Minus, Plus } from "lucide-react"
 import flows from "./flows.json"
 
-// 전체 시스템 스토리보드 — 학생 화면을 피그마 화이트보드처럼 흐름별 가로 줄로 늘어놓는다.
-// 프레임 목록은 flows.json, 이미지는 public/storyboard/에 있다(테스트 계정 최수아로 촬영,
-// 스크롤 영역까지 펼친 전체 길이).
+// 전체 시스템 스토리보드 — 학생 화면을 피그마 화이트보드처럼 흐름별 가로 줄로 늘어놓고,
+// 한 흐름 안은 상황(케이스)별 묶음으로 나눈다. 흐름 → 상황 → 프레임 목록은 flows.json,
+// 이미지는 public/storyboard/에 있다(테스트 계정 최수아로 촬영, 스크롤 영역까지 펼친 전체 길이).
 //
 // 무한 캔버스: 어디서든 끌면 이동, 휠·트랙패드 스크롤도 이동, 핀치·Ctrl(⌘)+휠은 커서 기준
 // 연속 확대·축소. 프레임은 끌지 않고 놓으면(클릭) 원본 이미지를 새 탭에 연다.
@@ -97,26 +97,34 @@ export default function StoryboardPage() {
         {flows.map((flow) => (
           <section key={flow.title}>
             <h2 className="mb-10 text-6xl font-black tracking-tight text-neutral-800">{flow.title}</h2>
-            <div className="flex items-start">
-              {flow.frames.map((frame, i) => (
-                <div key={frame.src} className="flex items-start">
-                  {i > 0 && <Arrow />}
-                  <figure className="w-[390px]">
-                    <figcaption className="mb-3 truncate text-lg font-medium text-neutral-500">
-                      {frame.name}
-                    </figcaption>
-                    <Image
-                      src={frame.src}
-                      data-src={frame.src}
-                      alt={`${frame.name} 화면`}
-                      width={frame.size[0]}
-                      height={frame.size[1]}
-                      // 다시 촬영해도 최적화 캐시가 옛 이미지를 내주지 않도록 원본을 그대로 쓴다.
-                      unoptimized
-                      draggable={false}
-                      className="h-auto w-full rounded-[28px] bg-white shadow-xl ring-1 ring-black/5"
-                    />
-                  </figure>
+            {/* 상황(케이스)별 묶음 — 화살표로 잇지 않고 테두리 영역으로 나눈다. */}
+            <div className="flex items-start gap-16">
+              {flow.cases.map((c) => (
+                <div
+                  key={c.title}
+                  className="shrink-0 rounded-[40px] border-2 border-dashed border-neutral-300 bg-white/60 p-10"
+                >
+                  <h3 className="mb-8 text-4xl font-extrabold tracking-tight text-neutral-700">{c.title}</h3>
+                  <div className="flex items-start gap-10">
+                    {c.frames.map((frame) => (
+                      <figure key={frame.src} className="w-[390px]">
+                        <figcaption className="mb-3 truncate text-lg font-medium text-neutral-500">
+                          {frame.name}
+                        </figcaption>
+                        <Image
+                          src={frame.src}
+                          data-src={frame.src}
+                          alt={`${c.title} · ${frame.name} 화면`}
+                          width={frame.size[0]}
+                          height={frame.size[1]}
+                          // 다시 촬영해도 최적화 캐시가 옛 이미지를 내주지 않도록 원본을 그대로 쓴다.
+                          unoptimized
+                          draggable={false}
+                          className="h-auto w-full rounded-[28px] bg-white shadow-xl ring-1 ring-black/5"
+                        />
+                      </figure>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -148,13 +156,5 @@ export default function StoryboardPage() {
         <span className="border-l pl-3 text-xs text-muted-foreground">드래그 이동 · 핀치/⌘+휠 확대</span>
       </div>
     </div>
-  )
-}
-
-function Arrow() {
-  return (
-    <svg aria-hidden width="96" height="24" viewBox="0 0 96 24" className="mx-4 mt-[420px] shrink-0 text-neutral-400">
-      <path d="M2 12h86m-10-8 10 8-10 8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
   )
 }
