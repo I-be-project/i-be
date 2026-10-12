@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
@@ -18,6 +19,7 @@ from app.adapters.codex_client import CodexClient
 from app.adapters.db_pool import DBPool
 from app.adapters.nabi_client import NabiClient
 from app.adapters.storage_client import StorageClient
+from app.adapters.vertex_image_client import VertexImageClient
 from app.config import Settings, get_settings
 from app.core.errors import UnauthorizedError
 from app.core.security import TokenKind, decode_token
@@ -31,6 +33,7 @@ from app.repositories.session_repo import SessionRepository
 from app.repositories.settings_repo import SettingsRepository
 from app.repositories.student_repo import StudentRepository
 from app.services.admin_service import AdminService
+from app.services.api_draft_service import ApiDraftService
 from app.services.auth_service import AuthService
 from app.services.booth_service import BoothService
 from app.services.booth_visit_service import BoothVisitService
@@ -70,6 +73,15 @@ def get_codex_client(settings: SettingsDep) -> CodexClient:
 
 
 CodexClientDep = Annotated[CodexClient, Depends(get_codex_client)]
+
+
+@lru_cache(maxsize=1)
+def get_vertex_image_client() -> VertexImageClient:
+    """dev 전용 Vertex AI 이미지 어댑터. ADC 로딩을 한 번만 하도록 프로세스당 하나."""
+    return VertexImageClient.from_settings(get_settings())
+
+
+VertexImageClientDep = Annotated[VertexImageClient, Depends(get_vertex_image_client)]
 
 
 def get_draft_repo(pool: DBPoolDep) -> DraftRepository:
@@ -311,3 +323,25 @@ def get_draft_service(
 
 
 DraftServiceDep = Annotated[DraftService, Depends(get_draft_service)]
+
+
+def get_api_draft_service(
+    ai: AIClientDep,
+    vertex: VertexImageClientDep,
+    draft_service: DraftServiceDep,
+    drafts: DraftRepoDep,
+    storage: StorageClientDep,
+    settings: SettingsDep,
+) -> ApiDraftService:
+    """API 초안(OpenRouter 페르소나 + Vertex 사진). 카드 자동 공개(card_publisher)도 같은 구성."""
+    return ApiDraftService(
+        ai=ai,
+        vertex=vertex,
+        draft_service=draft_service,
+        drafts=drafts,
+        storage=storage,
+        persona_model=settings.api_persona_model,
+    )
+
+
+ApiDraftServiceDep = Annotated[ApiDraftService, Depends(get_api_draft_service)]

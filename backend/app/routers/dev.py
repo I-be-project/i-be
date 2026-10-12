@@ -1,14 +1,15 @@
 """/api/dev — 개발·실험용 엔드포인트.
 
-로컬 Codex CLI(`codex exec`)로만 동작한다. OpenRouter(AIClient)는 쓰지 않는다.
+로컬 Codex CLI(`codex exec`)로 동작한다. 미래 사진만 모델 비교를 위해 Vertex AI(Gemini)도 고를 수 있다.
 배포 서버엔 codex 바이너리가 없고 이 라우터는 인증도 없다 —
 등록 자체를 APP_ENV=local로 제한한다(main.create_app).
 
 - GET  /students              학생 선택 목록
 - GET  /students/{id}/answers 선택한 학생의 최근 세션 답변(프롬프트 입력 미리보기)
 - GET  /prompts               편집기 초깃값
+- POST /api-draft             학생 1명 → 페르소나(OpenRouter) + 10년 뒤 사진(Vertex). 저장하지 않음
 - POST /persona               답변 + 편집한 시스템 프롬프트 → Career Persona
-- POST /future-photo          학생 사진 + 편집한 프롬프트 → 10년 뒤 사진
+- POST /future-photo          학생 사진 + 편집한 프롬프트 → 10년 뒤 사진 (codex 또는 Vertex AI)
 """
 
 from __future__ import annotations
@@ -22,7 +23,7 @@ from fastapi import APIRouter, Depends, Query
 
 from app.adapters.storage_client import StorageClient
 from app.core.errors import NotFoundError
-from app.core.images import crop_top, inspect_image
+from app.core.images import crop_top, inspect_image, to_codex_input
 from app.core.prompts.future_photo_prompt import (
     BACKGROUND_IMAGE,
     DEFAULT_FUTURE_PHOTO_PROMPT,
@@ -35,17 +36,22 @@ from app.core.prompts.persona_prompt import (
     build_user_prompt,
 )
 from app.deps import (
+    ApiDraftServiceDep,
     CodexClientDep,
     DraftRepoDep,
     DraftServiceDep,
+    SettingsDep,
     StorageClientDep,
     StudentRepoDep,
+    VertexImageClientDep,
     get_session_repo,
 )
 from app.repositories.draft_repo import DraftRecord, DraftText
 from app.repositories.session_repo import SessionRepository
 from app.schemas.admin import AdminVerdictRequest
 from app.schemas.dev import (
+    ApiDraftRequest,
+    ApiDraftResponse,
     BatchAllRequest,
     BatchRequest,
     BatchStatus,
@@ -69,8 +75,11 @@ from app.schemas.dev import (
     StudentAnswersResponse,
     TargetCount,
 )
+from app.services.api_draft_service import vertex_future_photo
 from app.services.dev_service import build_persona_inputs
 from app.services.draft_batch import dev_batch
+from app.services.draft_service import card_qr_data
+from app.services.id_card_renderer import IdCardContent, render_id_card
 
 # 원본 사진 Presigned URL 유효시간. admin과 같은 1시간 — dev 세션에 충분하다.
 _PHOTO_URL_TTL_SECONDS = 3600
@@ -95,11 +104,23 @@ async def list_students(
     sessions: SessionRepoDep,
     storage: StorageClientDep,
     q: Annotated[str | None, Query(description="이름 부분 일치")] = None,
+    school: str | None = None,
+    grade: Annotated[int | None, Query(ge=0)] = None,
+    class_no: Annotated[int | None, Query(ge=0)] = None,
     limit: Annotated[int, Query(ge=1, le=200)] = 50,
 ) -> DevStudentList:
-    """학생 선택 목록. 페르소나·사진 생성 가능 여부와 원본 사진 URL을 함께 내린다."""
+    """학생 선택 목록. 페르소나·사진 생성 가능 여부와 원본 사진 URL을 함께 내린다.
+
+    학교를 고르면 반·번호 순, 아니면 최근 가입 순.
+    """
     _, records = await students.list_students(
-        q=q, school=None, grade=None, class_no=None, limit=limit, offset=0, sort="created_desc"
+        q=q,
+        school=school,
+        grade=grade,
+        class_no=class_no,
+        limit=limit,
+        offset=0,
+        sort=None if school else "created_desc",
     )
     progress = await sessions.get_progress_for_students([r.id for r in records])
     # 건별로 서명하면 클라이언트 생성 비용(40~50ms)이 건마다 붙는다 — 한 번에 서명한다.
@@ -160,6 +181,7 @@ async def get_student_answers(student_id: UUID, sessions: SessionRepoDep) -> Stu
         q7b_second=inputs.q7b_second,
         q8_response=inputs.q8_response,
         q9_response=inputs.q9_response,
+        q1to6_texts=inputs.q1to6_texts,
     )
 
 
@@ -208,25 +230,33 @@ async def generate_future_photo(
     students: StudentRepoDep,
     storage: StorageClientDep,
     codex: CodexClientDep,
+    vertex: VertexImageClientDep,
 ) -> GenerateFuturePhotoResponse:
-    """학생의 저장된 사진 + 편집한 프롬프트 → 10년 뒤 사진 (codex)."""
+    """학생의 저장된 사진 + 편집한 프롬프트 → 10년 뒤 사진.
+
+    입력은 검수 초안 생성(DraftService.generate_image)과 같다 — 사진·구도 실루엣·배경을
+    같은 순서로 첨부하고 결과를 4:5로 자른다. provider만 바꿔 모델끼리 비교한다.
+    """
     student = await students.get_by_id(req.student_id)
     if student is None:
         raise NotFoundError("학생을 찾을 수 없습니다.")
     if not student.photo_key:
         raise NotFoundError("이 학생에게는 저장된 사진이 없습니다.")
 
-    photo = await storage.download(student.photo_key)
+    photo = to_codex_input(await storage.download(student.photo_key))
+    layout = LAYOUT_REFERENCE_IMAGE.read_bytes()
+    background = BACKGROUND_IMAGE.read_bytes()
 
     started = time.perf_counter()
-    image_bytes = await codex.generate_image(
-        req.prompt,
-        photo=photo,
-        layout=LAYOUT_REFERENCE_IMAGE.read_bytes(),
-        background=BACKGROUND_IMAGE.read_bytes(),
-        model=req.model,
-    )
-    image_bytes = crop_top(image_bytes, PHOTO_RATIO)
+    cost_usd: float | None = None  # codex는 구독 과금이라 장당 비용이 없다
+    if req.provider == "vertex":
+        generated = await vertex_future_photo(vertex, photo, req.prompt, model=req.model)
+        image_bytes, cost_usd = generated.data, generated.cost_usd
+    else:
+        image_bytes = await codex.generate_image(
+            req.prompt, photo=photo, layout=layout, background=background, model=req.model
+        )
+        image_bytes = crop_top(image_bytes, PHOTO_RATIO)
     elapsed = time.perf_counter() - started
 
     info = inspect_image(image_bytes)
@@ -236,6 +266,7 @@ async def generate_future_photo(
         width=info.width,
         height=info.height,
         elapsed_seconds=round(elapsed, 2),
+        cost_usd=cost_usd,
     )
 
 
@@ -527,3 +558,63 @@ async def cancel_batch() -> BatchStatus:
     """진행 중인 codex 호출까지 끊는다. 이미 저장된 초안은 남는다."""
     dev_batch.cancel()
     return _batch_status()
+
+
+# ──────────────────────────────────────────────────────────────
+# API 초안 — codex 대신 API(OpenRouter 페르소나 + Vertex 이미지)로 한 명을 만들어 본다.
+# ──────────────────────────────────────────────────────────────
+
+
+@router.post("/api-draft", response_model=ApiDraftResponse)
+async def generate_api_draft(
+    req: ApiDraftRequest,
+    students: StudentRepoDep,
+    sessions: SessionRepoDep,
+    api_drafts: ApiDraftServiceDep,
+    settings: SettingsDep,
+) -> ApiDraftResponse:
+    """학생 1명 → 페르소나(OpenRouter) + 10년 뒤 사진(Vertex) + 카드 미리보기. 저장하지 않는다.
+
+    자동 공개 워커와 같은 ApiDraftService.generate를 쓴다 — 여기서 본 결과가 곧 공개될 결과다.
+    """
+    student = await students.get_by_id(req.student_id)
+    if student is None:
+        raise NotFoundError("학생을 찾을 수 없습니다.")
+    session = await sessions.get_latest_for_student(req.student_id)
+    if session is None:
+        raise NotFoundError("이 학생에게는 설문 세션이 없습니다.")
+
+    result = await api_drafts.generate(student, session.id)
+    image = result.image
+    out = ApiDraftResponse(
+        persona=result.persona,
+        persona_model=api_drafts.persona_model,
+        persona_error=result.persona_error,
+        persona_seconds=result.persona_seconds,
+        persona_cost_usd=result.persona_cost_usd,
+        image_base64=base64.b64encode(image.data).decode("ascii") if image else None,
+        image_model=settings.vertex_image_model,
+        image_error=result.image_error,
+        image_seconds=result.image_seconds,
+        image_cost_usd=image.cost_usd if image else None,
+    )
+    if result.text is not None:
+        text = result.text
+        out.name, out.headline, out.tagline = text.name, text.headline, text.tagline
+        out.base_career = text.base_career
+        card = render_id_card(
+            image.data if image else None,  # 이미지가 없으면 폴백 캐릭터 — 공개 카드와 같다
+            IdCardContent(
+                student_name=student.name,
+                school=student.school,
+                grade=student.grade,
+                class_no=student.class_no,
+                student_no=student.student_no,
+                headline=text.headline,
+                base_career=text.base_career,
+                # 실제 코드를 발급하면(ensure_card_code) DB에 남으므로 예시 코드를 쓴다.
+                qr_data=card_qr_data(settings.card_qr_origin, "PREVIEW0"),
+            ),
+        )
+        out.card_base64 = base64.b64encode(card).decode("ascii")
+    return out

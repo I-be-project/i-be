@@ -11,7 +11,7 @@ from uuid import UUID, uuid4
 
 from app.adapters.codex_client import CodexClient
 from app.adapters.storage_client import StorageClient
-from app.core.errors import NotFoundError
+from app.core.errors import ConflictError, DomainError, NotFoundError
 from app.core.images import crop_top, to_codex_input
 from app.core.logging import get_logger
 from app.core.prompts.future_photo_prompt import (
@@ -97,6 +97,16 @@ class DraftService:
 
         feedback: 다시 쓸 때 붙이는 이전 결과와 검수 의견(_text_feedback).
         """
+        system, user = await self.persona_prompts(session_id, feedback=feedback)
+        result = await self._codex.generate_json(
+            f"{system}\n\n---\n\n{user}", PERSONA_OUTPUT_SCHEMA
+        )
+        return await self._drafts.save_text(session_id, student_id, to_draft_text(result), result)
+
+    async def persona_prompts(
+        self, session_id: UUID, *, feedback: str | None = None
+    ) -> tuple[str, str]:
+        """세션 답변 → (시스템 프롬프트, 사용자 프롬프트). codex·API 생성이 같은 입력을 쓴다."""
         records = await self._sessions.list_answers(session_id)
         inputs = build_persona_inputs({r.stage: r.payload for r in records}, career_pool=[])
         user_prompt = build_user_prompt(
@@ -113,10 +123,7 @@ class DraftService:
         )
         if feedback:
             user_prompt += f"\n\n{feedback}"
-        result = await self._codex.generate_json(
-            f"{DEFAULT_SYSTEM_PROMPT}\n\n---\n\n{user_prompt}", PERSONA_OUTPUT_SCHEMA
-        )
-        return await self._drafts.save_text(session_id, student_id, to_draft_text(result), result)
+        return DEFAULT_SYSTEM_PROMPT, user_prompt
 
     async def regenerate_text(self, draft_id: UUID) -> None:
         draft = await self._require(draft_id)
@@ -191,9 +198,11 @@ class DraftService:
         await self._require(draft_id)
         await self._drafts.clear_image(draft_id)
 
-    async def render_card(self, draft: DraftRecord) -> bytes:
-        # 생성 이미지가 없으면 None → 렌더러가 폴백 캐릭터를 쓴다.
-        image = await self._storage.download(draft.image_key) if draft.image_key else None
+    async def render_card(self, draft: DraftRecord, *, use_image: bool = True) -> bytes:
+        # 생성 이미지가 없거나 쓰지 않으면 None → 렌더러가 폴백 캐릭터를 쓴다.
+        image = (
+            await self._storage.download(draft.image_key) if use_image and draft.image_key else None
+        )
         return render_id_card(
             image,
             IdCardContent(
@@ -225,13 +234,33 @@ class DraftService:
         await self._drafts.approve(draft, card_key=key)
         return key
 
-    async def upload_card(self, draft: DraftRecord) -> str:
+    async def choose_card_photo(self, student_id: UUID, *, use_ai: bool) -> None:
+        """학생이 공개된 카드의 사진을 AI 사진 / 캐릭터 중 하나로 확정한다. 한 번 고르면 바꿀 수 없다.
+
+        AI 사진 원본은 초안에 남아 있으므로 카드만 다시 합성해 같은 키에 덮어쓰고,
+        확정본에 고른 사진(None = 캐릭터)과 고른 시각을 기록한다.
+        """
+        session = await self._sessions.get_latest_completed_for_student(student_id)
+        draft = await self._drafts.get_by_session(session.id) if session else None
+        if draft is None or draft.status != "approved":
+            raise NotFoundError("공개된 카드가 없습니다.")
+        if draft.image_key is None:
+            raise DomainError("고를 수 있는 AI 사진이 없습니다.")
+        if await self._drafts.persona_photo_chosen(draft.session_id):
+            raise ConflictError("이미 카드 사진을 골랐습니다.")
+        await self.upload_card(draft, use_image=use_ai)
+        if not await self._drafts.choose_persona_photo(
+            draft.session_id, draft.image_key if use_ai else None
+        ):
+            raise ConflictError("이미 카드 사진을 골랐습니다.")
+
+    async def upload_card(self, draft: DraftRecord, *, use_image: bool = True) -> str:
         """카드 합성 → S3 cards/. 키가 초안마다 고정이라 다시 부르면 같은 파일을 덮어쓴다.
 
         배치 상수(id_card_renderer)를 바꾼 뒤 승인된 카드를 다시 만들 때도 이 경로를 쓴다
         (scripts/rerender_cards.py). DB의 card_image_key는 그대로라 따로 고칠 게 없다.
         """
-        png = await self.render_card(draft)
+        png = await self.render_card(draft, use_image=use_image)
         return await self._storage.upload_card_image(
             f"{draft.student_id}/{draft.id}.png", png, content_type="image/png"
         )

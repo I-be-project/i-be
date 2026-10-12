@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { AnswerPreview } from "@/app/dev/_components/answer-preview"
 import { StudentPicker } from "@/app/dev/_components/student-picker"
 import {
   generatePersona,
@@ -160,62 +161,6 @@ export default function DevPersonaPage() {
         <ResultPanel result={result} loading={loading} />
       </div>
     </div>
-  )
-}
-
-function AnswerPreview({
-  student,
-  answers,
-}: {
-  student: DevStudent
-  answers: StudentAnswers | null
-}) {
-  if (!answers) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        {student.name}의 답변을 불러오는 중…
-      </p>
-    )
-  }
-  const rows: [string, string | null][] = [
-    ["Pair Code", answers.pair_code || null],
-    [
-      "RIASEC",
-      Object.keys(answers.riasec_scores).length
-        ? Object.entries(answers.riasec_scores)
-            .map(([k, v]) => `${k} ${v}`)
-            .join(" · ")
-        : null,
-    ],
-    ["Q7 공간", answers.q7a_first],
-    ["Q7 도구", answers.q7b_first],
-    ["Q8 방식", answers.q8_response],
-    ["Q9 대상", answers.q9_response],
-  ]
-
-  return (
-    <Card>
-      <CardContent className="flex flex-col gap-2 pt-5 text-sm">
-        <div className="mb-1 flex items-center justify-between">
-          <span className="font-medium">{student.name}의 답변</span>
-          {answers.status && (
-            <Badge variant="outline" className="text-xs">
-              {answers.status}
-            </Badge>
-          )}
-        </div>
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex gap-3">
-            <span className="w-20 shrink-0 text-xs text-muted-foreground">
-              {label}
-            </span>
-            <span className={value ? "" : "text-muted-foreground"}>
-              {value ?? "(없음)"}
-            </span>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
   )
 }
 

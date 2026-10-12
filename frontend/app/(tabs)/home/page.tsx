@@ -5,6 +5,7 @@ import { User } from "lucide-react";
 import { TabPage, ProfileFeedback } from "@/components/tabs/TabPage";
 import { useProfileView, MyPageLink } from "@/components/tabs/ProfileView";
 import { CardActions } from "@/components/tabs/CardActions";
+import { CardPhotoChoiceDialog } from "@/components/tabs/CardPhotoChoiceDialog";
 import { FlippablePersonaCard } from "@/components/tabs/FlippablePersonaCard";
 import { useNabiImage } from "@/hooks/useNabiImage";
 import { SOFT_CARD } from "@/components/tabs/BoothList";
@@ -42,6 +43,7 @@ export default function HomePage() {
         </FlippablePersonaCard>
       </section>
       {/* 저장·공유는 카드 박스 밖, 바로 아래에 둔다. */}
+      {!readOnly && profile.card?.photo_choice_needed && profile.card.ai_photo_url && <CardPhotoChoiceDialog aiPhotoUrl={profile.card.ai_photo_url} />}
       {!readOnly && <CardActions imageUrl={profile.card?.card_image_url} sharePath={profile.share_path} name={profile.student?.name} />}
     </>}
   </TabPage>;

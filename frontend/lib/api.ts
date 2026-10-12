@@ -58,6 +58,10 @@ export interface ProfilePersona {
 
 export interface ProfileCard {
   card_image_url: string | null;
+  // AI 사진이 있고 아직 고르지 않음 — 홈에서 AI 사진/캐릭터 선택 팝업을 띄운다(한 번만).
+  photo_choice_needed?: boolean;
+  // 선택 팝업에 보여줄 AI 사진(서명 URL). photo_choice_needed일 때만.
+  ai_photo_url?: string | null;
 }
 
 // 백엔드가 내려주는 학생 식별 정보(snake_case). 소프트 삭제 등이면 null.
@@ -241,6 +245,15 @@ export function refreshStudentToken(token: string): Promise<AuthResponse> {
   return request<AuthResponse>("/api/auth/refresh", {
     method: "POST",
     headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+// PUT /api/students/me/card-photo — 카드 사진을 AI 사진 / 캐릭터 중 하나로 확정한다(한 번만, 카드를 다시 합성).
+export function chooseCardPhoto(token: string, choice: "ai" | "character"): Promise<ProfileSummary> {
+  return request<ProfileSummary>("/api/students/me/card-photo", {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ choice }),
   });
 }
 

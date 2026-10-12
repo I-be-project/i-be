@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import { AlertCircle, Check, Compass, MapPin } from "lucide-react";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
+import { FutureCenterNotice } from "@/components/voyage/FutureCenterNotice";
 import { useSessionStore } from "@/store/useSessionStore";
 import { refreshStudentProfile } from "@/store/useStudentProfileStore";
 import {
@@ -243,6 +244,7 @@ export default function BoothCheckInPage({
             )}
 
             <div className="mt-auto pt-8">
+              <FutureCenterNotice />
               {state.booth.visited ? (
                 <CtaButton onClick={() => router.replace(doneHref)}>
                   성장 확인하기

@@ -6,8 +6,8 @@ import { Minus, Plus } from "lucide-react"
 import flows from "./flows.json"
 
 // 전체 시스템 스토리보드 — 학생 화면을 피그마 화이트보드처럼 흐름별 가로 줄로 늘어놓는다.
-// 프레임 목록은 flows.json, 이미지는 public/storyboard/에 있다(테스트 계정 최수아로 촬영,
-// 스크롤 영역까지 펼친 전체 길이).
+// 단계 사이는 화살표로 잇고, 한 단계에 화면이 여럿이면 분기(1→2→1)로 그린다. 흐름 → 단계 → 프레임은 flows.json,
+// 이미지는 public/storyboard/에 있다(테스트 계정 최수아로 촬영, 스크롤 영역까지 펼친 전체 길이).
 //
 // 무한 캔버스: 어디서든 끌면 이동, 휠·트랙패드 스크롤도 이동, 핀치·Ctrl(⌘)+휠은 커서 기준
 // 연속 확대·축소. 프레임은 끌지 않고 놓으면(클릭) 원본 이미지를 새 탭에 연다.
@@ -98,25 +98,48 @@ export default function StoryboardPage() {
           <section key={flow.title}>
             <h2 className="mb-10 text-6xl font-black tracking-tight text-neutral-800">{flow.title}</h2>
             <div className="flex items-start">
-              {flow.frames.map((frame, i) => (
-                <div key={frame.src} className="flex items-start">
-                  {i > 0 && <Arrow />}
-                  <figure className="w-[390px]">
-                    <figcaption className="mb-3 truncate text-lg font-medium text-neutral-500">
-                      {frame.name}
-                    </figcaption>
-                    <Image
-                      src={frame.src}
-                      data-src={frame.src}
-                      alt={`${frame.name} 화면`}
-                      width={frame.size[0]}
-                      height={frame.size[1]}
-                      // 다시 촬영해도 최적화 캐시가 옛 이미지를 내주지 않도록 원본을 그대로 쓴다.
-                      unoptimized
-                      draggable={false}
-                      className="h-auto w-full rounded-[28px] bg-white shadow-xl ring-1 ring-black/5"
+              {flow.steps.map((step, i) => (
+                <div key={step.frames[0].src} className="flex items-start">
+                  {i > 0 && (
+                    <Connector
+                      from={flow.steps[i - 1]}
+                      to={step}
+                      fromTop={offsetsOf(flow.steps)[i - 1]}
+                      toTop={offsetsOf(flow.steps)[i]}
                     />
-                  </figure>
+                  )}
+                  {/* 한 단계에 화면이 여럿이면 분기 — 세로로 쌓는다. 한 장짜리는 분기 묶음의 가운데에 온다. */}
+                  <div
+                    className="flex flex-col"
+                    style={{ gap: BRANCH_GAP, marginTop: offsetsOf(flow.steps)[i] }}
+                  >
+                    {(step.frames as Frame[]).map((frame) => (
+                      <figure key={frame.src} style={{ width: FRAME_W }}>
+                        <figcaption
+                          className="flex items-center gap-2 overflow-hidden whitespace-nowrap text-lg font-medium text-neutral-500"
+                          style={{ height: CAPTION_H }}
+                        >
+                          {frame.branch && (
+                            <span className="shrink-0 rounded-full bg-sky-100 px-3 py-0.5 font-bold text-sky-700">
+                              {frame.branch}
+                            </span>
+                          )}
+                          <span className="truncate">{frame.name}</span>
+                        </figcaption>
+                        <Image
+                          src={frame.src}
+                          data-src={frame.src}
+                          alt={`${frame.name} 화면`}
+                          width={frame.size[0]}
+                          height={frame.size[1]}
+                          // 다시 촬영해도 최적화 캐시가 옛 이미지를 내주지 않도록 원본을 그대로 쓴다.
+                          unoptimized
+                          draggable={false}
+                          className="h-auto w-full rounded-[28px] bg-white shadow-xl ring-1 ring-black/5"
+                        />
+                      </figure>
+                    ))}
+                  </div>
                 </div>
               ))}
             </div>
@@ -151,10 +174,63 @@ export default function StoryboardPage() {
   )
 }
 
-function Arrow() {
+type Step = (typeof flows)[number]["steps"][number]
+type Frame = Step["frames"][number] & { branch?: string; end?: boolean }
+
+const FRAME_W = 390
+const CAPTION_H = 52
+const BRANCH_GAP = 64
+const CONNECT_W = 140
+
+const imageH = (f: Frame) => (f.size[1] * FRAME_W) / f.size[0]
+const frameH = (f: Frame) => CAPTION_H + imageH(f)
+
+// 단계 안에서 각 프레임의 화살표 높이(위에서부터) — 화면 이미지의 세로 정중앙.
+function anchorsOf(step: Step): number[] {
+  let top = 0
+  return (step.frames as Frame[]).map((f) => {
+    const y = top + CAPTION_H + imageH(f) / 2
+    top += frameH(f) + BRANCH_GAP
+    return y
+  })
+}
+
+// 단계마다 화살표 높이들의 가운데를 한 줄에 맞추는 위쪽 여백 — 화면들의 중심이 한 줄에 놓이고,
+// 1→2→1에서 한 장짜리가 분기 묶음의 세로 가운데에 온다.
+function offsetsOf(steps: readonly Step[]): number[] {
+  const mids = steps.map((step) => {
+    const ys = anchorsOf(step)
+    return (ys[0] + ys[ys.length - 1]) / 2
+  })
+  const center = Math.max(...mids)
+  return mids.map((m) => center - m)
+}
+
+const columnH = (step: Step) =>
+  (step.frames as Frame[]).reduce((sum, f) => sum + frameH(f), 0) + BRANCH_GAP * (step.frames.length - 1)
+
+// 단계 사이 화살표. 앞 단계의 각 화면(막다른 분기 end 제외)에서 다음 단계의 각 화면으로 잇는다 —
+// 1→2면 갈라지고 2→1이면 합쳐진다. 양쪽 수가 같은 분기끼리는 짝지어 나란히 잇는다.
+function Connector({ from, to, fromTop, toTop }: { from: Step; to: Step; fromTop: number; toTop: number }) {
+  const ys = anchorsOf(from).map((y) => y + fromTop)
+  const yt = anchorsOf(to).map((y) => y + toTop)
+  const sources = (from.frames as Frame[]).map((f, i) => ({ y: ys[i], end: f.end })).filter((s) => !s.end)
+  const paired = sources.length > 1 && sources.length === yt.length
+  const edges = paired
+    ? sources.map((s, i) => [s.y, yt[i]])
+    : sources.flatMap((s) => yt.map((t) => [s.y, t]))
+  const h = Math.max(fromTop + columnH(from), toTop + columnH(to))
+  const x0 = 8
+  const x1 = CONNECT_W - 10
   return (
-    <svg aria-hidden width="96" height="24" viewBox="0 0 96 24" className="mx-4 mt-[420px] shrink-0 text-neutral-400">
-      <path d="M2 12h86m-10-8 10 8-10 8" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+    <svg aria-hidden width={CONNECT_W} height={h} className="mx-4 shrink-0 overflow-visible text-neutral-400">
+      {edges.map(([a, b]) => (
+        <g key={`${a}-${b}`} fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="miter">
+          {/* 곡선 없이 꺾은선 — 가로 → 가운데에서 세로 → 가로. 분기들이 같은 세로줄을 공유한다. */}
+          <path d={`M${x0} ${a} H${CONNECT_W / 2} V${b} H${x1}`} />
+          <path d={`M${x1 - 14} ${b - 11} L${x1} ${b} L${x1 - 14} ${b + 11}`} />
+        </g>
+      ))}
     </svg>
   )
 }

@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 from typing import Literal
 
@@ -132,12 +133,38 @@ class Settings(BaseSettings):
     # 이미지 생성이 실측 ~60s 걸린다. 여유를 둔 상한.
     codex_timeout_seconds: float = 300.0
 
+    # Vertex AI(Google Cloud) — dev 전용. 미래 사진을 Gemini 이미지 모델로 만들어 codex와 비교한다.
+    # 인증: 서비스 계정에 연결한 API 키(VERTEX_API_KEY)가 우선. 조직 정책
+    # (iam.disableServiceAccountKeyCreation)으로 키 파일을 만들 수 없어 키 파일 방식은 두지 않는다.
+    # 키가 없으면 ADC(gcloud auth application-default login) — 로컬 개발용.
+    # GCP_PROJECT는 키가 있어도 필요하다(global 리전으로 보내려면 프로젝트 경로가 있어야 함).
+    vertex_api_key: str = ""
+    gcp_project: str = ""
+    # 두 번째 GCP 프로젝트(선택). 있으면 호출마다 번갈아 써서 할당량(429)을 나눈다.
+    # 할당량은 프로젝트 단위라 같은 프로젝트의 키를 하나 더 넣어도 소용없다.
+    vertex_api_key_2: str = ""
+    gcp_project_2: str = ""
+    gcp_location: str = "global"  # Gemini 3 이미지 모델은 global 엔드포인트에서 제공
+    vertex_image_model: str = "gemini-nano-banana-2.1"
+    # 출력 해상도 "1K" | "2K" | "4K". 카드 사진 칸이 폭 1024px이라 1K로 충분하다.
+    # gemini-2.5-flash-image는 이 값을 지원하지 않는다 — 그 모델을 쓸 땐 ""로 둔다.
+    vertex_image_size: str = "1K"
+
+    # API 초안 생성(/dev/api-draft) — 페르소나 텍스트를 codex 대신 OpenRouter로 만든다.
+    api_persona_model: str = "openai/gpt-6-luna"
+
     # Worker
-    card_worker_enabled: bool = True
-    card_worker_concurrency: int = 10
-    job_poll_interval_seconds: float = 1.0
-    job_max_retries: int = 2
-    job_stuck_timeout_minutes: int = 10
+    # 카드 자동 공개 — 설문·사진을 마친 학생을 폴링해 API로 카드를 만들어 검수 없이 바로 공개한다.
+    # 로컬 .env도 운영 DB를 가리키므로 기본은 꺼 둔다 — 서버 한 곳에서만 켠다.
+    # 켜면 VERTEX_API_KEY·GCP_PROJECT·OPENROUTER_API_KEY 필요.
+    auto_card_enabled: bool = False
+    # 이 시각 이후 설문을 완료한 학생만 대상. 그 전 학생은 codex 일괄 생성·검수로 처리했다.
+    auto_card_since: datetime = datetime(2026, 10, 11, tzinfo=timezone(timedelta(hours=9)))
+    # 한 번에 만드는 수. Vertex 분당 할당량(429)을 넘지 않게 작게 둔다.
+    auto_card_concurrency: int = 2
+    auto_card_poll_seconds: float = 10.0
+    # 일시적 실패(429 등) 허용 횟수. 넘으면 승인하지 않은 초안으로 남기고 대상에서 뺀다.
+    auto_card_max_attempts: int = 3
 
     @property
     def cors_origin_list(self) -> list[str]:

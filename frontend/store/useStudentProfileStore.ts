@@ -72,6 +72,13 @@ export function loadStudentProfile(token: string, force = false): Promise<void> 
   return request;
 }
 
+// 프로필을 돌려주는 변경 API(카드 사진 선택 등)의 응답으로 바로 갈아끼운다.
+export function setStudentProfile(profile: ProfileSummary) {
+  revision += 1;
+  pending = null;
+  useStudentProfileStore.setState({ profile, updatedAt: Date.now(), fetching: false, error: null });
+}
+
 // 방문 인증 직후 갱신한다. 인증 이전에 시작한 응답은 revision으로 무시한다.
 export function refreshStudentProfile(token: string) {
   return loadStudentProfile(token, true);

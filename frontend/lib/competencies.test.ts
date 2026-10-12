@@ -94,12 +94,10 @@ describe("countVisitedByZone", () => {
     ]);
   });
 
-  it("존을 모르는 부스가 있을 때만 미지정 칸이 맨 뒤에 붙는다", () => {
-    expect(countVisitedByZone([{ zone: "F" }])).toHaveLength(4);
-
+  it("존이 없는 부스는 미지정 칸을 만들지 않는다", () => {
     const rows = countVisitedByZone([{ zone: "F" }, {}, { zone: "" }]);
 
-    expect(rows).toHaveLength(5);
-    expect(rows[4]).toEqual({ zone: "", count: 2 });
+    expect(rows).toHaveLength(4);
+    expect(rows.map((r) => r.zone)).not.toContain("");
   });
 });

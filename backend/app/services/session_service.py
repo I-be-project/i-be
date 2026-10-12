@@ -236,7 +236,7 @@ class SessionService:
                 keywords=persona.keywords,
                 fields=persona.fields,
             ),
-            card=await self._build_card_summary(persona.id),
+            card=await self._build_card_summary(persona),
         )
 
     async def _get_shared_student(self, code: str) -> StudentRecord:
@@ -270,7 +270,7 @@ class SessionService:
             )
             if persona
             else None,
-            card=await self._build_card_summary(persona.id) if persona else None,
+            card=await self._build_card_summary(persona) if persona else None,
             booths=booths,
             competencies=competencies,
         )
@@ -455,16 +455,22 @@ class SessionService:
         )
         return statuses, scores
 
-    async def _build_card_summary(self, persona_id: UUID) -> CardSummary | None:
+    async def _build_card_summary(self, persona: PersonaRecord) -> CardSummary | None:
         """카드 이미지가 있으면 Presigned URL로, 없으면 None."""
-        card = await self._cards.get_by_persona(persona_id)
+        card = await self._cards.get_by_persona(persona.id)
         if card is None or card.card_image_key is None:
             return None
         url = await self._storage.create_signed_url(
             card.card_image_key,
             ttl_seconds=self._settings.share_link_ttl_hours * 3600,
         )
-        return CardSummary(card_image_url=url)
+        # AI 사진이 있고 아직 고르지 않았으면 홈에서 선택 팝업을 띄운다. 한 번 고르면 끝.
+        if persona.ai_image_key is None or persona.photo_chosen_at is not None:
+            return CardSummary(card_image_url=url)
+        ai_url = await self._storage.create_signed_url(
+            persona.ai_image_key, ttl_seconds=self._settings.share_link_ttl_hours * 3600
+        )
+        return CardSummary(card_image_url=url, photo_choice_needed=True, ai_photo_url=ai_url)
 
     # 세션 시작/다음 질문 흐름은 아직 별도 작업 영역 — 스텁 유지.
     async def start(self, *args: object, **kwargs: object) -> object:

@@ -1,6 +1,13 @@
 import Link from "next/link"
 import type { LucideIcon } from "lucide-react"
-import { ArrowRight, ClipboardCheck, ImageIcon, LayoutGrid, UserRoundSearch } from "lucide-react"
+import {
+  ArrowRight,
+  ClipboardCheck,
+  ImageIcon,
+  LayoutGrid,
+  UserRoundSearch,
+  Zap,
+} from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 
@@ -38,6 +45,14 @@ const DEV_TOOLS: DevTool[] = [
     icon: ClipboardCheck,
   },
   {
+    title: "API 초안 생성",
+    description:
+      "학생 한 명을 골라 페르소나(OpenRouter)와 10년 뒤 사진(Vertex AI)을 API로 만들고 카드로 미리 봅니다. 검수 초안과 같은 프롬프트를 쓰며 저장하지 않습니다.",
+    href: "/dev/api-draft",
+    tag: "API",
+    icon: Zap,
+  },
+  {
     title: "전체 시스템 스토리보드",
     description:
       "가입부터 설문, 부스 참여, 개인·공개 페이지까지 학생 화면을 화이트보드처럼 흐름 순서로 한눈에 봅니다.",
@@ -56,8 +71,8 @@ export default function DevIndexPage() {
         </Badge>
         <h1 className="text-2xl font-bold tracking-tight md:text-3xl">개발 도구</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          로컬 codex CLI로 동작하는 테스트 화면입니다. OpenRouter 크레딧을 쓰지 않으며,
-          로컬(APP_ENV=local)에서만 열립니다.
+          로컬(APP_ENV=local)에서만 열리는 테스트 화면입니다. 대부분 로컬 codex CLI로 동작하고,
+          API 초안 생성과 Vertex 모델을 고른 사진 생성은 API 크레딧을 씁니다.
         </p>
       </header>
 

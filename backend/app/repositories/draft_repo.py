@@ -17,7 +17,8 @@ from app.repositories.base import BaseRepository
 DRAFT_STATUSES = ("pending", "approved", "rejected")
 
 # 다시 만들 대상 분류 → 조건. 원본 사진이 없거나 검수자가 폴백을 고른 건은 대상이 아니다.
-_REFUSED = "d.error like 'codex가 이미지를 만들지 않았습니다%'"
+_REFUSED = """(d.error like 'codex가 이미지를 만들지 않았습니다%'
+    or d.error like 'Vertex AI가 이미지를 만들지 않았습니다%')"""
 DRAFT_ISSUES = {
     # 실행 실패·시간 초과·중간에 끊김 — 다시 돌리면 대개 된다.
     "codex_failed": f"""d.image_key is null and s.photo_key is not null
@@ -190,6 +191,33 @@ class DraftRepository(BaseRepository):
             rows = await conn.fetch(query, student_id, school, grade, class_no, limit)
         return [DraftTarget(session_id=r["session_id"], student_id=r["student_id"]) for r in rows]
 
+    async def list_publish_targets(self, *, since: datetime, limit: int) -> list[DraftTarget]:
+        """카드 자동 공개 대상 — since 이후 완료한 학생별 최근 세션 중 사진이 있고 초안이 없는 것.
+
+        since로 자동 공개 이전(codex 검수 시절) 학생을 뺀다. 테스트 계정도 포함한다.
+        사진은 설문 완료 뒤에 올리므로 사진이 올라올 때까지는 대상이 아니다. 오래된 완료 순.
+        """
+        query = """
+            select session_id, student_id from (
+                select distinct on (se.student_id) se.id as session_id, se.student_id,
+                       se.completed_at
+                from generated.sessions se
+                join pii.students st on st.id = se.student_id
+                where se.status = 'completed' and st.deleted_at is null
+                  and st.photo_key is not null
+                order by se.student_id, se.completed_at desc
+            ) latest
+            where latest.completed_at >= $1
+              and not exists (
+                select 1 from generated.persona_drafts d where d.session_id = latest.session_id
+              )
+            order by completed_at
+            limit $2
+        """
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetch(query, since, limit)
+        return [DraftTarget(session_id=r["session_id"], student_id=r["student_id"]) for r in rows]
+
     async def count_targets(self) -> int:
         """전체 학교의 대상 수 — list_targets와 같은 조건."""
         async with self._pool.acquire() as conn:
@@ -285,6 +313,33 @@ class DraftRepository(BaseRepository):
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(f"{_SELECT} where d.id = $1", draft_id)
         return _to_record(row) if row else None
+
+    async def get_by_session(self, session_id: UUID) -> DraftRecord | None:
+        async with self._pool.acquire() as conn:
+            row = await conn.fetchrow(f"{_SELECT} where d.session_id = $1", session_id)
+        return _to_record(row) if row else None
+
+    async def persona_photo_chosen(self, session_id: UUID) -> bool:
+        async with self._pool.acquire() as conn:
+            chosen: bool = await conn.fetchval(
+                "select photo_chosen_at is not null from generated.personas where session_id = $1",
+                session_id,
+            )
+        return bool(chosen)
+
+    async def choose_persona_photo(self, session_id: UUID, image_key: str | None) -> bool:
+        """카드 사진 선택을 확정한다(한 번만). image_key가 None이면 캐릭터. 이미 골랐으면 False."""
+        async with self._pool.acquire() as conn:
+            done = await conn.fetchval(
+                """
+                update generated.personas set image_key = $2, photo_chosen_at = now()
+                where session_id = $1 and photo_chosen_at is null
+                returning true
+                """,
+                session_id,
+                image_key,
+            )
+        return bool(done)
 
     async def list_drafts(
         self,
