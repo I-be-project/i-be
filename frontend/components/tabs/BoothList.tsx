@@ -1,3 +1,5 @@
+import { MapPin } from "lucide-react";
+import { getBoothMapLocation } from "@/lib/boothMap";
 import type { ProfileBoothStatus } from "@/lib/api";
 import { competencyLabel, countVisitedByZone, ZONE_LABELS, ZONE_SHORT, type BoothZone } from "@/lib/competencies";
 import { groupVisitsByDay } from "@/lib/visitDays";
@@ -67,7 +69,7 @@ export function VisitJournal({ booths }: { booths: ProfileBoothStatus[] }) {
 }
 
 // 부스 탭 — 고른 존 하나의 부스 목록. 머리에 그 존의 참여 진행(참여 수 / 전체)을 막대로 보여준다.
-export function ZoneSection({ zone, booths, personaKeywords = [], onSelect }: { zone: BoothZone; booths: ProfileBoothStatus[]; personaKeywords?: string[]; onSelect?: (booth: ProfileBoothStatus) => void }) {
+export function ZoneSection({ zone, booths, personaKeywords = [], onSelect, onMap }: { zone: BoothZone; booths: ProfileBoothStatus[]; personaKeywords?: string[]; onSelect?: (booth: ProfileBoothStatus) => void; onMap?: (booth: ProfileBoothStatus) => void }) {
   const visited = booths.filter((b) => b.visited).length;
   return <section className={`${SOFT_CARD} p-4`} aria-label={`${ZONE_SHORT[zone]} 부스`}>
     <header className="mb-1.5 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2.5">
@@ -80,25 +82,25 @@ export function ZoneSection({ zone, booths, personaKeywords = [], onSelect }: { 
       </div>
       <span className="text-xs font-extrabold text-hm-blue/70">{visited} / {booths.length}</span>
     </header>
-    <BoothRows booths={booths} personaKeywords={personaKeywords} onSelect={onSelect} />
+    <BoothRows booths={booths} personaKeywords={personaKeywords} onSelect={onSelect} onMap={onMap} />
   </section>;
 }
 
 // 추천 탭 — 페르소나 역량·분야와 맞는 부스. 여러 존이 섞이므로 행마다 존 블록을 붙인다.
-export function RecommendSection({ booths, personaKeywords = [], onSelect, title, ariaLabel = "추천 부스", empty = "아직 추천할 부스가 없어. 존을 골라 둘러봐." }: { booths: ProfileBoothStatus[]; personaKeywords?: string[]; onSelect?: (booth: ProfileBoothStatus) => void; title?: string; ariaLabel?: string; empty?: string }) {
+export function RecommendSection({ booths, personaKeywords = [], onSelect, onMap, title, ariaLabel = "추천 부스", empty = "아직 추천할 부스가 없어. 존을 골라 둘러봐." }: { booths: ProfileBoothStatus[]; personaKeywords?: string[]; onSelect?: (booth: ProfileBoothStatus) => void; onMap?: (booth: ProfileBoothStatus) => void; title?: string; ariaLabel?: string; empty?: string }) {
   return <section className={`${SOFT_CARD} p-4`} aria-label={ariaLabel}>
     {title && <h2 className="mb-1.5 text-[20px] font-extrabold leading-snug text-hm-blue">{title}</h2>}
-    <BoothRows booths={booths} personaKeywords={personaKeywords} onSelect={onSelect} showZone empty={empty} />
+    <BoothRows booths={booths} personaKeywords={personaKeywords} onSelect={onSelect} onMap={onMap} showZone empty={empty} />
   </section>;
 }
 
-function BoothRows({ booths, personaKeywords = [], showZone = false, empty = "조건에 맞는 부스가 없어.", onSelect }: { booths: ProfileBoothStatus[]; personaKeywords?: string[]; showZone?: boolean; empty?: string; onSelect?: (booth: ProfileBoothStatus) => void }) {
+function BoothRows({ booths, personaKeywords = [], showZone = false, empty = "조건에 맞는 부스가 없어.", onSelect, onMap }: { booths: ProfileBoothStatus[]; personaKeywords?: string[]; showZone?: boolean; empty?: string; onSelect?: (booth: ProfileBoothStatus) => void; onMap?: (booth: ProfileBoothStatus) => void }) {
   const mine = new Set(personaKeywords.map((keyword) => competencyLabel(keyword.trim().replace(/^#/, ""))));
   if (!booths.length) return <p className={cn("py-6 text-center text-sm text-hm-blue/60", !showZone && "border-t border-[#e9eff5]")}>{empty}</p>;
   return <ul>{booths.map((booth) => {
     const zone = booth.zone ?? "";
     return <li key={booth.id} className={cn("border-t border-[#e9eff5]", showZone && "first:border-t-0")}>
-      <button type="button" onClick={() => onSelect?.(booth)} className="flex w-full justify-between gap-2.5 py-2.5 text-left">
+      <div className="flex items-center gap-2"><button type="button" onClick={() => onSelect?.(booth)} className="flex min-w-0 flex-1 justify-between gap-2.5 py-2.5 text-left">
       <div className="min-w-0">
         <h3 className={cn("break-keep text-[15px] font-extrabold leading-snug", booth.visited ? "text-hm-blue/40" : "text-hm-blue")}>
           {showZone && <ZoneBlock zone={zone} className="mr-1.5 align-[2px]" />}
@@ -111,6 +113,8 @@ function BoothRows({ booths, personaKeywords = [], showZone = false, empty = "�
       </div>
       {booth.visited && <span className="shrink-0 text-[11px] font-extrabold text-hm-teal">참여 완료</span>}
       </button>
+      {onMap && getBoothMapLocation(booth.name) && <button type="button" onClick={() => onMap(booth)} aria-label={`${booth.name} 지도 위치 보기`} title="지도에서 위치 보기" className="grid size-11 shrink-0 place-items-center rounded-full bg-hm-blue/5 text-hm-blue transition-colors hover:bg-hm-blue/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-hm-blue"><MapPin size={20} strokeWidth={1.8} aria-hidden="true" /></button>}
+      </div>
     </li>;
   })}</ul>;
 }
