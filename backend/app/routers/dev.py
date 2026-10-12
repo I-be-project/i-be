@@ -14,19 +14,14 @@
 
 from __future__ import annotations
 
-import asyncio
 import base64
-import json
 import time
-from collections.abc import Awaitable
-from typing import Annotated, Any, Literal
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
-from app.adapters.ai_client import AIPurpose
 from app.adapters.storage_client import StorageClient
-from app.adapters.vertex_image_client import GeneratedImage, VertexImageClient
 from app.core.errors import NotFoundError
 from app.core.images import crop_top, inspect_image, to_codex_input
 from app.core.prompts.future_photo_prompt import (
@@ -41,7 +36,7 @@ from app.core.prompts.persona_prompt import (
     build_user_prompt,
 )
 from app.deps import (
-    AIClientDep,
+    ApiDraftServiceDep,
     CodexClientDep,
     DraftRepoDep,
     DraftServiceDep,
@@ -80,9 +75,10 @@ from app.schemas.dev import (
     StudentAnswersResponse,
     TargetCount,
 )
+from app.services.api_draft_service import vertex_future_photo
 from app.services.dev_service import build_persona_inputs
 from app.services.draft_batch import dev_batch
-from app.services.draft_service import card_qr_data, to_draft_text
+from app.services.draft_service import card_qr_data
 from app.services.id_card_renderer import IdCardContent, render_id_card
 
 # 원본 사진 Presigned URL 유효시간. admin과 같은 1시간 — dev 세션에 충분하다.
@@ -228,20 +224,6 @@ async def generate_persona(
     )
 
 
-async def _vertex_future_photo(
-    vertex: VertexImageClient, photo: bytes, prompt: str, *, model: str | None = None
-) -> GeneratedImage:
-    """검수 초안과 같은 입력(사진·구도 실루엣·배경)으로 Vertex 생성 → 4:5 크롭."""
-    generated = await vertex.generate_image(
-        prompt,
-        [photo, LAYOUT_REFERENCE_IMAGE.read_bytes(), BACKGROUND_IMAGE.read_bytes()],
-        # 저장본 비율(PHOTO_RATIO)로 바로 요청 — crop_top은 안전장치로만 남는다.
-        aspect_ratio="4:5",
-        model=model,
-    )
-    return GeneratedImage(crop_top(generated.data, PHOTO_RATIO), generated.cost_usd)
-
-
 @router.post("/future-photo", response_model=GenerateFuturePhotoResponse)
 async def generate_future_photo(
     req: GenerateFuturePhotoRequest,
@@ -268,7 +250,7 @@ async def generate_future_photo(
     started = time.perf_counter()
     cost_usd: float | None = None  # codex는 구독 과금이라 장당 비용이 없다
     if req.provider == "vertex":
-        generated = await _vertex_future_photo(vertex, photo, req.prompt, model=req.model)
+        generated = await vertex_future_photo(vertex, photo, req.prompt, model=req.model)
         image_bytes, cost_usd = generated.data, generated.cost_usd
     else:
         image_bytes = await codex.generate_image(
@@ -582,25 +564,18 @@ async def cancel_batch() -> BatchStatus:
 # API 초안 — codex 대신 API(OpenRouter 페르소나 + Vertex 이미지)로 한 명을 만들어 본다.
 # ──────────────────────────────────────────────────────────────
 
-# 카드 미리보기용 QR 코드. 실제 코드를 발급하면(ensure_card_code) DB에 남으므로 쓰지 않는다.
-_PREVIEW_CARD_CODE = "PREVIEW0"
-
 
 @router.post("/api-draft", response_model=ApiDraftResponse)
 async def generate_api_draft(
     req: ApiDraftRequest,
     students: StudentRepoDep,
     sessions: SessionRepoDep,
-    storage: StorageClientDep,
-    service: DraftServiceDep,
-    ai: AIClientDep,
-    vertex: VertexImageClientDep,
+    api_drafts: ApiDraftServiceDep,
     settings: SettingsDep,
 ) -> ApiDraftResponse:
     """학생 1명 → 페르소나(OpenRouter) + 10년 뒤 사진(Vertex) + 카드 미리보기. 저장하지 않는다.
 
-    입력은 검수 초안 생성(DraftService.generate_text·generate_image)과 같다.
-    둘은 서로 의존하지 않아 동시에 돌리고, 한쪽이 실패해도 다른 쪽 결과는 돌려준다.
+    자동 공개 워커와 같은 ApiDraftService.generate를 쓴다 — 여기서 본 결과가 곧 공개될 결과다.
     """
     student = await students.get_by_id(req.student_id)
     if student is None:
@@ -609,52 +584,26 @@ async def generate_api_draft(
     if session is None:
         raise NotFoundError("이 학생에게는 설문 세션이 없습니다.")
 
-    async def persona() -> tuple[dict[str, Any] | None, float | None]:
-        system, user = await service.persona_prompts(session.id)
-        resp = await ai.chat(
-            AIPurpose.PERSONA,
-            [{"role": "system", "content": system}, {"role": "user", "content": user}],
-            model=settings.api_persona_model,
-            response_format={
-                "type": "json_schema",
-                "json_schema": {"name": "persona", "strict": True, "schema": PERSONA_OUTPUT_SCHEMA},
-            },
-            extra_body={"usage": {"include": True}},  # OpenRouter 실제 청구액(usage.cost)
-        )
-        result = json.loads(resp.choices[0].message.content or "")
-        if not isinstance(result, dict):
-            raise ValueError("페르소나 응답이 JSON 객체가 아닙니다.")
-        return result, getattr(resp.usage, "cost", None)
-
-    async def image() -> GeneratedImage:
-        if not student.photo_key:
-            raise NotFoundError("원본 사진 없음")
-        photo = to_codex_input(await storage.download(student.photo_key))
-        return await _vertex_future_photo(vertex, photo, DEFAULT_FUTURE_PHOTO_PROMPT)
-
-    (p_res, p_err, p_sec), (i_res, i_err, i_sec) = await asyncio.gather(
-        _timed(persona()), _timed(image())
-    )
-    persona_result, persona_cost = p_res if p_res else (None, None)
-
+    result = await api_drafts.generate(student, session.id)
+    image = result.image
     out = ApiDraftResponse(
-        persona=persona_result,
-        persona_model=settings.api_persona_model,
-        persona_error=p_err,
-        persona_seconds=p_sec,
-        persona_cost_usd=persona_cost,
-        image_base64=base64.b64encode(i_res.data).decode("ascii") if i_res else None,
+        persona=result.persona,
+        persona_model=api_drafts.persona_model,
+        persona_error=result.persona_error,
+        persona_seconds=result.persona_seconds,
+        persona_cost_usd=result.persona_cost_usd,
+        image_base64=base64.b64encode(image.data).decode("ascii") if image else None,
         image_model=settings.vertex_image_model,
-        image_error=i_err,
-        image_seconds=i_sec,
-        image_cost_usd=i_res.cost_usd if i_res else None,
+        image_error=result.image_error,
+        image_seconds=result.image_seconds,
+        image_cost_usd=image.cost_usd if image else None,
     )
-    if persona_result is not None:
-        text = to_draft_text(persona_result)
+    if result.text is not None:
+        text = result.text
         out.name, out.headline, out.tagline = text.name, text.headline, text.tagline
         out.base_career = text.base_career
         card = render_id_card(
-            i_res.data if i_res else None,  # 이미지가 없으면 폴백 캐릭터 — 검수 카드와 같다
+            image.data if image else None,  # 이미지가 없으면 폴백 캐릭터 — 공개 카드와 같다
             IdCardContent(
                 student_name=student.name,
                 school=student.school,
@@ -663,19 +612,9 @@ async def generate_api_draft(
                 student_no=student.student_no,
                 headline=text.headline,
                 base_career=text.base_career,
-                qr_data=card_qr_data(settings.card_qr_origin, _PREVIEW_CARD_CODE),
+                # 실제 코드를 발급하면(ensure_card_code) DB에 남으므로 예시 코드를 쓴다.
+                qr_data=card_qr_data(settings.card_qr_origin, "PREVIEW0"),
             ),
         )
         out.card_base64 = base64.b64encode(card).decode("ascii")
     return out
-
-
-async def _timed[T](coro: Awaitable[T]) -> tuple[T | None, str | None, float]:
-    """(결과, 실패 사유, 걸린 초). 실패를 삼켜 다른 쪽 생성 결과를 살린다."""
-    started = time.perf_counter()
-    try:
-        result: T | None = await coro
-        error = None
-    except Exception as exc:
-        result, error = None, str(exc)[:500]
-    return result, error, round(time.perf_counter() - started, 2)

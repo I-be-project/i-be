@@ -33,6 +33,7 @@ from app.repositories.session_repo import SessionRepository
 from app.repositories.settings_repo import SettingsRepository
 from app.repositories.student_repo import StudentRepository
 from app.services.admin_service import AdminService
+from app.services.api_draft_service import ApiDraftService
 from app.services.auth_service import AuthService
 from app.services.booth_service import BoothService
 from app.services.booth_visit_service import BoothVisitService
@@ -322,3 +323,25 @@ def get_draft_service(
 
 
 DraftServiceDep = Annotated[DraftService, Depends(get_draft_service)]
+
+
+def get_api_draft_service(
+    ai: AIClientDep,
+    vertex: VertexImageClientDep,
+    draft_service: DraftServiceDep,
+    drafts: DraftRepoDep,
+    storage: StorageClientDep,
+    settings: SettingsDep,
+) -> ApiDraftService:
+    """API 초안(OpenRouter 페르소나 + Vertex 사진). 카드 자동 공개(card_publisher)도 같은 구성."""
+    return ApiDraftService(
+        ai=ai,
+        vertex=vertex,
+        draft_service=draft_service,
+        drafts=drafts,
+        storage=storage,
+        persona_model=settings.api_persona_model,
+    )
+
+
+ApiDraftServiceDep = Annotated[ApiDraftService, Depends(get_api_draft_service)]
