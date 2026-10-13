@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import { ChevronRight, Compass, LogOut, Sparkles } from "lucide-react";
 import { useSessionStore } from "@/store/useSessionStore";
 import { getMyProfile } from "@/lib/api";
+import { setStudentProfile } from "@/store/useStudentProfileStore";
 import { reconcileFromProfile, resumeScreen, resumePath } from "@/lib/explore/flow";
 import { AboutSheet } from "@/components/welcome/AboutSheet";
 
@@ -25,6 +26,8 @@ export default function WelcomePage() {
     let alive = true;
     getMyProfile(studentToken)
       .then((p) => {
+        // 홈으로 넘어갈 때 /me를 또 부르지 않게 탭 공용 캐시에 심는다.
+        setStudentProfile(p, studentToken);
         if (!alive) return;
         if (p.student?.name) setFetchedName(p.student.name);
         // 로컬 저장소가 초기화된 기기에서도 이미 완료한 학생은 완료 화면으로

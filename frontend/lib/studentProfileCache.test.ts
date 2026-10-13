@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, getMyProfile, type ProfileSummary } from "./api";
 import { useSessionStore } from "@/store/useSessionStore";
-import { clearStudentProfileCache, loadStudentProfile, PROFILE_CACHE_TTL, refreshStudentProfile, useStudentProfileStore } from "@/store/useStudentProfileStore";
+import { clearStudentProfileCache, loadStudentProfile, PROFILE_CACHE_TTL, refreshStudentProfile, setStudentProfile, useStudentProfileStore } from "@/store/useStudentProfileStore";
 
 vi.mock("./api", async (original) => ({
   ...await original<typeof import("./api")>(),
@@ -98,5 +98,44 @@ describe("탭 공용 프로필 캐시", () => {
     await loadStudentProfile("student-a");
     await refreshStudentProfile("student-a");
     expect(useStudentProfileStore.getState()).toMatchObject({ profile: null, unauthorized: true, fetching: false });
+  });
+});
+
+// vitest 환경이 node라 sessionStorage가 없다 — 메모리 Map으로 흉내 낸다.
+function fakeStorage() {
+  const map = new Map<string, string>();
+  return {
+    getItem: (key: string) => map.get(key) ?? null,
+    setItem: (key: string, value: string) => { map.set(key, value); },
+    removeItem: (key: string) => { map.delete(key); },
+  };
+}
+
+describe("sessionStorage 저장본", () => {
+  beforeEach(() => vi.stubGlobal("sessionStorage", fakeStorage()));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("새로고침으로 메모리가 비어도 유효한 저장본은 요청 없이 되살린다", async () => {
+    vi.mocked(getMyProfile).mockResolvedValue(profile);
+    await loadStudentProfile("student-a");
+    clearStudentProfileCache(); // 새로고침 — 메모리만 비고 세션 토큰은 localStorage에서 그대로 복원된다
+    await loadStudentProfile("student-a");
+    expect(getMyProfile).toHaveBeenCalledTimes(1);
+    expect(useStudentProfileStore.getState()).toMatchObject({ token: "student-a", profile });
+  });
+
+  it("다른 화면이 먼저 받은 프로필을 심어 두면 탭 진입 때 요청하지 않는다", async () => {
+    setStudentProfile(profile, "student-a");
+    await loadStudentProfile("student-a");
+    expect(getMyProfile).not.toHaveBeenCalled();
+    expect(useStudentProfileStore.getState().profile).toEqual(profile);
+  });
+
+  it("로그아웃하면 저장본도 지워 다음 계정이 보지 못한다", async () => {
+    vi.mocked(getMyProfile).mockResolvedValue(profile);
+    await loadStudentProfile("student-a");
+    expect(sessionStorage.getItem("hm.profile")).not.toBeNull();
+    useSessionStore.setState({ studentToken: null, studentId: null });
+    expect(sessionStorage.getItem("hm.profile")).toBeNull();
   });
 });

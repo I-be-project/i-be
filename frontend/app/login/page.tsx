@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { IdentityFields, isGuestLevel, type IdentityValues } from "@/components/auth/IdentityFields";
 import { useSessionStore } from "@/store/useSessionStore";
 import { ApiError, getMyProfile, loginStudent } from "@/lib/api";
+import { setStudentProfile } from "@/store/useStudentProfileStore";
 import { reconcileFromProfile, resumeScreen, resumePath } from "@/lib/explore/flow";
 import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
@@ -99,6 +100,7 @@ function LoginForm() {
       try {
         const profile = await getMyProfile(res.student_token);
         reconcileFromProfile(profile);
+        setStudentProfile(profile, res.student_token); // 홈에서 /me를 또 부르지 않게 캐시에 심는다
       } catch {
         // 무시 — 로컬 상태 기준으로 계속 진행(fail-open)
       }
