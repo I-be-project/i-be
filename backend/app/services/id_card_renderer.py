@@ -55,6 +55,10 @@ WHITE = (255, 255, 255, 255)
 # 이름·학교 글씨 뒤 번진 그림자 — 생성 사진의 남색 재킷(future_photo_prompt)과 같은 계열.
 SHADOW = (28, 36, 68, 220)
 SHADOW_BLUR = 10  # px
+# 로고 뒤 흰 그림자 — 로고 윤곽을 GLOW_SPREAD만큼 넓힌 뒤 GLOW_BLUR로 번지게 한다.
+LOGO_GLOW_SPREAD = 5  # px, MaxFilter 크기(홀수)
+LOGO_GLOW_BLUR = 14  # px
+LOGO_GLOW_OPACITY = 0.7  # 0~1, 전체 진하기
 
 
 @dataclass(frozen=True)
@@ -117,6 +121,17 @@ def _white_texts(card: Image.Image, texts: list[_Text]) -> None:
         draw.text(xy, text, font=font, fill=WHITE, anchor=anchor)
 
 
+def _white_glow(card: Image.Image, logo: Image.Image, xy: tuple[int, int]) -> None:
+    """로고 뒤에 흰 그림자를 번지게 깐다 — 진한 사진 배경 위에서도 로고가 읽히게."""
+    mask = Image.new("L", card.size, 0)
+    mask.paste(logo.getchannel("A"), xy)
+    mask = mask.filter(ImageFilter.MaxFilter(LOGO_GLOW_SPREAD))
+    glow = Image.new("RGBA", card.size, WHITE)
+    mask = mask.filter(ImageFilter.GaussianBlur(LOGO_GLOW_BLUR))
+    glow.putalpha(mask.point(lambda v: round(v * LOGO_GLOW_OPACITY)))
+    card.alpha_composite(glow)
+
+
 def _qr(data: str, size: int) -> Image.Image:
     qr = qrcode.QRCode(border=2, box_size=10)
     qr.add_data(data)
@@ -153,7 +168,9 @@ def render_id_card(image_png: bytes | None, content: IdCardContent) -> bytes:
     draw = ImageDraw.Draw(card)
 
     # ── 헤더: 로고(좌) · QR(우) ──
-    card.alpha_composite(_logo(round(W * LOGO_W)), (round(W * LOGO_X), round(H * LOGO_Y)))
+    logo, logo_xy = _logo(round(W * LOGO_W)), (round(W * LOGO_X), round(H * LOGO_Y))
+    _white_glow(card, logo, logo_xy)
+    card.alpha_composite(logo, logo_xy)
     qr = round(W * QR_W)
     card.alpha_composite(_qr(content.qr_data, qr), (W - round(W * QR_RIGHT) - qr, round(H * QR_Y)))
 

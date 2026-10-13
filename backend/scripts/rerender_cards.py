@@ -23,6 +23,7 @@ from app.adapters.db_pool import DBPool
 from app.adapters.storage_client import StorageClient
 from app.config import get_settings
 from app.repositories.draft_repo import DraftRecord, DraftRepository
+from app.repositories.persona_repo import PersonaRepository
 from app.repositories.session_repo import SessionRepository
 from app.repositories.student_repo import StudentRepository
 from app.services.draft_service import DraftService
@@ -42,6 +43,7 @@ async def run(args: argparse.Namespace) -> int:
     pool = DBPool(settings.database_url)
     await pool.connect(max_size=2)
     drafts = DraftRepository(pool)
+    personas = PersonaRepository(pool)
     service = DraftService(
         # 재합성엔 codex를 안 쓰지만 서비스 생성자가 요구한다.
         codex=CodexClient(
@@ -64,7 +66,14 @@ async def run(args: argparse.Namespace) -> int:
         # ponytail: 한 장씩 순차 처리(장당 1초 미만). 수천 장이 느리면 세마포어로 병렬화.
         for i, draft in enumerate(targets, 1):
             try:
-                key = await service.upload_card(draft)
+                # 학생이 캐릭터를 골랐으면(photo_chosen_at 있고 image_key 없음) 캐릭터로 다시 그린다.
+                persona = await personas.get_by_session(draft.session_id)
+                use_image = (
+                    persona is None
+                    or persona.photo_chosen_at is None
+                    or persona.image_key is not None
+                )
+                key = await service.upload_card(draft, use_image=use_image)
                 print(f"[{i}/{total}] {key}", flush=True)
             except Exception as exc:
                 failed += 1
