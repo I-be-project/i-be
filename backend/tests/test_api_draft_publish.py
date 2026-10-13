@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import UTC, datetime
 from io import BytesIO
@@ -16,8 +17,10 @@ import pytest
 from google.genai import errors, types
 from PIL import Image
 
+import app.adapters.vertex_image_client as vertex_module
 from app.adapters.vertex_image_client import (
     GeneratedImage,
+    ImageQuotaError,
     ImageRefusedError,
     VertexAccount,
     VertexImageClient,
@@ -297,3 +300,69 @@ async def test_vertex_text_answer_is_a_refusal() -> None:
     answer = types.Part(text="사진에 실제 사람의 얼굴이 없습니다.")
     with pytest.raises(ImageRefusedError, match="얼굴이 없습니다"):
         await _vertex(_Models([], [answer])).generate_image("p", [_png()], aspect_ratio="4:5")
+
+
+async def test_quota_failure_does_not_count_toward_limit() -> None:
+    """할당량(429)에 밀린 건 횟수에 세지 않는다 — 몇 분 밀렸다고 보류로 빠지면 사람이 풀어야 한다."""
+    quota = ImageQuotaError("Vertex AI 이미지 API 오류(429)")
+    publisher, drafts, draft_service = _publisher(vertex=_Vertex(quota, quota, quota, quota))
+    target = _target()
+    for _ in range(4):
+        assert await publisher.publish(target) is None
+    assert publisher._attempts.get(target.session_id, 0) == 0
+    assert drafts.text is None
+    assert draft_service.approved == []
+
+
+async def test_vertex_exhausted_quota_raises_quota_error() -> None:
+    with pytest.raises(ImageQuotaError):
+        await _vertex(_Models([429, 429, 429])).generate_image("p", [_png()], aspect_ratio="4:5")
+
+
+async def test_vertex_one_in_flight_call_per_project() -> None:
+    """프로젝트 하나에 요청이 겹치면 오류가 난다 — 바쁘면 빈 프로젝트로, 다 바쁘면 비기를 기다린다."""
+    gate = asyncio.Event()
+
+    class _Slow(_Models):
+        active = peak = 0
+
+        async def generate_content(self, **kwargs: Any) -> Any:
+            self.active += 1
+            self.peak = max(self.peak, self.active)
+            await gate.wait()
+            self.active -= 1
+            return await super().generate_content(**kwargs)
+
+    a, b = _Slow([]), _Slow([])
+    vertex = _vertex(a, b)
+    tasks = [
+        asyncio.create_task(vertex.generate_image("p", [_png()], aspect_ratio="4:5"))
+        for _ in range(3)
+    ]
+    await asyncio.sleep(0.01)
+    assert (a.active, b.active) == (1, 1)  # 세 번째는 둘 다 바빠 기다린다
+    gate.set()
+    await asyncio.gather(*tasks)
+    assert (a.peak, b.peak) == (1, 1)
+    assert a.calls + b.calls == 3
+
+
+async def test_vertex_project_error_benches_that_project() -> None:
+    """키·결제 문제(403)인 프로젝트는 잠시 빼고 다른 프로젝트로 간다 — 즉시 실패하는 프로젝트가
+    늘 비어 있어 요청이 전부 그쪽으로 몰리는 걸 막는다."""
+    a, b = _Models([403, 403, 403]), _Models([])
+    vertex = _vertex(a, b)
+    await vertex.generate_image("p", [_png()], aspect_ratio="4:5")
+    assert (a.calls, b.calls) == (1, 1)  # a 실패 → b로 재시도
+    await vertex.generate_image("p", [_png()], aspect_ratio="4:5")
+    assert (a.calls, b.calls) == (1, 2)  # a 차례지만 빠져 있어 b
+
+
+def test_vertex_client_has_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """SDK 기본은 무제한 — 응답이 안 오면 프로젝트 칸이 영영 묶이므로 반드시 끊는다."""
+    seen: dict[str, Any] = {}
+    monkeypatch.setattr(vertex_module.genai, "Client", lambda **kw: seen.update(kw) or object())
+    VertexImageClient(
+        accounts=[VertexAccount("p", "k")], location="global", model="m", image_size=""
+    )._client(0)
+    assert seen["http_options"].timeout == 100_000

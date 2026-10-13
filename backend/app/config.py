@@ -166,7 +166,8 @@ class Settings(BaseSettings):
     auto_card_enabled: bool = False
     # 이 시각 이후 설문을 완료한 학생만 대상. 그 전 학생은 codex 일괄 생성·검수로 처리했다.
     auto_card_since: datetime = datetime(2026, 10, 11, tzinfo=timezone(timedelta(hours=9)))
-    # 한 번에 만드는 수. Vertex 분당 할당량(429)을 넘지 않게 작게 둔다.
+    # 한 번에 만드는 수. Vertex 프로젝트당 진행 중 호출은 1개라 프로젝트 수와 같게 둔다
+    # (더 올려도 빈 프로젝트를 기다리기만 한다).
     auto_card_concurrency: int = 2
     auto_card_poll_seconds: float = 10.0
     # 일시적 실패(429 등) 허용 횟수. 넘으면 승인하지 않은 초안으로 남기고 대상에서 뺀다.

@@ -18,6 +18,7 @@ from app.adapters.ai_client import AIClient, AIPurpose
 from app.adapters.storage_client import StorageClient
 from app.adapters.vertex_image_client import (
     GeneratedImage,
+    ImageQuotaError,
     ImageRefusedError,
     VertexImageClient,
 )
@@ -52,6 +53,8 @@ class ApiDraft:
     image_seconds: float
     # 사진 문제로 모델이 거절했다(얼굴 없음 등) — 다시 해도 같으니 폴백 카드로 공개해도 된다.
     image_refused: bool = False
+    # 할당량(429)에 밀렸다 — 학생·사진 탓이 아니니 실패 횟수에 세지 않고 다음 폴링에 다시 한다.
+    image_quota: bool = False
 
     @property
     def publishable(self) -> bool:
@@ -107,6 +110,7 @@ class ApiDraftService:
             image_error=_reason(i_err),
             image_seconds=i_sec,
             image_refused=isinstance(i_err, ImageRefusedError),
+            image_quota=isinstance(i_err, ImageQuotaError),
         )
 
     async def save(self, target: DraftTarget, result: ApiDraft, *, approve: bool) -> UUID:
