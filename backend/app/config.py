@@ -142,10 +142,14 @@ class Settings(BaseSettings):
     # GCP_PROJECT는 키가 있어도 필요하다(global 리전으로 보내려면 프로젝트 경로가 있어야 함).
     vertex_api_key: str = ""
     gcp_project: str = ""
-    # 두 번째 GCP 프로젝트(선택). 있으면 호출마다 번갈아 써서 할당량(429)을 나눈다.
+    # 2~4번째 GCP 프로젝트(선택). 채워진 것만 호출마다 번갈아 써서 할당량(429)을 나눈다.
     # 할당량은 프로젝트 단위라 같은 프로젝트의 키를 하나 더 넣어도 소용없다.
     vertex_api_key_2: str = ""
     gcp_project_2: str = ""
+    vertex_api_key_3: str = ""
+    gcp_project_3: str = ""
+    vertex_api_key_4: str = ""
+    gcp_project_4: str = ""
     gcp_location: str = "global"  # Gemini 3 이미지 모델은 global 엔드포인트에서 제공
     vertex_image_model: str = "gemini-nano-banana-2.1"
     # 출력 해상도 "1K" | "2K" | "4K". 카드 사진 칸이 폭 1024px이라 1K로 충분하다.
