@@ -132,6 +132,8 @@ class Settings(BaseSettings):
     codex_bin: str = "codex"
     # 이미지 생성이 실측 ~60s 걸린다. 여유를 둔 상한.
     codex_timeout_seconds: float = 300.0
+    # 지정 모델이 계정에서 지원되지 않을 때 재시도할 모델(ChatGPT 계정 기준 실측 동작).
+    codex_fallback_model: str = "gpt-5.5"
 
     # Vertex AI(Google Cloud) — dev 전용. 미래 사진을 Gemini 이미지 모델로 만들어 codex와 비교한다.
     # 인증: 서비스 계정에 연결한 API 키(VERTEX_API_KEY)가 우선. 조직 정책
@@ -140,10 +142,14 @@ class Settings(BaseSettings):
     # GCP_PROJECT는 키가 있어도 필요하다(global 리전으로 보내려면 프로젝트 경로가 있어야 함).
     vertex_api_key: str = ""
     gcp_project: str = ""
-    # 두 번째 GCP 프로젝트(선택). 있으면 호출마다 번갈아 써서 할당량(429)을 나눈다.
+    # 2~4번째 GCP 프로젝트(선택). 채워진 것만 호출마다 번갈아 써서 할당량(429)을 나눈다.
     # 할당량은 프로젝트 단위라 같은 프로젝트의 키를 하나 더 넣어도 소용없다.
     vertex_api_key_2: str = ""
     gcp_project_2: str = ""
+    vertex_api_key_3: str = ""
+    gcp_project_3: str = ""
+    vertex_api_key_4: str = ""
+    gcp_project_4: str = ""
     gcp_location: str = "global"  # Gemini 3 이미지 모델은 global 엔드포인트에서 제공
     vertex_image_model: str = "gemini-nano-banana-2.1"
     # 출력 해상도 "1K" | "2K" | "4K". 카드 사진 칸이 폭 1024px이라 1K로 충분하다.

@@ -142,7 +142,7 @@ grep -E '^(APP_ENV|JWT_SECRET|JWT_CARD_SHARE_SECRET|ADMIN_PASSWORD|OPERATOR_PASS
 | `OPENROUTER_API_KEY` | (기존) | 페르소나 생성 |
 | `VERTEX_API_KEY` | 서비스 계정 연결 API 키 | 사진 생성. 조직 정책상 키 파일(JSON)은 쓸 수 없다 |
 | `GCP_PROJECT` | GCP 프로젝트 ID | API 키만 있으면 리전 404 — 반드시 함께 |
-| `VERTEX_API_KEY_2`·`GCP_PROJECT_2` | (선택) 다른 프로젝트의 키·ID | 있으면 호출마다 번갈아 써서 할당량을 나눈다. 같은 프로젝트의 키는 효과 없음 |
+| `VERTEX_API_KEY_2~4`·`GCP_PROJECT_2~4` | (선택) 다른 프로젝트의 키·ID, 최대 4개 | 채운 것만 호출마다 번갈아 써서 할당량을 나눈다. 같은 프로젝트의 키는 효과 없음 |
 
 - **키를 먼저 넣고 `AUTO_CARD_ENABLED=true`는 마지막에** 넣는다.
 - 공개 규칙: 사진이 '거절'(얼굴 없음 등)이면 폴백 캐릭터 카드로 공개한다. 429·5xx 같은 일시적
@@ -182,3 +182,4 @@ grep -E '^(APP_ENV|JWT_SECRET|JWT_CARD_SHARE_SECRET|ADMIN_PASSWORD|OPERATOR_PASS
 | 2026-08-02 | `## DB 마이그레이션` 절 추가 — 마이그레이션 파일 위치, 수동 적용 방식, 코드 배포보다 먼저 적용해야 하는 이유 정리 |
 | 2026-08-08 | 운영진 콘솔 추가 — `OPERATOR_PASSWORD` 환경변수 필수화 |
 | 2026-10-11 | 카드 자동 공개 절 추가 — 기준 날짜 이후 설문·사진 완료자를 폴링해 생성·공개, 켜는 변수(`AUTO_CARD_*`)와 필요한 키, 일시적 실패는 공개하지 않는 규칙 |
+| 2026-10-13 | Vertex 이미지 계정을 4개(`_2`~`_4`)까지로 확장 — 채운 프로젝트만 번갈아 쓴다 |

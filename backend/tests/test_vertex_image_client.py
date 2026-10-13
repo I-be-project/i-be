@@ -11,6 +11,7 @@ from google.genai import types
 from PIL import Image
 
 from app.adapters.vertex_image_client import VertexAccount, VertexImageClient, estimate_cost
+from app.config import Settings
 from app.core.errors import ExternalServiceError
 
 
@@ -76,6 +77,13 @@ async def test_missing_auth_fails_without_client() -> None:
     )
     with pytest.raises(ExternalServiceError, match="GCP_PROJECT"):
         await client.generate_image("prompt", [_img("PNG")], aspect_ratio="4:5")
+
+
+def test_from_settings_rotates_only_filled_projects() -> None:
+    # 4개까지 받되 비어 있는 칸은 건너뛴다 — 키를 3개만 넣으면 3개로 번갈아 쓴다.
+    settings = Settings(gcp_project="a", gcp_project_2="", gcp_project_3="c", gcp_project_4="d")
+    client = VertexImageClient.from_settings(settings)
+    assert [a.project for a in client._accounts] == ["a", "c", "d"]
 
 
 def test_estimate_cost_prices_image_tokens_separately() -> None:

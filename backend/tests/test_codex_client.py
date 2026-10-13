@@ -290,3 +290,19 @@ async def test_cancel_kills_the_process(tmp_path: Path) -> None:
             return
         await asyncio.sleep(0.05)
     pytest.fail("codex 프로세스가 살아 있다")
+
+
+async def test_unsupported_model_falls_back(tmp_path: Path) -> None:
+    """전역 설정 모델이 계정에서 막혀 있으면 대체 모델(-m)로 1회 재시도한다."""
+    body = """
+if sys.argv[sys.argv.index("-m") + 1] != "fallback" if "-m" in sys.argv else True:
+    sys.stderr.write("The 'x' model is not supported when using Codex with a ChatGPT account.")
+    sys.exit(1)
+Path(sys.argv[sys.argv.index("-o") + 1]).write_text('{"ok":1}', encoding="utf-8")
+"""
+    client = CodexClient(
+        binary=_fake_binary(tmp_path, body), timeout_seconds=10, fallback_model="fallback"
+    )
+
+    assert await client.generate_json("p", {"type": "object"}) == {"ok": 1}
+    assert await client.generate_json("p", {"type": "object"}, model="blocked") == {"ok": 1}

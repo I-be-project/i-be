@@ -69,7 +69,11 @@ NabiClientDep = Annotated[NabiClient, Depends(get_nabi_client)]
 
 def get_codex_client(settings: SettingsDep) -> CodexClient:
     """dev 전용 Codex CLI 어댑터. 상태가 없어 요청마다 만들어도 무해하다."""
-    return CodexClient(binary=settings.codex_bin, timeout_seconds=settings.codex_timeout_seconds)
+    return CodexClient(
+        binary=settings.codex_bin,
+        timeout_seconds=settings.codex_timeout_seconds,
+        fallback_model=settings.codex_fallback_model,
+    )
 
 
 CodexClientDep = Annotated[CodexClient, Depends(get_codex_client)]

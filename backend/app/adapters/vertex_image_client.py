@@ -100,6 +100,8 @@ class VertexImageClient:
             accounts=[
                 VertexAccount(settings.gcp_project, settings.vertex_api_key),
                 VertexAccount(settings.gcp_project_2, settings.vertex_api_key_2),
+                VertexAccount(settings.gcp_project_3, settings.vertex_api_key_3),
+                VertexAccount(settings.gcp_project_4, settings.vertex_api_key_4),
             ],
             location=settings.gcp_location,
             model=settings.vertex_image_model,
