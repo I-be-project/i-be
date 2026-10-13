@@ -9,7 +9,7 @@ backend/.env의 DATABASE_URL·S3 설정을 그대로 쓴다 — 로컬에서 돌
 Usage:
   uv run python -m scripts.rerender_cards --limit 3
   uv run python -m scripts.rerender_cards --student-id <uuid>
-  uv run python -m scripts.rerender_cards
+  uv run python -m scripts.rerender_cards --concurrency 8
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ async def _approved(drafts: DraftRepository) -> list[DraftRecord]:
 async def run(args: argparse.Namespace) -> int:
     settings = get_settings()
     pool = DBPool(settings.database_url)
-    await pool.connect(max_size=2)
+    await pool.connect(max_size=args.concurrency + 1)
     drafts = DraftRepository(pool)
     personas = PersonaRepository(pool)
     service = DraftService(
@@ -61,23 +61,30 @@ async def run(args: argparse.Namespace) -> int:
             targets = [d for d in targets if d.student_id == args.student_id]
         if args.limit:
             targets = targets[: args.limit]
-        total, failed = len(targets), 0
+        total, done, failed = len(targets), 0, 0
         print(f"대상 {total}장")
-        # ponytail: 한 장씩 순차 처리(장당 1초 미만). 수천 장이 느리면 세마포어로 병렬화.
-        for i, draft in enumerate(targets, 1):
-            try:
-                # 학생이 캐릭터를 골랐으면(photo_chosen_at 있고 image_key 없음) 캐릭터로 다시 그린다.
-                persona = await personas.get_by_session(draft.session_id)
-                use_image = (
-                    persona is None
-                    or persona.photo_chosen_at is None
-                    or persona.image_key is not None
-                )
-                key = await service.upload_card(draft, use_image=use_image)
-                print(f"[{i}/{total}] {key}", flush=True)
-            except Exception as exc:
-                failed += 1
-                print(f"[{i}/{total}] 실패 {draft.id}: {exc}", flush=True)
+        # 장당 수 초(S3 왕복) — 수천 장이라 --concurrency장씩 동시에 처리한다.
+        sem = asyncio.Semaphore(args.concurrency)
+
+        async def one(draft: DraftRecord) -> None:
+            nonlocal done, failed
+            async with sem:
+                try:
+                    # 학생이 캐릭터를 골랐으면(photo_chosen_at 있고 image_key 없음) 캐릭터로 다시 그린다.
+                    persona = await personas.get_by_session(draft.session_id)
+                    use_image = (
+                        persona is None
+                        or persona.photo_chosen_at is None
+                        or persona.image_key is not None
+                    )
+                    key = await service.upload_card(draft, use_image=use_image)
+                    done += 1
+                    print(f"[{done + failed}/{total}] {key}", flush=True)
+                except Exception as exc:
+                    failed += 1
+                    print(f"[{done + failed}/{total}] 실패 {draft.id}: {exc}", flush=True)
+
+        await asyncio.gather(*(one(d) for d in targets))
         print(f"완료 {total - failed} · 실패 {failed}")
         return 1 if failed else 0
     finally:
@@ -88,6 +95,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="승인된 카드 일괄 재합성")
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--student-id", type=UUID, default=None)
+    parser.add_argument("--concurrency", type=int, default=8)
     return asyncio.run(run(parser.parse_args()))
 
 

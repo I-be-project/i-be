@@ -123,13 +123,15 @@ def _white_texts(card: Image.Image, texts: list[_Text]) -> None:
 
 def _white_glow(card: Image.Image, logo: Image.Image, xy: tuple[int, int]) -> None:
     """로고 뒤에 흰 그림자를 번지게 깐다 — 진한 사진 배경 위에서도 로고가 읽히게."""
-    mask = Image.new("L", card.size, 0)
-    mask.paste(logo.getchannel("A"), xy)
+    # 카드 전체가 아니라 로고 + 번짐 여백만 계산한다(전체로 하면 장당 수 초).
+    m = LOGO_GLOW_SPREAD + LOGO_GLOW_BLUR * 3
+    mask = Image.new("L", (logo.width + m * 2, logo.height + m * 2), 0)
+    mask.paste(logo.getchannel("A"), (m, m))
     mask = mask.filter(ImageFilter.MaxFilter(LOGO_GLOW_SPREAD))
-    glow = Image.new("RGBA", card.size, WHITE)
     mask = mask.filter(ImageFilter.GaussianBlur(LOGO_GLOW_BLUR))
+    glow = Image.new("RGBA", mask.size, WHITE)
     glow.putalpha(mask.point(lambda v: round(v * LOGO_GLOW_OPACITY)))
-    card.alpha_composite(glow)
+    card.alpha_composite(glow, (xy[0] - m, xy[1] - m))
 
 
 def _qr(data: str, size: int) -> Image.Image:
