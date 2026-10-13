@@ -132,6 +132,8 @@ class Settings(BaseSettings):
     codex_bin: str = "codex"
     # 이미지 생성이 실측 ~60s 걸린다. 여유를 둔 상한.
     codex_timeout_seconds: float = 300.0
+    # 지정 모델이 계정에서 지원되지 않을 때 재시도할 모델(ChatGPT 계정 기준 실측 동작).
+    codex_fallback_model: str = "gpt-5.5"
 
     # Vertex AI(Google Cloud) — dev 전용. 미래 사진을 Gemini 이미지 모델로 만들어 codex와 비교한다.
     # 인증: 서비스 계정에 연결한 API 키(VERTEX_API_KEY)가 우선. 조직 정책

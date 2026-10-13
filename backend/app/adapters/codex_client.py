@@ -37,9 +37,12 @@ _IMAGE_WORK_ROOT = Path(__file__).resolve().parents[2] / "tmp" / "codex-images"
 
 
 class CodexClient:
-    def __init__(self, *, binary: str, timeout_seconds: float) -> None:
+    def __init__(
+        self, *, binary: str, timeout_seconds: float, fallback_model: str | None = None
+    ) -> None:
         self._binary = binary
         self._timeout = timeout_seconds
+        self._fallback_model = fallback_model
 
     async def generate_json(
         self, prompt: str, schema: dict[str, Any], *, model: str | None = None
@@ -176,6 +179,21 @@ class CodexClient:
         """
         # Windows의 uvicorn --reload는 subprocess를 지원하지 않는 Selector 루프를
         # 사용한다. 프로세스 I/O를 작업 스레드로 옮겨 이벤트 루프 종류에 의존하지 않는다.
+        try:
+            return await self._run_once(args, prompt)
+        except ExternalServiceError as exc:
+            # 지정 모델(요청 또는 ~/.codex/config.toml)이 이 계정에서 막혀 있으면
+            # 대체 모델로 1회 재시도한다 — 사용자 전역 설정에 dev 화면이 묶이지 않게.
+            fallback = self._fallback_model
+            if not fallback or "is not supported" not in str(exc.details.get("stderr", "")):
+                raise
+            logger.warning("codex.model.fallback", model=fallback)
+            if "-m" in args:
+                i = args.index("-m")
+                args = [*args[:i], *args[i + 2 :]]
+            return await self._run_once([*args, "-m", fallback], prompt)
+
+    async def _run_once(self, args: list[str], prompt: str) -> str:
         cancelled = Event()
         worker = asyncio.create_task(asyncio.to_thread(self._run_sync, args, prompt, cancelled))
         try:
