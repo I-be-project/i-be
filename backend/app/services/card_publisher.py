@@ -92,6 +92,10 @@ class CardPublisher:
             )
             return draft_id
 
+        if result.image_quota and result.text is not None:
+            # 할당량에 밀린 건 횟수에 세지 않는다 — 몇 분 밀렸다고 보류로 빠지면 사람이 풀어야 한다.
+            logger.warning("card_publisher.quota_wait", student_id=str(target.student_id))
+            return None
         n = self._attempts[target.session_id] = self._attempts.get(target.session_id, 0) + 1
         logger.warning(
             "card_publisher.retry",

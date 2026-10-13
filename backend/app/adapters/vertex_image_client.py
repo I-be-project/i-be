@@ -11,7 +11,9 @@ Imagen(imagen-3.0-generate-*)이 아니라 Gemini 이미지 모델을 쓴다 —
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Sequence
+import time
+from collections.abc import AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -34,8 +36,20 @@ _PRICES: dict[str, tuple[float, float, float]] = {
 }
 
 
+# 응답이 안 오면 프로젝트 칸이 재시작 전까지 묶인다(SDK 기본은 무제한) — 이 시간 뒤 끊는다.
+TIMEOUT_MS = 100_000
+# 키·결제·권한처럼 프로젝트 자체 문제인 오류. 재시도해도 같으니 그 프로젝트만 잠시 뺀다 —
+# 안 빼면 즉시 실패하는 프로젝트가 늘 '비어' 있어 요청이 전부 그쪽으로 몰린다.
+PROJECT_ERRORS = frozenset({401, 403, 404})
+PROJECT_DOWN_SECONDS = 600.0
+
+
 class ImageRefusedError(ExternalServiceError):
     """모델이 사진 문제로 생성을 거절했다(텍스트로 이유를 답함). 재시도해도 결과가 같다."""
+
+
+class ImageQuotaError(ExternalServiceError):
+    """할당량(429)에 밀려 끝내 실패했다. 사진 문제가 아니라 잠시 뒤 다시 하면 된다."""
 
 
 @dataclass(frozen=True)
@@ -92,6 +106,9 @@ class VertexImageClient:
             list(clients) if clients is not None else [None] * len(self._accounts)
         )
         self._next = 0
+        # 프로젝트 하나에 요청이 겹치면 오류가 난다 — 프로젝트당 진행 중 호출은 1개로 묶는다.
+        self._busy = [asyncio.Semaphore(1) for _ in self._clients]
+        self._down_until = [0.0 for _ in self._clients]
         self._retry_delays = tuple(retry_delays)
 
     @classmethod
@@ -108,15 +125,34 @@ class VertexImageClient:
             image_size=settings.vertex_image_size,
         )
 
-    def _get(self) -> Any:
-        """다음 계정의 클라이언트 — 호출마다 계정을 번갈아 써서 프로젝트별 할당량을 나눠 쓴다.
+    @asynccontextmanager
+    async def _lane(self) -> AsyncIterator[Any]:
+        """빈 프로젝트의 클라이언트를 빌린다 — 다 바쁘면 차례(라운드로빈)가 된 프로젝트가 비기를
+        기다린다. 그래서 프로젝트당 분당 호출 수가 '60초 ÷ 장당 소요 시간'으로 자연히 제한된다.
 
-        재시도도 이걸 거치므로 한 계정이 429면 다음 시도는 다른 계정으로 간다.
+        재시도도 이걸 거치므로 한 프로젝트가 429면 다음 시도는 다른 프로젝트로 간다.
         """
-        if not self._clients:
+        n = len(self._clients)
+        if not n:
             raise ExternalServiceError("GCP_PROJECT가 설정되지 않았습니다.")
-        i = self._next % len(self._clients)
+        start = self._next
         self._next += 1
+        now = time.monotonic()
+        up = [k % n for k in range(start, start + n) if self._down_until[k % n] <= now]
+        # 다 빠져 있으면 차례 프로젝트를 그냥 써 본다(회복됐을 수 있고, 안 되면 호출이 실패로 끝난다).
+        i = next((k for k in up if not self._busy[k].locked()), up[0] if up else start % n)
+        async with self._busy[i]:
+            try:
+                yield self._client(i)
+            except errors.APIError as exc:
+                if exc.code in PROJECT_ERRORS:
+                    self._down_until[i] = time.monotonic() + PROJECT_DOWN_SECONDS
+                    logger.error(
+                        "vertex.project.down", project=self._accounts[i].project, status=exc.code
+                    )
+                raise
+
+    def _client(self, i: int) -> Any:
         if self._clients[i] is None:
             # 생성 시 인증 정보를 읽는다 — 키가 없는 환경에서도 앱 기동·다른 dev 기능은 동작하게 지연 생성.
             # API 키만 주면 SDK가 express 모드로 키의 기본 리전(asia-southeast1 등)에 보내는데,
@@ -127,6 +163,7 @@ class VertexImageClient:
                 api_key=account.api_key or None,
                 project=account.project,
                 location=self._location,
+                http_options=types.HttpOptions(timeout=TIMEOUT_MS),
             )
         return self._clients[i]
 
@@ -158,15 +195,19 @@ class VertexImageClient:
         )
         for attempt, delay in enumerate((*self._retry_delays, None)):
             try:
-                response = await self._get().aio.models.generate_content(
-                    model=model, contents=parts, config=config
-                )
+                async with self._lane() as client:
+                    response = await client.aio.models.generate_content(
+                        model=model, contents=parts, config=config
+                    )
                 break
             except errors.APIError as exc:
-                # 429(할당량)·5xx는 잠깐 뒤 회복된다 — 자동 공개는 실패하면 폴백 카드로
-                # 굳어지므로 바로 포기하지 않는다. 4xx는 다시 해도 같다.
-                if delay is None or not (exc.code == 429 or (exc.code or 0) >= 500):
-                    raise ExternalServiceError(
+                # 429(할당량)·5xx는 잠깐 뒤 회복되고, 프로젝트 문제(PROJECT_ERRORS)는 다른
+                # 프로젝트로 가면 된다 — 자동 공개는 실패하면 폴백 카드로 굳어지므로 바로
+                # 포기하지 않는다. 그 밖의 4xx(400 등)는 다시 해도 같다.
+                retryable = exc.code == 429 or (exc.code or 0) >= 500 or exc.code in PROJECT_ERRORS
+                if delay is None or not retryable:
+                    error_cls = ImageQuotaError if exc.code == 429 else ExternalServiceError
+                    raise error_cls(
                         f"Vertex AI 이미지 API 오류({exc.code})",
                         details={"message": str(exc)[:500], "attempts": attempt + 1},
                     ) from exc
