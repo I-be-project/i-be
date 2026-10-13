@@ -23,7 +23,7 @@ export function BoothMap({ booth, onReset }: { booth: ProfileBoothStatus | null;
         <Image src="/event-venue-map.png" alt="나Be한마당 부스 배치도" fill sizes={center ? "(min-width: 672px) 1390px, 220vw" : "(min-width: 672px) 632px, 100vw"} className="object-contain" onError={() => setFailed(true)} />
         {location?.points.map((point, index) => <div key={point.number ?? "facility"} className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${point.x * 100}%`, top: `${point.y * 100}%`, width: `${40 / 1510 * 100}%`, height: `${40 / 1632 * 100}%` }}>
           <span className="absolute inset-0 rounded-md border-2 border-hm-blue shadow-[0_0_0_2px_rgba(255,255,255,0.85)]" />
-          {index === 0 && <span className="absolute bottom-full left-1/2 mb-2 flex w-max max-w-[240px] -translate-x-1/2 items-center gap-1 rounded-xl bg-hm-blue px-3 py-2 text-xs font-extrabold text-white shadow-lg"><MapPin size={15} className="shrink-0" aria-hidden="true" /><span className="break-keep text-center">{booth?.name}</span></span>}
+          {index === 0 && <span className="absolute bottom-full left-1/2 mb-2 flex w-max max-w-[240px] -translate-x-1/2 items-center gap-1 rounded-full border border-blue-200 bg-white px-3 py-2 text-xs font-extrabold text-hm-blue shadow-[0_4px_12px_rgba(0,0,0,0.15)]"><MapPin size={15} className="shrink-0" aria-hidden="true" /><span className="break-keep text-center">{booth?.name}</span></span>}
         </div>)}
       </div>
     </div>}
