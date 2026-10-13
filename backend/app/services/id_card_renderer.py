@@ -24,7 +24,7 @@ _ASSETS = Path(__file__).resolve().parent.parent / "assets"
 _FONT_DIR = _ASSETS / "fonts"
 # 생성 이미지가 없을 때(사진 없음·얼굴 없는 사진으로 codex 거절·검수자가 폴백 선택) 쓰는 캐릭터.
 FALLBACK_IMAGE = _ASSETS / "card" / "fallback.png"
-# 행사 전용 로고(frontend/public/logo-hanmadang.png와 같은 파일).
+# 행사 전용 2줄 로고(frontend/public/logo-hanmadang-stacked.png와 같은 파일).
 LOGO_IMAGE = _ASSETS / "card" / "logo.png"
 
 CARD_W = 1024

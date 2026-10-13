@@ -31,7 +31,14 @@ export function FlippablePersonaCard({ children, enabled, footer, backImageUrl }
           {backImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={backImageUrl} alt="부스 체험으로 달라진 미래의 내 모습" className="h-full w-full rounded-xl object-cover" />
-          ) : <Image src="/persona-card-back-v3.png" alt="15:00 이후, 나비한마당이 끝나고 내가 체험한 역량만큼 달라진 미래의 내 모습을 확인해보세요!" fill sizes="(max-width: 768px) 100vw, 632px" className="rounded-xl object-fill" />}
+          ) : <div className="relative isolate flex h-full flex-col items-center justify-center gap-5 px-6 text-center text-hm-blue">
+            {/* 배경은 카드 합성(backend/app/assets/card/background.jpg)과 같은 미래 도시 — 축소본. */}
+            <Image src="/card-back-bg.jpg" alt="" fill sizes="(max-width: 768px) 100vw, 632px" className="-z-10 object-cover" />
+            <div className="absolute inset-0 -z-10 bg-gradient-to-b from-white/30 via-white/75 to-white/90" />
+            <Image src="/logo-hanmadang-stacked.png" alt="제12회 청소년 나Be한마당" width={720} height={523} className="h-auto w-1/2" />
+            <p className="text-3xl font-extrabold">15:00 이후</p>
+            <p className="break-keep text-[15px] font-semibold leading-relaxed">나비한마당이 끝나고<br />내가 체험한 역량만큼<br />달라진 미래의 내 모습을 확인해보세요!</p>
+          </div>}
         </div>
       </div>
     </div>
