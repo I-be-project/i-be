@@ -3,7 +3,7 @@
 명세: GET {base}/{student_id}, Bearer 토큰. status = done|processing|pending|failed.
 image_url은 인증 없는 30일 서명 주소라 저장하지 않고 그대로 프론트에 넘긴다.
 3단계 전 학생을 조회하면 나비 서버가 우리 내보내기 API를 한 번 되부르므로
-같은 학생의 연속 조회는 짧게 캐시한다.
+같은 학생의 연속 조회는 짧게 캐시하고, 완성된(done) 결과는 길게 캐시한다.
 """
 
 from __future__ import annotations
@@ -31,11 +31,13 @@ class NabiClient:
         *,
         timeout: float = 10.0,
         cache_ttl: float = 20.0,
+        done_cache_ttl: float = 600.0,  # 완성된 그림은 자주 바뀌지 않는다 — 홈 탭마다 되묻지 않게
         transport: httpx.AsyncBaseTransport | None = None,  # 테스트에서 가짜 전송 주입용
     ) -> None:
         self._base = base_url.rstrip("/")
         self._token = token
         self._ttl = cache_ttl
+        self._done_ttl = done_cache_ttl
         self._http = httpx.AsyncClient(
             headers={"Authorization": f"Bearer {token}"}, timeout=timeout, transport=transport
         )
@@ -54,7 +56,8 @@ class NabiClient:
         if hit is not None and hit[0] > time.monotonic():
             return hit[1]
         result = await self._fetch(student_id)
-        self._cache[student_id] = (time.monotonic() + self._ttl, result)
+        ttl = self._done_ttl if result.status == "done" else self._ttl
+        self._cache[student_id] = (time.monotonic() + ttl, result)
         return result
 
     async def _fetch(self, student_id: UUID) -> NabiResult:

@@ -20,7 +20,7 @@ _DONE = {
 }
 
 
-def _nabi(handler, token: str = "tok") -> tuple[NabiClient, list[httpx.Request]]:
+def _nabi(handler, token: str = "tok", **kwargs) -> tuple[NabiClient, list[httpx.Request]]:
     calls: list[httpx.Request] = []
 
     def record(req: httpx.Request) -> httpx.Response:
@@ -28,7 +28,10 @@ def _nabi(handler, token: str = "tok") -> tuple[NabiClient, list[httpx.Request]]
         return handler(req)
 
     client = NabiClient(
-        "https://nabi.example/api/results/", token, transport=httpx.MockTransport(record)
+        "https://nabi.example/api/results/",
+        token,
+        transport=httpx.MockTransport(record),
+        **kwargs,
     )
     return client, calls
 
@@ -42,6 +45,21 @@ async def test_done_result_is_passed_through_and_cached() -> None:
     assert len(calls) == 1  # 두 번째는 캐시
     assert str(calls[0].url) == f"https://nabi.example/api/results/{sid}"
     assert calls[0].headers["Authorization"] == "Bearer tok"
+
+
+async def test_done_result_is_cached_longer_than_pending() -> None:
+    body: dict[str, object] = {**_DONE, "status": "pending", "image_url": None}
+    client, calls = _nabi(
+        lambda req: httpx.Response(200, json=body), cache_ttl=0.0, done_cache_ttl=60.0
+    )
+    sid = uuid4()
+    await client.get_result(sid)
+    await client.get_result(sid)
+    assert len(calls) == 2  # pending은 짧은 TTL(여기선 0) — 매번 다시 묻는다
+    body.update(_DONE)
+    assert (await client.get_result(sid)).status == "done"
+    await client.get_result(sid)
+    assert len(calls) == 3  # done은 긴 TTL — 캐시
 
 
 async def test_failures_and_missing_token_fall_back_to_unavailable() -> None:
