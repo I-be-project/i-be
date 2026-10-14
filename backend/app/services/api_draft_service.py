@@ -105,7 +105,7 @@ class ApiDraftService:
             photo
             and photo.photo_key == student.photo_key
             and photo.choice != "character"
-            and photo.status not in ("ready", "refused")
+            and photo.status in ("pending", "processing")
         )
 
     async def generate(self, student: StudentRecord, session_id: UUID) -> ApiDraft:
@@ -193,6 +193,8 @@ class ApiDraftService:
                     )
                 if prepared.status == "ready" and prepared.image_key:
                     return GeneratedImage(await self._storage.download(prepared.image_key), None)
+                if prepared.status == "failed":
+                    raise ExternalServiceError("현장 사진 생성에 실패했습니다. 운영진 확인이 필요합니다.")
                 # 사전 생성과 중복으로 과금하지 않고 준비된 결과를 기다린다.
                 raise ImageQuotaError("현장 사진 생성 결과를 기다리고 있습니다.")
         photo = await self._storage.download(student.photo_key)

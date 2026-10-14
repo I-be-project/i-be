@@ -12,7 +12,7 @@ import httpx
 import pytest
 
 from app.adapters.vertex_image_client import GeneratedImage, ImageQuotaError, ImageRefusedError
-from app.core.errors import ConflictError, DomainError
+from app.core.errors import ConflictError, DomainError, ExternalServiceError
 from app.deps import current_student, get_onsite_photo_service
 from app.main import create_app
 from app.repositories.onsite_photo_repo import OnsitePhoto
@@ -128,7 +128,7 @@ async def test_conflicting_choice_is_rejected() -> None:
     "status,choice,raises",
     [
         ("processing", None, ImageQuotaError),
-        ("failed", None, ImageQuotaError),
+        ("failed", None, ExternalServiceError),
         ("ready", "character", ImageRefusedError),
     ],
 )
@@ -229,6 +229,8 @@ async def test_publisher_waits_for_onsite_image_before_generating_persona() -> N
     student = cast(Any, SimpleNamespace(id=STUDENT_ID, photo_key=PHOTO.photo_key))
     assert await service.waiting_for_onsite_photo(student)
     photos.get_current.return_value = replace(PHOTO, status="ready", image_key="future.png")
+    assert not await service.waiting_for_onsite_photo(student)
+    photos.get_current.return_value = replace(PHOTO, status="failed")
     assert not await service.waiting_for_onsite_photo(student)
     photos.get_current.return_value = replace(PHOTO, choice="character")
     assert not await service.waiting_for_onsite_photo(student)

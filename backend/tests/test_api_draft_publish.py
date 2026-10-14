@@ -93,9 +93,11 @@ class _Drafts:
         self.targets = targets or []
         self.since: Any = None
 
-    async def list_publish_targets(self, *, since: Any, limit: int) -> list[DraftTarget]:
+    async def list_publish_targets(
+        self, *, since: Any, limit: int, exclude_session_ids: list[UUID] | None = None
+    ) -> list[DraftTarget]:
         self.since = since
-        return self.targets
+        return [t for t in self.targets if t.session_id not in (exclude_session_ids or [])][:limit]
 
     async def save_text(self, session_id: UUID, student_id: UUID, text: Any, raw: Any) -> UUID:
         self.text = text
@@ -231,6 +233,80 @@ async def test_run_once_limits_batch_to_concurrency() -> None:
     )
     assert await publisher.run_once() == 2
     assert len(draft_service.approved) == 2
+
+
+async def test_waiting_student_does_not_block_next_student_or_spin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from unittest.mock import AsyncMock
+
+    waiting, ready = _target(), _target()
+    publisher, drafts, draft_service = _publisher(targets=[waiting, ready], concurrency=1)
+    clock = [100.0]
+    monkeypatch.setattr("app.services.card_publisher.time.monotonic", lambda: clock[0])
+    check = AsyncMock(side_effect=lambda student: student.id == waiting.student_id)
+    monkeypatch.setattr(publisher._service, "waiting_for_onsite_photo", check)
+    assert await publisher.run_once() == 0
+    assert waiting.session_id not in publisher._attempts
+    assert await publisher.run_once() == 1
+    assert len(draft_service.approved) == 1
+    drafts.targets = [waiting]
+    assert await publisher.run_once() == 0
+    assert check.await_count == 2
+    clock[0] += 31
+    assert await publisher.run_once() == 0
+    assert check.await_count == 3
+
+
+async def test_deferred_and_exhausted_targets_do_not_fill_query_limit() -> None:
+    import time
+
+    blocked = [_target() for _ in range(201)]
+    ready = _target()
+    publisher, _, draft_service = _publisher(targets=[*blocked, ready], concurrency=1)
+    for target in blocked[:100]:
+        publisher._retry_after[target.session_id] = time.monotonic() + 60
+    for target in blocked[100:]:
+        publisher._attempts[target.session_id] = 3
+    assert await publisher.run_once() == 1
+    assert len(draft_service.approved) == 1
+
+
+async def test_failed_onsite_image_is_held_for_review_without_more_image_calls() -> None:
+    from unittest.mock import AsyncMock
+
+    from app.repositories.onsite_photo_repo import OnsitePhoto
+
+    target = _target()
+    vertex = _Vertex()
+    publisher, drafts, draft_service = _publisher(vertex=vertex)
+    photos = AsyncMock()
+    photos.get_current.return_value = OnsitePhoto(
+        uuid4(), target.student_id, "uploads/p.jpg", "failed", None, None
+    )
+    publisher._service._onsite_photos = photos
+    for _ in range(3):
+        await publisher.publish(target)
+    assert drafts.text is not None
+    assert drafts.image["image_key"] is None
+    assert "운영진 확인" in drafts.image["error"]
+    assert draft_service.approved == []
+    assert publisher._attempts[target.session_id] == 3
+    assert vertex.calls == 0
+
+
+async def test_no_progress_publisher_loop_sleeps(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import AsyncMock
+
+    from app.services.card_publisher import card_publisher_loop
+
+    publisher, _, _ = _publisher()
+    monkeypatch.setattr(publisher, "run_once", AsyncMock(return_value=0))
+    sleep = AsyncMock(side_effect=asyncio.CancelledError)
+    monkeypatch.setattr("app.services.card_publisher.asyncio.sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await card_publisher_loop(publisher, 5)
+    sleep.assert_awaited_once_with(5)
 
 
 # ──────────────────────────────────────────────────────────────
