@@ -97,6 +97,9 @@ class CardPublisher:
         student = await self._students.get_by_id(target.student_id)
         if student is None or not student.photo_key:
             return None
+        resumed = await self._service.resume_publication(target)
+        if resumed is not None:
+            return resumed
         if await self._service.waiting_for_onsite_photo(student):
             return None
         result = await self._service.generate(student, target.session_id)

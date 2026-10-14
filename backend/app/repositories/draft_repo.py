@@ -211,8 +211,15 @@ class DraftRepository(BaseRepository):
             ) latest
             where latest.completed_at >= $1
               and not (latest.session_id = any($3::uuid[]))
-              and not exists (
-                select 1 from generated.persona_drafts d where d.session_id = latest.session_id
+              and (
+                not exists (
+                  select 1 from generated.persona_drafts d where d.session_id = latest.session_id
+                )
+                or exists (
+                  select 1 from generated.persona_drafts d
+                  where d.session_id = latest.session_id and d.status = 'pending'
+                    and jsonb_typeof(d.raw->'_auto_publish') = 'object'
+                )
               )
             order by completed_at
             limit $2
@@ -544,7 +551,8 @@ class DraftRepository(BaseRepository):
             await conn.execute(
                 """
                 update generated.persona_drafts
-                set status = 'approved', reviewed_at = now(), updated_at = now()
+                set status = 'approved', reviewed_at = now(), updated_at = now(),
+                    raw = raw - '_auto_publish'
                 where id = $1
                 """,
                 draft.id,

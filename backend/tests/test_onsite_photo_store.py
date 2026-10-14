@@ -155,6 +155,32 @@ async def test_storage_permission_error_is_not_treated_as_missing_state() -> Non
     storage.write_onsite_state.assert_not_awaited()
 
 
+@pytest.mark.parametrize("attempts", [1, 3])
+async def test_read_marks_abandoned_processing_failed_and_ignores_late_completion(
+    attempts: int,
+) -> None:
+    storage, students, student_id = MemoryStorage(), Students(), uuid4()
+    store = repo(storage, students)
+    job = await store.claim(student_id, students.photo_key)
+    assert job
+    stale = replace(job, attempts=attempts, updated_at=time.time() - 601)
+    path = next(iter(storage.objects))
+    storage.objects[path] = (json.dumps(asdict(stale), default=str).encode(), "stale")
+    current = await repo(storage, students).get_current(student_id)
+    assert current and current.status == "failed"
+    await store.finish(job, "ready", "late.png")
+    current = await store.get_current(student_id)
+    assert current and current.status == "failed" and current.image_key is None
+
+
+async def test_read_keeps_running_job_processing() -> None:
+    storage, students, student_id = MemoryStorage(), Students(), uuid4()
+    store = repo(storage, students)
+    job = await store.claim(student_id, students.photo_key)
+    assert job
+    assert await store.get_current(student_id) == job
+
+
 class MissingWithoutListBucket(MemoryStorage):
     async def read_onsite_state(self, path: str) -> tuple[bytes, str] | None:
         if path not in self.objects:
