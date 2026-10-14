@@ -331,7 +331,9 @@ async def get_student_draft(
     session = await sessions.get_latest_completed_for_student(student_id)
     draft = await drafts.get_by_session(session.id) if session else None
     if draft is None:
-        raise NotFoundError("재생성할 카드 초안이 없습니다. 먼저 페르소나 카드 검수에서 초안을 생성해 주세요.")
+        raise NotFoundError(
+            "재생성할 카드 초안이 없습니다. 먼저 페르소나 카드 검수에서 초안을 생성해 주세요."
+        )
     return await _get_draft_item(draft.id, drafts, storage)
 
 

@@ -107,7 +107,9 @@ async def test_card_overwrite_keeps_key_without_deleting_first():
 
 async def test_batch_signing_disables_cache_only_for_cards():
     fake = _FakeS3()
-    await _make(fake).create_signed_urls(["cards/student/draft.png", "uploads/photo.jpg"], ttl_seconds=600)
+    await _make(fake).create_signed_urls(
+        ["cards/student/draft.png", "uploads/photo.jpg"], ttl_seconds=600
+    )
     card_params = fake.sign_calls[0][1]["Params"]
     photo_params = fake.sign_calls[1][1]["Params"]
     assert card_params["ResponseCacheControl"] == "private, no-store, no-cache, max-age=0"
