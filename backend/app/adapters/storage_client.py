@@ -157,3 +157,39 @@ class StorageClient:
         """객체 삭제. 명시적 삭제 요청 전용(자동 폐기 아님)."""
         async with self._client_factory() as s3:
             await s3.delete_object(Bucket=self._bucket, Key=key)
+
+    async def read_onsite_state(self, path: str) -> tuple[bytes, str] | None:
+        """비공개 생성 상태와 ETag. 없는 파일만 None으로 처리하고 권한·연결 오류는 전달한다."""
+        async with self._client_factory() as s3:
+            try:
+                obj = await s3.get_object(
+                    Bucket=self._bucket, Key=f"{self._prefix_ai_images}/.onsite/{path}"
+                )
+            except Exception as exc:
+                response = getattr(exc, "response", {})
+                code = response.get("Error", {}).get("Code")
+                if code in ("NoSuchKey", "NotFound", "404"):
+                    return None
+                raise
+            return cast(bytes, await obj["Body"].read()), str(obj["ETag"])
+
+    async def write_onsite_state(self, path: str, data: bytes, *, etag: str | None) -> bool:
+        """ETag 조건부 저장으로 여러 서버의 중복 생성과 선택 덮어쓰기를 막는다."""
+        async with self._client_factory() as s3:
+            try:
+                await s3.put_object(
+                    Bucket=self._bucket,
+                    Key=f"{self._prefix_ai_images}/.onsite/{path}",
+                    Body=data,
+                    ContentType="application/json",
+                    ServerSideEncryption="AES256",
+                    CacheControl="private, no-store",
+                    **({"IfMatch": etag} if etag else {"IfNoneMatch": "*"}),
+                )
+            except Exception as exc:
+                response = getattr(exc, "response", {})
+                code = response.get("Error", {}).get("Code")
+                if code in ("PreconditionFailed", "ConditionalRequestConflict", "412", "409"):
+                    return False
+                raise
+        return True

@@ -139,7 +139,7 @@ export default function SignupPage() {
         gender,
       });
       // 가입 직후 바로 탐험을 시작한다. 사진은 설문을 마친 뒤 /explore/photo에서 받는다.
-      router.push("/explore");
+      router.push(useSessionStore.getState().onsiteMode ? "/onsite/photo" : "/explore");
     } catch (err) {
       if (err instanceof ApiError) {
         if (err.status === 409) {

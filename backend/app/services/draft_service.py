@@ -244,7 +244,7 @@ class DraftService:
         draft = await self._drafts.get_by_session(session.id) if session else None
         if draft is None or draft.status != "approved":
             raise NotFoundError("공개된 카드가 없습니다.")
-        if draft.image_key is None:
+        if draft.image_key is None and use_ai:
             raise DomainError("고를 수 있는 AI 사진이 없습니다.")
         if await self._drafts.persona_photo_chosen(draft.session_id):
             raise ConflictError("이미 카드 사진을 골랐습니다.")

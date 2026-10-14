@@ -191,3 +191,59 @@ async def test_create_signed_urls_skips_failing_key():
     # 실패한 key만 빠지고 나머지는 살아남는다.
     assert "uploads/bad.jpg" not in urls
     assert urls["uploads/ok.jpg"] == "https://signed.example/get"
+
+
+class _StateError(Exception):
+    def __init__(self, code: str) -> None:
+        self.response = {"Error": {"Code": code}}
+
+
+async def test_onsite_state_reads_private_bytes_and_etag():
+    from unittest.mock import AsyncMock
+
+    fake = _FakeS3()
+    fake.get_object = AsyncMock(
+        return_value={
+            "Body": type("Body", (), {"read": AsyncMock(return_value=b"{}")})(),
+            "ETag": '"v1"',
+        }
+    )
+    result = await _make(fake).read_onsite_state("student/photo.json")
+    assert result == (b"{}", '"v1"')
+    assert fake.get_object.call_args.kwargs["Key"] == "ai-images/.onsite/student/photo.json"
+
+
+async def test_onsite_state_create_and_update_are_conditional():
+    fake = _FakeS3()
+    client = _make(fake)
+    assert await client.write_onsite_state("state.json", b"{}", etag=None)
+    assert fake.put_calls[-1]["IfNoneMatch"] == "*"
+    assert fake.put_calls[-1]["ServerSideEncryption"] == "AES256"
+    assert await client.write_onsite_state("state.json", b"{}", etag='"v1"')
+    assert fake.put_calls[-1]["IfMatch"] == '"v1"'
+
+
+async def test_only_missing_onsite_state_returns_none():
+    from unittest.mock import AsyncMock
+
+    import pytest
+
+    fake = _FakeS3()
+    fake.get_object = AsyncMock(side_effect=_StateError("NoSuchKey"))
+    assert await _make(fake).read_onsite_state("state.json") is None
+    fake.get_object.side_effect = _StateError("AccessDenied")
+    with pytest.raises(_StateError):
+        await _make(fake).read_onsite_state("state.json")
+
+
+async def test_only_conditional_write_conflicts_are_retryable():
+    from unittest.mock import AsyncMock
+
+    import pytest
+
+    fake = _FakeS3()
+    fake.put_object = AsyncMock(side_effect=_StateError("PreconditionFailed"))
+    assert not await _make(fake).write_onsite_state("state.json", b"{}", etag=None)
+    fake.put_object.side_effect = _StateError("SlowDown")
+    with pytest.raises(_StateError):
+        await _make(fake).write_onsite_state("state.json", b"{}", etag=None)

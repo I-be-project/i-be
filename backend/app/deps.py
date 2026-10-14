@@ -28,6 +28,7 @@ from app.repositories.booth_visit_repo import BoothVisitRepository
 from app.repositories.card_repo import CardRepository
 from app.repositories.draft_repo import DraftRepository
 from app.repositories.export_repo import ExportRepository
+from app.repositories.onsite_photo_repo import OnsitePhotoRepository
 from app.repositories.persona_repo import PersonaRepository
 from app.repositories.session_repo import SessionRepository
 from app.repositories.settings_repo import SettingsRepository
@@ -38,6 +39,7 @@ from app.services.auth_service import AuthService
 from app.services.booth_service import BoothService
 from app.services.booth_visit_service import BoothVisitService
 from app.services.draft_service import DraftService
+from app.services.onsite_photo_service import OnsitePhotoService
 from app.services.operator_service import OperatorService
 from app.services.session_service import SessionService
 
@@ -336,6 +338,7 @@ def get_api_draft_service(
     drafts: DraftRepoDep,
     storage: StorageClientDep,
     settings: SettingsDep,
+    pool: DBPoolDep,
 ) -> ApiDraftService:
     """API 초안(OpenRouter 페르소나 + Vertex 사진). 카드 자동 공개(card_publisher)도 같은 구성."""
     return ApiDraftService(
@@ -345,7 +348,30 @@ def get_api_draft_service(
         drafts=drafts,
         storage=storage,
         persona_model=settings.api_persona_model,
+        onsite_photos=OnsitePhotoRepository(storage, StudentRepository(pool)),
     )
 
 
 ApiDraftServiceDep = Annotated[ApiDraftService, Depends(get_api_draft_service)]
+
+
+def get_onsite_photo_service(
+    students: StudentRepoDep,
+    storage: StorageClientDep,
+    vertex: VertexImageClientDep,
+    sessions: Annotated[SessionRepository, Depends(get_session_repo)],
+    drafts: DraftRepoDep,
+    draft_service: DraftServiceDep,
+) -> OnsitePhotoService:
+    return OnsitePhotoService(
+        photos=OnsitePhotoRepository(storage, students),
+        students=students,
+        sessions=sessions,
+        drafts=drafts,
+        draft_service=draft_service,
+        storage=storage,
+        vertex=vertex,
+    )
+
+
+OnsitePhotoServiceDep = Annotated[OnsitePhotoService, Depends(get_onsite_photo_service)]

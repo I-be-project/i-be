@@ -49,6 +49,8 @@ export interface StudentInfo {
 }
 
 interface SessionStore {
+  onsiteMode: boolean;
+  setOnsiteMode: (value: boolean) => void;
   // 학생 인증 — localStorage에 유지되어 새로고침/재방문해도 로그인 상태가 복원된다.
   // (persist의 partialize로 아래 세 필드만 저장, 나머지 진행 상태는 휘발성)
   studentToken: string | null;
@@ -106,6 +108,8 @@ interface SessionStore {
 export const useSessionStore = create<SessionStore>()(
   persist(
     (set) => ({
+  onsiteMode: false,
+  setOnsiteMode: (onsiteMode) => set({ onsiteMode }),
   studentToken: null,
   studentId: null,
   studentInfo: null,
@@ -217,6 +221,7 @@ export const useSessionStore = create<SessionStore>()(
       // 화면으로 이어서 라우팅하기 위함(같은 기기/브라우저 한정). 페르소나/카드 등
       // 파생 결과는 프로필 API에서 다시 받으므로 저장하지 않는다.
       partialize: (state) => ({
+        onsiteMode: state.onsiteMode,
         studentToken: state.studentToken,
         studentId: state.studentId,
         studentInfo: state.studentInfo,

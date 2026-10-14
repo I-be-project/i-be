@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   bulkDeleteAdminStudents,
+  startOnsitePhoto,
+  getOnsitePhoto,
+  chooseOnsitePhoto,
   checkInBooth,
   completeSurvey,
   createAdminBooth,
@@ -536,5 +539,39 @@ describe("loginStudent", () => {
     const body = JSON.parse(fetchMock.mock.calls[0][1].body as string);
     expect(body).toEqual({ name: "박서준", password: "1029" });
     expect(body.school).toBeUndefined();
+  });
+});
+
+
+describe("현장 사진 사전 생성 API", () => {
+  afterEach(() => vi.unstubAllGlobals());
+  const ok = (data: unknown) => new Response(JSON.stringify(data), { status: 200 });
+  it("사전 생성이 활성화돼 있으면 사진 등록 직후 작업을 시작한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(ok({ status: "processing", image_url: null, choice: null }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await startOnsitePhoto("token")).status).toBe("processing");
+    expect(fetchMock.mock.calls[0][1].method).toBe("POST");
+    expect(fetchMock.mock.calls[0][0]).toContain("/onsite-photo");
+  });
+  it("생성 상태와 사진만 조회한다", async () => {
+    const photo = { status: "ready", image_url: "https://test/photo.png", choice: null };
+    const fetchMock = vi.fn().mockResolvedValueOnce(ok(photo));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await getOnsitePhoto("token")).toEqual(photo);
+    expect(fetchMock.mock.calls[0][0]).toContain("/me/onsite-photo");
+    expect(fetchMock.mock.calls[0][1].cache).toBe("no-store");
+  });
+  it("사진 선택을 카드 생성과 별도로 저장한다", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(ok({ status: "refused", image_url: null, choice: "character" }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await chooseOnsitePhoto("token", "character")).choice).toBe("character");
+    expect(fetchMock.mock.calls[0][1].method).toBe("PUT");
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ choice: "character" });
+  });
+  it("일반 서버 오류를 기능 비활성화로 숨기지 않는다", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 500 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(getOnsitePhoto("token")).rejects.toMatchObject({ status: 500 });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });
