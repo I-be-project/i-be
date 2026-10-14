@@ -42,6 +42,11 @@ export function wrapBoothLabel(name: string): string[] {
   return [head, words.slice(index).join(" ")];
 }
 
+/** 부스 링크 QR만 담은 PNG data URL. errorCorrectionLevel M — 32자 링크는 버전 3(29×29)에 들어간다. */
+export function renderQrDataUrl(qrUrl: string): Promise<string> {
+  return QRCode.toDataURL(qrUrl, { width: QR_SIZE, margin: 2, errorCorrectionLevel: "M" });
+}
+
 /** 인쇄용 PNG data URL — QR + 부스 이름. 브라우저에서만 동작한다(canvas 사용). */
 export async function renderBoothQrPng(qrUrl: string, name: string): Promise<string> {
   const lines = wrapBoothLabel(name);
@@ -56,12 +61,7 @@ export async function renderBoothQrPng(qrUrl: string, name: string): Promise<str
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // errorCorrectionLevel M — 32자 링크는 버전 3(29×29)에 들어간다.
-  const qrDataUrl = await QRCode.toDataURL(qrUrl, {
-    width: QR_SIZE,
-    margin: 2,
-    errorCorrectionLevel: "M",
-  });
+  const qrDataUrl = await renderQrDataUrl(qrUrl);
 
   const image = new Image();
   await new Promise<void>((resolve, reject) => {
