@@ -925,3 +925,29 @@ export const GUEST_LABEL = "개인 참여자";
 export const schoolLabel = (school: string) => school || GUEST_LABEL;
 export const classLabel = (grade: number, classNo: number) =>
   grade ? `${grade}학년 ${classNo}반` : GUEST_LABEL;
+
+
+export interface OnsitePhotoResult {
+  status: "pending" | "processing" | "ready" | "refused" | "failed";
+  image_url: string | null;
+  choice: "ai" | "character" | null;
+}
+
+export function startOnsitePhoto(token: string): Promise<OnsitePhotoResult> {
+  return request("/api/students/me/onsite-photo", {
+    method: "POST", headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function getOnsitePhoto(token: string): Promise<OnsitePhotoResult> {
+  return request("/api/students/me/onsite-photo", {
+    method: "GET", headers: { Authorization: `Bearer ${token}` }, cache: "no-store",
+  });
+}
+
+export function chooseOnsitePhoto(token: string, choice: "ai" | "character"): Promise<OnsitePhotoResult> {
+  return request("/api/students/me/onsite-photo", {
+    method: "PUT", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ choice }),
+  });
+}

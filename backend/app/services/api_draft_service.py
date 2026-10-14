@@ -22,7 +22,7 @@ from app.adapters.vertex_image_client import (
     ImageRefusedError,
     VertexImageClient,
 )
-from app.core.errors import ExternalServiceError
+from app.core.errors import ConflictError, ExternalServiceError
 from app.core.images import crop_top, to_codex_input
 from app.core.logging import get_logger
 from app.core.prompts.future_photo_prompt import (
@@ -33,6 +33,7 @@ from app.core.prompts.future_photo_prompt import (
 )
 from app.core.prompts.persona_prompt import PERSONA_OUTPUT_SCHEMA
 from app.repositories.draft_repo import DraftRepository, DraftTarget, DraftText
+from app.repositories.onsite_photo_repo import OnsitePhotoRepository
 from app.repositories.student_repo import StudentRecord
 from app.services.draft_service import DraftService, to_draft_text
 
@@ -86,6 +87,7 @@ class ApiDraftService:
         drafts: DraftRepository,
         storage: StorageClient,
         persona_model: str,
+        onsite_photos: OnsitePhotoRepository | None = None,
     ) -> None:
         self._ai = ai
         self._vertex = vertex
@@ -93,6 +95,18 @@ class ApiDraftService:
         self._drafts = drafts
         self._storage = storage
         self.persona_model = persona_model
+        self._onsite_photos = onsite_photos
+
+    async def waiting_for_onsite_photo(self, student: StudentRecord) -> bool:
+        if self._onsite_photos is None:
+            return False
+        photo = await self._onsite_photos.get_current(student.id)
+        return bool(
+            photo
+            and photo.photo_key == student.photo_key
+            and photo.choice != "character"
+            and photo.status not in ("ready", "refused")
+        )
 
     async def generate(self, student: StudentRecord, session_id: UUID) -> ApiDraft:
         """세션 답변·학생 사진 → 페르소나 + 사진. 둘은 서로 의존하지 않아 동시에 돈다."""
@@ -138,6 +152,16 @@ class ApiDraftService:
             await self._drafts.save_image(draft_id, image_key=None, error=result.image_error)
         if approve:
             await self._draft_service.approve(draft_id)
+            if self._onsite_photos:
+                photo = await self._onsite_photos.get_current(target.student_id)
+                if photo and photo.choice and result.image is not None:
+                    try:
+                        await self._draft_service.choose_card_photo(
+                            target.student_id, use_ai=photo.choice == "ai"
+                        )
+                    except ConflictError:
+                        if not await self._drafts.persona_photo_chosen(target.session_id):
+                            raise
         return draft_id
 
     async def _persona(self, session_id: UUID) -> tuple[dict[str, Any], float | None]:
@@ -160,6 +184,17 @@ class ApiDraftService:
     async def _image(self, student: StudentRecord) -> GeneratedImage:
         if not student.photo_key:
             raise ExternalServiceError("원본 사진 없음")
+        if self._onsite_photos:
+            prepared = await self._onsite_photos.get_current(student.id)
+            if prepared and prepared.photo_key == student.photo_key:
+                if prepared.choice == "character" or prepared.status == "refused":
+                    raise ImageRefusedError(
+                        "현장 참여자가 유성이 사진을 선택했거나 사진 생성이 거절됐습니다."
+                    )
+                if prepared.status == "ready" and prepared.image_key:
+                    return GeneratedImage(await self._storage.download(prepared.image_key), None)
+                # 사전 생성과 중복으로 과금하지 않고 준비된 결과를 기다린다.
+                raise ImageQuotaError("현장 사진 생성 결과를 기다리고 있습니다.")
         photo = await self._storage.download(student.photo_key)
         return await vertex_future_photo(self._vertex, photo, DEFAULT_FUTURE_PHOTO_PROMPT)
 

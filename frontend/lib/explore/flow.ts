@@ -13,6 +13,7 @@ import { useSessionStore } from "@/store/useSessionStore";
 import type { ProfileSummary } from "@/lib/api";
 
 export type FlowScreen =
+  | "onsite-photo"
   | "explore"
   | "questions"
   | "evening"
@@ -21,6 +22,7 @@ export type FlowScreen =
   | "done";
 
 const SCREEN_PATH: Record<FlowScreen, string> = {
+  "onsite-photo": "/onsite/photo",
   explore: "/explore",
   questions: "/explore/questions",
   evening: "/explore/evening",
@@ -33,6 +35,7 @@ const SCREEN_PATH: Record<FlowScreen, string> = {
 // 사진은 설문(path)을 마친 뒤 마지막 관문이다 — 설문을 다 끝낸 학생에게만 요청해
 // 사진 때문에 탐험 자체를 시작하지 못하는 이탈을 없앤다.
 const SCREEN_ORDER: FlowScreen[] = [
+  "onsite-photo",
   "explore",
   "questions",
   "evening",
@@ -44,6 +47,7 @@ const screenIndex = (s: FlowScreen) => SCREEN_ORDER.indexOf(s);
 
 // 라우팅 판단에 필요한 최소 상태 조각.
 export interface FlowState {
+  onsiteMode?: boolean;
   answers: { questionId: number; value: string | string[] }[];
   riasecScores: unknown;
   pairCode: string | null;
@@ -57,6 +61,7 @@ export interface FlowState {
 
 // 저장된 진행상황으로 "지금 있어야 할 화면"을 계산한다(마지막으로 완료한 지점의 다음).
 export function resumeScreen(s: FlowState): FlowScreen {
+  if (s.onsiteMode && !s.hasPhoto) return "onsite-photo";
   // 설문을 마쳤으면 남은 건 사진뿐이다. 아직 안 올렸으면 다음에 다시 들어와도
   // 종료 화면이 아니라 사진 화면으로 보낸다(사진 없이는 대원증을 만들 수 없으므로).
   if (s.surveyCompleted) return s.hasPhoto ? "done" : "photo";
@@ -79,7 +84,8 @@ export function resumeScreen(s: FlowState): FlowScreen {
 }
 
 export function resumePath(s: FlowState): string {
-  return SCREEN_PATH[resumeScreen(s)];
+  const screen = resumeScreen(s);
+  return s.onsiteMode && screen === "done" ? "/onsite/complete" : SCREEN_PATH[screen];
 }
 
 // 로컬 상태(surveyCompleted)는 localStorage 영속이라, 기기를 바꾸거나 저장소가
@@ -107,6 +113,8 @@ export function reconcileFromProfile(profile: ProfileSummary): void {
 // 각 화면의 하드 진입 조건(뒤로 밀기와 별개로, 정상적으로 그 화면에 있을 수 있는가).
 function canAccess(screen: FlowScreen, s: FlowState): boolean {
   switch (screen) {
+    case "onsite-photo":
+      return Boolean(s.onsiteMode) && !s.hasPhoto;
     case "explore":
       return true; // 토큰 유무만 별도 확인
     case "questions":
@@ -126,6 +134,7 @@ function canAccess(screen: FlowScreen, s: FlowState): boolean {
 function pickFlowState(): FlowState {
   const s = useSessionStore.getState();
   return {
+    onsiteMode: s.onsiteMode,
     answers: s.answers,
     riasecScores: s.riasecScores,
     pairCode: s.pairCode,
@@ -157,6 +166,7 @@ export function useFlowGuard(screen: FlowScreen, editingPhoto = false): { ready:
   const q9 = useSessionStore((s) => s.q9Selection);
   const completed = useSessionStore((s) => s.surveyCompleted);
   const hasPhoto = useSessionStore((s) => s.hasPhoto);
+  const onsiteMode = useSessionStore((s) => s.onsiteMode);
 
   useEffect(() => {
     if (!hasHydrated) return; // 복원 전에는 판단 보류
@@ -169,15 +179,23 @@ export function useFlowGuard(screen: FlowScreen, editingPhoto = false): { ready:
     if (editingPhoto && screen === "photo" && state.surveyCompleted) return;
     // 이미 목표 화면에 있으면(같은 경로) 리다이렉트하지 않는다 — 어떤 상태에서도
     // 자기 자신으로 되미는 무한 리다이렉트(→ 영구 로딩/하늘 배경)를 원천 차단한다.
+    if (onsiteMode && !state.hasPhoto && screen !== "onsite-photo") {
+      router.replace("/onsite/photo");
+      return;
+    }
+    if (screen === "done" && state.onsiteMode && target === "done") {
+      router.replace("/onsite/complete");
+      return;
+    }
     if (SCREEN_PATH[target] === SCREEN_PATH[screen]) return;
     // 진행이 이 화면보다 앞서면 앞으로 민다(= 뒤로가기 무효).
     if (screenIndex(target) > screenIndex(screen)) {
-      router.replace(SCREEN_PATH[target]);
+      router.replace(resumePath(state));
       return;
     }
     // 정상 진입 조건 미충족(직접 URL 진입 등) → 진행상황에 맞는 화면으로.
     if (!canAccess(screen, state)) {
-      router.replace(SCREEN_PATH[target]);
+      router.replace(resumePath(state));
     }
   }, [
     hasHydrated,
@@ -191,6 +209,7 @@ export function useFlowGuard(screen: FlowScreen, editingPhoto = false): { ready:
     q9,
     completed,
     hasPhoto,
+    onsiteMode,
     screen,
     editingPhoto,
     router,
@@ -200,6 +219,7 @@ export function useFlowGuard(screen: FlowScreen, editingPhoto = false): { ready:
   const state = pickFlowState();
   const target = resumeScreen(state);
   const ready =
+    !(state.onsiteMode && !state.hasPhoto && screen !== "onsite-photo") &&
     (screenIndex(target) <= screenIndex(screen) || (editingPhoto && screen === "photo")) && canAccess(screen, state);
   return { ready };
 }

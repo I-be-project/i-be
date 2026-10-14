@@ -104,7 +104,7 @@ function LoginForm() {
       } catch {
         // 무시 — 로컬 상태 기준으로 계속 진행(fail-open)
       }
-      // 진행 중이던 화면으로 이어가고, 설문·사진까지 마쳤으면 홈(resumePath가 "/home").
+      // 진행 중인 화면으로 이어간다. 완료 시 일반 참여자는 홈, 현장 참여자는 현장 완료 화면으로 간다.
       router.replace(resumePath(useSessionStore.getState()));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {

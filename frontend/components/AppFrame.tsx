@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 // 넓은 화면(데스크톱/태블릿)에서 콘텐츠가 좌우로 퍼지지 않고 항상 같은 크기로 보인다.
 // 웰컴(/)은 전체 화면 유지, 관리자·운영진 콘솔·개발 도구(admin·operator·dev)는
 // 자체 넓은 레이아웃이라 프레임 제외.
-const FULL_BLEED_ROUTES = new Set(["/"]);
+const FULL_BLEED_ROUTES = new Set(["/", "/onsite"]);
 const UNFRAMED_PREFIXES = ["/admin", "/operator", "/dev"];
 
 export function AppFrame({ children }: { children: React.ReactNode }) {

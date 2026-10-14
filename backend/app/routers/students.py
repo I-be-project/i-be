@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, File, Response, UploadFile
+from fastapi import APIRouter, BackgroundTasks, File, Response, UploadFile
 
 from app.core.errors import DomainError
 from app.deps import (
@@ -12,12 +12,14 @@ from app.deps import (
     CurrentStudentDep,
     DraftServiceDep,
     NabiClientDep,
+    OnsitePhotoServiceDep,
     SessionServiceDep,
 )
 from app.schemas.auth import PhotoUploadResponse
 from app.schemas.students import (
     CardPhotoRequest,
     NabiResult,
+    OnsitePhotoResult,
     ProfileSummary,
     PublicProfileSummary,
     UpdateProfileRequest,
@@ -128,3 +130,44 @@ async def update_my_profile(
 async def delete_my_data() -> dict[str, str]:
     """학생 데이터 삭제 요청 (soft delete + 사진/이미지 폐기)."""
     raise NotImplementedError
+
+
+@router.post("/me/onsite-photo", response_model=OnsitePhotoResult, status_code=202)
+async def start_onsite_photo(
+    student_id: CurrentStudentDep,
+    service: OnsitePhotoServiceDep,
+    background: BackgroundTasks,
+) -> OnsitePhotoResult:
+    job = await service.start(student_id)
+    if job:
+        background.add_task(service.generate, job)
+    return await service.result(student_id)
+
+
+@router.get("/me/onsite-photo", response_model=OnsitePhotoResult)
+async def get_onsite_photo(
+    student_id: CurrentStudentDep,
+    service: OnsitePhotoServiceDep,
+    response: Response,
+) -> OnsitePhotoResult:
+    response.headers["Cache-Control"] = "no-store"
+    return await service.result(student_id)
+
+
+@router.put("/me/onsite-photo", response_model=OnsitePhotoResult)
+async def choose_onsite_photo(
+    req: CardPhotoRequest,
+    student_id: CurrentStudentDep,
+    service: OnsitePhotoServiceDep,
+) -> OnsitePhotoResult:
+    return await service.choose(student_id, req.choice)
+
+
+@router.get("/me/card-photo", response_model=OnsitePhotoResult)
+async def get_card_photo(
+    student_id: CurrentStudentDep,
+    sessions: SessionServiceDep,
+    response: Response,
+) -> OnsitePhotoResult:
+    response.headers["Cache-Control"] = "no-store"
+    return await sessions.get_card_photo_result(student_id)
