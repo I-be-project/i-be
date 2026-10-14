@@ -105,7 +105,9 @@ class _Drafts:
 
     async def save_text(self, session_id: UUID, student_id: UUID, text: Any, raw: Any) -> UUID:
         self.text = text
-        self.record = SimpleNamespace(id=self.draft_id, session_id=session_id, status="pending", raw=raw)
+        self.record = SimpleNamespace(
+            id=self.draft_id, session_id=session_id, status="pending", raw=raw
+        )
         return self.draft_id
 
     async def save_image(self, draft_id: UUID, *, image_key: str | None, error: str | None) -> None:
@@ -314,12 +316,15 @@ async def test_no_progress_publisher_loop_sleeps(monkeypatch: pytest.MonkeyPatch
     sleep.assert_awaited_once_with(5)
 
 
-async def test_upload_failure_does_not_leave_a_partial_draft(monkeypatch: pytest.MonkeyPatch) -> None:
+async def test_upload_failure_does_not_leave_a_partial_draft(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     from unittest.mock import AsyncMock
 
     publisher, drafts, review = _publisher()
     monkeypatch.setattr(
-        publisher._service._storage, "upload_generated_image",
+        publisher._service._storage,
+        "upload_generated_image",
         AsyncMock(side_effect=RuntimeError("upload unavailable")),
     )
     with pytest.raises(RuntimeError):
@@ -330,7 +335,8 @@ async def test_upload_failure_does_not_leave_a_partial_draft(monkeypatch: pytest
 
 @pytest.mark.parametrize("failure_stage", ["save_image", "approve"])
 async def test_interrupted_publication_resumes_after_restart_without_ai(
-    monkeypatch: pytest.MonkeyPatch, failure_stage: str,
+    monkeypatch: pytest.MonkeyPatch,
+    failure_stage: str,
 ) -> None:
     from unittest.mock import AsyncMock
 

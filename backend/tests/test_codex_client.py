@@ -39,13 +39,21 @@ _JPEG_BYTES = _image_bytes("JPEG")
 def _launch_python_test_binary(monkeypatch):
     """실제 프로세스/파이프는 유지하고 테스트 스크립트의 인터프리터만 명시한다."""
     original = subprocess.Popen
+    processes = []
 
     def launch(args, *positional, **kwargs):
         if isinstance(args, list) and str(args[0]).endswith("fake-codex.py"):
-            args = [sys.executable, *args]
+            # 실제 Codex CLI처럼 UTF-8을 출력한다. Windows의 기본 CP949에 의존하지 않는다.
+            # venv의 Windows 실행기는 별도 자식 Python을 띄우므로 본 인터프리터를 쓴다.
+            interpreter = getattr(sys, "_base_executable", sys.executable)
+            args = [interpreter, "-X", "utf8", *args]
+            proc = original(args, *positional, **kwargs)
+            processes.append(proc)
+            return proc
         return original(args, *positional, **kwargs)
 
     monkeypatch.setattr(subprocess, "Popen", launch)
+    return processes
 
 
 def _fake_binary(tmp_path: Path, body: str) -> str:
@@ -263,7 +271,7 @@ async def test_image_refusal_reason_is_surfaced(tmp_path: Path) -> None:
         await client.generate_image("프롬프트", photo=_JPEG_BYTES)
 
 
-async def test_cancel_kills_the_process(tmp_path: Path) -> None:
+async def test_cancel_kills_the_process(tmp_path: Path, _launch_python_test_binary) -> None:
     """일괄 생성을 중단하면 codex 프로세스도 함께 죽어야 한다(고아로 남아 사용량을 쓰지 않게)."""
     pid_file = tmp_path / "pid"
     client = CodexClient(
@@ -282,14 +290,12 @@ async def test_cancel_kills_the_process(tmp_path: Path) -> None:
     with pytest.raises(asyncio.CancelledError):
         await task
 
-    pid = int(pid_file.read_text())
-    for _ in range(40):  # SIGKILL 반영까지 잠깐 기다린다
-        try:
-            os.kill(pid, 0)
-        except ProcessLookupError:
-            return
-        await asyncio.sleep(0.05)
-    pytest.fail("codex 프로세스가 살아 있다")
+    assert len(_launch_python_test_binary) == 1
+    proc = _launch_python_test_binary[0]
+    assert proc.pid == int(pid_file.read_text())
+    # Windows에서는 os.kill(pid, 0)이 POSIX의 생존 확인과 다르게 동작한다.
+    # 실제 실행한 프로세스 핸들로 종료 여부를 확인한다.
+    assert proc.poll() is not None, "codex 프로세스가 살아 있다"
 
 
 async def test_unsupported_model_falls_back(tmp_path: Path) -> None:
