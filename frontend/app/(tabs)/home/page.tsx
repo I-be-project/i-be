@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { TabPage, ProfileFeedback } from "@/components/tabs/TabPage";
 import { useProfileView, MyPageLink } from "@/components/tabs/ProfileView";
+import { LogoutButton } from "@/components/tabs/LogoutButton";
 import { CardActions } from "@/components/tabs/CardActions";
 import { CardPhotoChoiceDialog } from "@/components/tabs/CardPhotoChoiceDialog";
 import { FlippablePersonaCard } from "@/components/tabs/FlippablePersonaCard";
@@ -19,7 +20,7 @@ export default function HomePage() {
   const cardEnabled = !!profile?.card?.card_image_url;
   // 공개 페이지 basePath는 /p/<code>.
   const nabiImageUrl = useNabiImage(cardEnabled, readOnly ? basePath.split("/")[2] ?? null : null);
-  return <TabPage action={readOnly ? <MyPageLink /> : undefined}>
+  return <TabPage action={readOnly ? <MyPageLink /> : undefined} leading={readOnly ? undefined : <LogoutButton />}>
     <ProfileFeedback {...feedback} />
     {!feedback.loading && !feedback.error && profile && <>
       <section aria-label="페르소나 카드" className={`${SOFT_CARD} overflow-hidden p-4 sm:p-5`}>
