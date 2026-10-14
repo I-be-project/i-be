@@ -127,7 +127,7 @@ Worker      jobs 큐 폴링 → CardService 호출 (자체 로직 없음)  🔴 
 | `/b/[code]` | 부스 QR 진입 → 방문 인증 |
 | `/operator` | 운영진 콘솔 (좌석표·부스·방문) |
 | `/admin` | 관리자 콘솔 (회원·좌석표·부스·테스트 계정) |
-| `/admin/booths/print` | 부스 QR 일괄 인쇄 (존 선택 → 격자 인쇄) |
+| `/admin/booths/print` | 부스 QR 일괄 인쇄 (부스당 한 페이지: QR·이름·기관) |
 
 `/operator`와 `/admin`은 화면 컴포넌트를 `components/console/`에서 공유하고
 권한만 다르게 준다.
@@ -362,3 +362,4 @@ Lightsail 인스턴스 (2GB/2vCPU, Dual-stack)
 | 2026-10-10 | `backend-design.md`(설계 의도 문서) 삭제에 따라 관련 문서 링크 제거 |
 | 2026-10-11 | 카드 뒷면 나비 그림 추가 — 백엔드가 나비 결과 조회 API를 대신 호출(`NABI_API_TOKEN`)해 개인·공개 페이지에 전달 |
 | 2026-10-11 | 카드 자동 공개 — 기준 날짜 이후 설문·사진 완료자를 폴링해 OpenRouter 페르소나 + Vertex 사진을 만들어 검수 없이 공개. AI 오케스트레이션 절 현행화 |
+| 2026-10-14 | 부스 QR 일괄 인쇄를 존 선택 격자에서 부스당 한 페이지 안내판으로 변경 |

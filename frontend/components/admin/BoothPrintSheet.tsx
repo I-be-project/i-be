@@ -1,15 +1,19 @@
 "use client";
 
+import { Jua } from "next/font/google";
 import { useEffect, useState } from "react";
-import { renderBoothQrPng } from "@/lib/boothQr";
-import { ZONE_LABELS } from "@/lib/competencies";
+import { renderQrDataUrl } from "@/lib/boothQr";
 import type { AdminBooth } from "@/lib/api";
 
+// 부스 앞에 붙이는 안내판이라 본문 글꼴(Pretendard)보다 둥글고 굵은 글꼴을 쓴다.
+const signFont = Jua({ weight: "400", subsets: ["latin"] });
+
 /**
- * 인쇄용 QR 격자. 부스 한 칸에 QR·이름·기관·코드를 함께 찍는다.
+ * 인쇄용 QR 안내판. 부스 한 곳이 한 페이지 — QR 크게, 그 아래 부스 이름과 기관.
  *
- * QR PNG는 canvas로 그리므로 브라우저에서만 만들어진다. booths가 바뀔 때마다(존 필터를
- * 바꿔 부모가 새 배열을 넘길 때 포함) 다시 그린다 — 최대 70장 규모라 기능상 문제는 아니다.
+ * QR PNG는 브라우저에서만 만들어진다. booths가 바뀔 때마다 다시 그린다 — 최대 70장 규모라
+ * 기능상 문제는 아니다. 이름은 PNG에 넣지 않고 HTML로 찍는다 — 글꼴을 CSS로 바꿀 수 있고
+ * 인쇄 시 벡터라 또렷하다.
  */
 export function BoothPrintSheet({
   booths,
@@ -24,7 +28,7 @@ export function BoothPrintSheet({
   useEffect(() => {
     let active = true;
     Promise.all(
-      booths.map(async (b) => [b.id, await renderBoothQrPng(b.qr_url, b.name)] as const)
+      booths.map(async (b) => [b.id, await renderQrDataUrl(b.qr_url)] as const),
     )
       .then((pairs) => {
         if (!active) return;
@@ -32,9 +36,8 @@ export function BoothPrintSheet({
         onRenderFailedChange?.(false);
       })
       .catch(() => {
-        // ctx가 null이거나 image.onerror·QRCode.toDataURL 실패로 하나라도 reject되면
-        // Promise.all이 통째로 reject돼 나머지도 로딩(회색 상자) 상태로 남는다.
-        // 여기서 삼키지 않고 부모에 알려야 그 상태로 인쇄하는 걸 막을 수 있다.
+        // 하나라도 reject되면 Promise.all이 통째로 reject돼 나머지도 로딩(회색 상자) 상태로
+        // 남는다. 여기서 삼키지 않고 부모에 알려야 그 상태로 인쇄하는 걸 막을 수 있다.
         if (active) onRenderFailedChange?.(true);
       });
     return () => {
@@ -43,22 +46,32 @@ export function BoothPrintSheet({
   }, [booths, onRenderFailedChange]);
 
   return (
-    <div className="grid grid-cols-2 gap-4 print:grid-cols-2">
+    <div className={signFont.className}>
       {booths.map((booth) => (
-        <div
+        <section
           key={booth.id}
-          className="flex break-inside-avoid flex-col items-center gap-2 rounded-2xl border border-solid border-slate-300 p-4"
+          // 한 부스가 한 페이지. break-after를 쓰면 마지막 장 뒤에 빈 페이지가 생길 수 있어 before로 끊는다.
+          className="flex min-h-[80vh] break-before-page flex-col items-center gap-8 pt-6 text-center first:break-before-auto"
         >
           {images[booth.id] ? (
             // eslint-disable-next-line @next/next/no-img-element -- canvas가 만든 data URL이라 next/image가 처리할 수 없다
-            <img src={images[booth.id]} alt="" className="w-40" />
+            <img
+              src={images[booth.id]}
+              alt=""
+              className="w-[150mm] max-w-full"
+            />
           ) : (
-            <div className="h-40 w-40 animate-pulse rounded bg-slate-100" />
+            <div className="aspect-square w-[150mm] max-w-full animate-pulse rounded bg-slate-100" />
           )}
-          {/* 이름은 QR 이미지 안에 그려진다. 여기서는 기관명과 존만 덧붙인다. */}
-          <p className="text-center text-sm text-slate-500">{booth.description ?? ""}</p>
-          <p className="text-xs text-slate-400">{ZONE_LABELS[booth.zone]}</p>
-        </div>
+          <h2 className="max-w-full text-5xl leading-tight break-keep wrap-anywhere">
+            {booth.name}
+          </h2>
+          {booth.description && (
+            <p className="max-w-full text-3xl break-keep wrap-anywhere text-slate-500">
+              {booth.description}
+            </p>
+          )}
+        </section>
       ))}
     </div>
   );
