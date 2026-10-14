@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import { TabPage, ProfileFeedback } from "@/components/tabs/TabPage";
 import { useProfileView, MyPageLink } from "@/components/tabs/ProfileView";
 import { LogoutButton } from "@/components/tabs/LogoutButton";
@@ -32,7 +34,7 @@ export default function HomePage() {
         {profile.card?.card_image_url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={profile.card.card_image_url} alt={`${readOnly ? "페이지 주인" : profile.student?.name ?? "나"}의 페르소나 카드`} className="h-auto w-full rounded-xl" />
-        ) : <div className="py-6 text-center"><h2 className="text-lg font-extrabold text-hm-blue">{(readOnly || profile.has_completed) ? "페르소나 카드를 준비하고 있어" : "나만의 페르소나를 만나볼까?"}</h2><p className="mt-2 text-sm text-hm-blue/65">{(readOnly || profile.has_completed) ? "완성되면 여기에 표시될 거야." : "탐험을 마치면 이곳에 내 카드가 생겨."}</p>{!readOnly && !profile.has_completed && <Link href="/explore" className="mt-4 inline-block rounded-full bg-hm-blue px-5 py-2 text-sm font-bold text-white">탐험하러 가기</Link>}</div>}
+        ) : <div className="py-6 text-center"><h2 className="text-lg font-extrabold text-hm-blue">{(readOnly || profile.has_completed) ? "페르소나 카드를 준비하고 있어" : "나만의 페르소나를 만나볼까?"}</h2><p className="mt-2 text-sm text-hm-blue/65">{(readOnly || profile.has_completed) ? "완성되면 여기에 표시될 거야." : "탐험을 마치면 이곳에 내 카드가 생겨."}</p>{(readOnly || profile.has_completed) && <RefreshCardButton onRefresh={feedback.retry} />}{!readOnly && !profile.has_completed && <Link href="/explore" className="mt-4 inline-block rounded-full bg-hm-blue px-5 py-2 text-sm font-bold text-white">탐험하러 가기</Link>}</div>}
         </FlippablePersonaCard>
       </section>
       {/* 저장·공유는 카드 박스 밖, 바로 아래에 둔다. */}
@@ -40,4 +42,12 @@ export default function HomePage() {
       {!readOnly && <CardActions imageUrl={profile.card?.card_image_url} sharePath={profile.share_path} name={profile.student?.name} />}
     </>}
   </TabPage>;
+}
+
+// 카드 대기 중 새로고침 — 서버에 카드가 만들어졌는지 다시 묻는다. 결과가 같아도 눌렸다는 걸 보이게 잠깐 돈다.
+function RefreshCardButton({ onRefresh }: { onRefresh: () => void }) {
+  const [spinning, setSpinning] = useState(false);
+  return <button type="button" disabled={spinning} onClick={() => { onRefresh(); setSpinning(true); setTimeout(() => setSpinning(false), 1000); }} className="mt-4 inline-flex items-center gap-1.5 rounded-full border border-hm-pattern bg-white px-4 py-2 text-sm font-bold text-hm-blue disabled:opacity-60">
+    <RefreshCw className={`size-4 ${spinning ? "animate-spin" : ""}`} />새로고침
+  </button>;
 }
