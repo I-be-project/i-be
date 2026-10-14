@@ -68,6 +68,8 @@ export default function OnsiteCompletePage() {
   if (!hydrated || !token || !onsite || !completed || !hasPhoto) return <FlowLoading mood="night" />;
   const unavailable = photo?.status === "failed" || photo?.status === "refused";
   const imageUrl = photo?.status === "ready" ? photo.image_url : null;
+  const showFallback = unavailable || imageFailed || (!imageUrl && (loadFailed || photo?.status === "ready"));
+  const displayImageUrl = showFallback ? "/card-fallback.webp" : imageUrl;
 
   return (
     <main className="relative min-h-[100dvh] overflow-hidden px-6 pb-10 pt-10 font-sans">
@@ -76,9 +78,9 @@ export default function OnsiteCompletePage() {
         <h1 className="mb-8 text-center text-[2rem] font-black leading-tight tracking-tight text-ink md:text-4xl">탐험을 마쳤어요!</h1>
         <section aria-label="미래의 나의 모습" className="grid overflow-hidden rounded-3xl bg-white md:grid-cols-[0.85fr_1.4fr]">
           <figure className="flex min-w-0 flex-col items-center justify-center gap-4 border-b-2 border-dashed border-sky-200 bg-sky-100 p-6 md:border-b-0 md:border-r-2">
-          {imageUrl && !imageFailed ? (
-            <Image key={imageUrl} src={imageUrl} alt="AI가 그린 미래의 나의 모습"
-              width={640} height={800} unoptimized onError={() => setImageFailed(true)}
+          {displayImageUrl ? (
+            <Image key={displayImageUrl} src={displayImageUrl} alt={showFallback ? "유성이 사진" : "AI가 그린 미래의 나의 모습"}
+              width={640} height={800} unoptimized onError={showFallback ? undefined : () => setImageFailed(true)}
               className="max-h-[48dvh] w-auto max-w-full rounded-xl object-contain" />
           ) : (
             <div role="status" className="flex aspect-[4/5] w-full max-w-48 flex-col items-center justify-center gap-4 rounded-xl bg-white/60 p-4 text-center text-sm text-ink-soft">
@@ -88,14 +90,13 @@ export default function OnsiteCompletePage() {
           )}
           </figure>
           <div className="flex flex-col justify-center p-6 md:p-8">
-            <p className="text-xs font-semibold tracking-wide text-ink-soft">탐험의 마지막 한 장</p>
-            <h2 className="mb-4 mt-4 text-[1.75rem] font-bold leading-snug tracking-tight text-ink">
-              {imageUrl && !imageFailed ? <>새로운 나의 모습이<br />준비됐어요.</> : unavailable ? <>사진 생성이<br />어려워요.</> : imageFailed || loadFailed ? <>사진을 다시<br />불러와 주세요.</> : <>미래의 나의 모습을<br />준비하고 있어요.</>}
+            <h2 className="mb-4 text-[1.75rem] font-bold leading-snug tracking-tight text-ink">
+              {showFallback ? <>유성이 사진으로<br />대신 보여드려요.</> : imageUrl ? <>새로운 나의 모습이<br />준비됐어요.</> : <>미래의 나의 모습을<br />준비하고 있어요.</>}
             </h2>
             <p className="text-sm leading-relaxed text-ink-soft">오늘 발견한 가능성을<br />한 장의 카드로 간직해 봐.</p>
             <div className="mt-6 rounded-2xl bg-sky-50 p-4">
               <p className="text-sm font-bold leading-relaxed text-ink">실물 카드는 운영진에게 받을 수 있어요.</p>
-              <p className="mt-1 text-xs leading-relaxed text-ink-soft">참여를 마친 뒤 운영진에게 가 주세요.</p>
+              <p className="mt-1 text-xs leading-relaxed text-ink-soft">사진이 제대로 생성되지 않았다면 운영진에게 문의해 주세요.</p>
             </div>
             {error && <p role="alert" className="mt-4 text-sm text-rose-600">{error}</p>}
             {(loadFailed || imageFailed) && <button type="button" onClick={() => { setImageFailed(false); setRetry((v) => v + 1); }} className="mt-4 min-h-11 self-start text-sm font-bold text-sky-700 underline">사진 다시 불러오기</button>}
