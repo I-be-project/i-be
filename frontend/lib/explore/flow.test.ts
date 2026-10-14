@@ -144,8 +144,8 @@ describe("현장 전용 흐름", () => {
   it("현장 설문 완료 후 이미지 선택 화면으로 이동한다", () => {
     expect(resumePath({ ...base, onsiteMode: true, hasPhoto: true, surveyCompleted: true })).toBe("/onsite/complete");
   });
-  it("일반 참여자의 완료 경로는 그대로 유지한다", () => {
-    expect(resumePath({ ...base, onsiteMode: false, hasPhoto: true, surveyCompleted: true })).toBe("/explore/pending-card");
+    it("일반 참여자는 설문과 사진을 완료하면 홈으로 이동한다", () => {
+      expect(resumePath({ ...base, onsiteMode: false, hasPhoto: true, surveyCompleted: true })).toBe("/home");
     expect(resumePath({ ...base, surveyCompleted: true })).toBe("/explore/photo");
   });
   it("다음 참여자 초기화는 이전 인증과 사진·답변을 지우고 현장 모드를 유지한다", () => {

@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sprout, Home, MapPin } from "lucide-react";
 import { paperlogy } from "@/lib/fonts";
+import { useSessionStore } from "@/store/useSessionStore";
+import { loadStudentProfile } from "@/store/useStudentProfileStore";
 
 interface TabDef {
   href: string;
@@ -54,6 +56,11 @@ export function BottomNav({ basePath = "" }: { basePath?: string }) {
               href={href}
               // /p/[code]는 동적 라우트라 기본 prefetch가 거의 비어 탭 전환마다 서버 왕복을 기다린다.
               prefetch
+              // 이미 내 홈인데 홈을 또 누르면 이동이 없으므로 프로필을 다시 확인한다(카드 대기 중이면 서버 조회).
+              onClick={active && !basePath && label === "홈" ? () => {
+                const token = useSessionStore.getState().studentToken;
+                if (token) void loadStudentProfile(token);
+              } : undefined}
               aria-current={active ? "page" : undefined}
               className={
                 "flex flex-1 flex-col items-center gap-1 rounded-xl px-2 py-1.5 text-[11px] font-bold transition-colors " +

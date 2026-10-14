@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Camera } from "lucide-react";
 import { useSessionStore } from "@/store/useSessionStore";
+import { resumePath } from "@/lib/explore/flow";
 import { FlowLoading } from "@/components/voyage/FlowLoading";
 import { BottomNav } from "@/components/nav/BottomNav";
 import { OwnProfileProvider } from "@/components/tabs/ProfileView";
@@ -16,15 +17,20 @@ export default function TabsLayout({ children }: { children: React.ReactNode }) 
   const router = useRouter();
   const hasHydrated = useSessionStore((s) => s.hasHydrated);
   const studentToken = useSessionStore((s) => s.studentToken);
+  // 설문·사진까지 마쳤을 때만 resumePath가 "/home"이다. 아니면 이어서 할 화면으로 보낸다.
+  const nextPath = useSessionStore((s) => resumePath(s));
+  const finished = nextPath === "/home";
   const [scanOpen, setScanOpen] = useState(false);
 
   // 인증가드 — 기존 profile/[id]/page.tsx에 있던 로직을 그대로 옮겼다.
   // hasHydrated 전에는 localStorage 복원 중이므로 판단을 보류한다.
   useEffect(() => {
-    if (hasHydrated && !studentToken) router.replace("/login");
-  }, [hasHydrated, studentToken, router]);
+    if (!hasHydrated) return;
+    if (!studentToken) router.replace("/login");
+    else if (!finished) router.replace(nextPath);
+  }, [hasHydrated, studentToken, finished, nextPath, router]);
 
-  if (!hasHydrated || !studentToken) return <FlowLoading />;
+  if (!hasHydrated || !studentToken || !finished) return <FlowLoading />;
 
   // 각 탭 페이지가 스스로 min-h-[100dvh]를 갖고, 문서가 자연스럽게 스크롤되는 방식
   // (explore/path.tsx의 고정 하단 CTA와 동일 패턴). 여기서 별도 h-[100dvh]/overflow

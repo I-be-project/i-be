@@ -28,7 +28,7 @@ const SCREEN_PATH: Record<FlowScreen, string> = {
   evening: "/explore/evening",
   path: "/explore/path",
   photo: "/explore/photo",
-  done: "/explore/pending-card",
+  done: "/home", // 설문·사진까지 마치면 홈으로
 };
 
 // 흐름 순서. 뒤로 못 가게 막을 때 "현재 화면보다 앞선 진행"이면 앞으로 민다.

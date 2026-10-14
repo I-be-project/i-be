@@ -139,7 +139,7 @@ export function PhotoPage({ editing = false, onboarding = false }: { editing?: b
       await uploadPhoto(studentToken, file);
       setHasPhoto(true);
       const session = useSessionStore.getState();
-      router.push(editing && !session.onsiteMode ? "/explore/pending-card" : resumePath(session));
+      router.push(session.onsiteMode ? resumePath(session) : "/home");
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         showToast("로그인이 만료됐어. 다시 로그인하면 여기서 이어서 올릴 수 있어.", "error");
@@ -168,7 +168,7 @@ export function PhotoPage({ editing = false, onboarding = false }: { editing?: b
       <div className="relative z-10 px-7 pb-7 pt-10">
         {editing && (
           <button type="button" aria-label="사진 수정 나가기" disabled={uploading}
-            onClick={() => router.replace("/explore/pending-card")}
+            onClick={() => router.replace("/home")}
             className="absolute right-6 top-8 flex size-11 items-center justify-center rounded-full bg-white/80 text-ink-soft disabled:opacity-50">
             <X className="size-5" />
           </button>
