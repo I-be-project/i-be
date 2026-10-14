@@ -105,7 +105,7 @@ function LoginForm() {
         // 무시 — 로컬 상태 기준으로 계속 진행(fail-open)
       }
       // 같은 학생의 재로그인이면 진행상황이 보존된다(setAuth). 진행 중이던 설문이
-      // 있거나 이미 완료했으면 그 화면으로 바로 이어가고(완료 시 공개 대기 화면),
+      // 있거나 이미 완료했으면 그 화면으로 바로 이어가고(완료 시 홈),
       // 아직 시작 전(신규/다른 학생)이면 홈으로 간다.
       const s = useSessionStore.getState();
       const screen = resumeScreen(s);
