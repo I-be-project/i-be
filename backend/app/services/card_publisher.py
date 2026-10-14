@@ -29,6 +29,7 @@ from app.adapters.vertex_image_client import VertexImageClient
 from app.config import Settings
 from app.core.logging import get_logger
 from app.repositories.draft_repo import DraftRepository, DraftTarget
+from app.repositories.onsite_photo_repo import OnsitePhotoRepository
 from app.repositories.session_repo import SessionRepository
 from app.repositories.student_repo import StudentRepository
 from app.services.api_draft_service import ApiDraftService
@@ -80,6 +81,8 @@ class CardPublisher:
         """대상 1명 생성 → 공개 판단. 저장한 초안 id, 저장하지 않았으면 None."""
         student = await self._students.get_by_id(target.student_id)
         if student is None or not student.photo_key:
+            return None
+        if await self._service.waiting_for_onsite_photo(student):
             return None
         result = await self._service.generate(student, target.session_id)
         if result.publishable:
@@ -152,6 +155,7 @@ def build_card_publisher(
         drafts=drafts,
         storage=storage,
         persona_model=settings.api_persona_model,
+        onsite_photos=OnsitePhotoRepository(storage, students),
     )
     return CardPublisher(
         service=service,

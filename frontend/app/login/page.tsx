@@ -109,7 +109,9 @@ function LoginForm() {
       // 아직 시작 전(신규/다른 학생)이면 홈으로 간다.
       const s = useSessionStore.getState();
       const screen = resumeScreen(s);
-      if (screen === "explore" && !s.retakingSurvey) {
+      if (s.onsiteMode) {
+        router.replace(resumePath(s));
+      } else if (screen === "explore" && !s.retakingSurvey) {
         router.push("/home");
       } else {
         router.replace(resumePath(s));

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { reconcileFromProfile, resumeScreen, type FlowState } from "./flow";
+import { reconcileFromProfile, resumePath, resumeScreen, type FlowState } from "./flow";
 import { useSessionStore } from "@/store/useSessionStore";
 import type { ProfileSummary } from "@/lib/api";
 
@@ -130,5 +130,34 @@ describe("reconcileFromProfile", () => {
     };
     expect(() => reconcileFromProfile(noStudent)).not.toThrow();
     expect(useSessionStore.getState().hasPhoto).toBe(false);
+  });
+});
+
+
+describe("현장 전용 흐름", () => {
+  it("현장 참여자는 설문 전 사진 등록으로 이동한다", () => {
+    expect(resumePath({ ...base, onsiteMode: true })).toBe("/onsite/photo");
+  });
+  it("사진 등록 후 기존 탐험을 시작한다", () => {
+    expect(resumePath({ ...base, onsiteMode: true, hasPhoto: true })).toBe("/explore");
+  });
+  it("현장 설문 완료 후 이미지 선택 화면으로 이동한다", () => {
+    expect(resumePath({ ...base, onsiteMode: true, hasPhoto: true, surveyCompleted: true })).toBe("/onsite/complete");
+  });
+  it("일반 참여자의 완료 경로는 그대로 유지한다", () => {
+    expect(resumePath({ ...base, onsiteMode: false, hasPhoto: true, surveyCompleted: true })).toBe("/explore/pending-card");
+    expect(resumePath({ ...base, surveyCompleted: true })).toBe("/explore/photo");
+  });
+  it("다음 참여자 초기화는 이전 인증과 사진·답변을 지우고 현장 모드를 유지한다", () => {
+    useSessionStore.setState({ onsiteMode: true, studentToken: "previous", studentId: "previous", hasPhoto: true, surveyCompleted: true, answers: [{ questionId: 1, value: "a" }] });
+    useSessionStore.getState().reset();
+    const s = useSessionStore.getState();
+    expect(s.studentToken).toBeNull();
+    expect(s.studentInfo).toBeNull();
+    expect(s.hasPhoto).toBe(false);
+    expect(s.answers).toEqual([]);
+    expect(s.surveyCompleted).toBe(false);
+    expect(s.onsiteMode).toBe(true);
+    useSessionStore.setState({ onsiteMode: false });
   });
 });

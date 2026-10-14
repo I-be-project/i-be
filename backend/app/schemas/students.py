@@ -140,3 +140,9 @@ class NabiResult(BaseModel):
     status: Literal["done", "processing", "pending", "failed", "unavailable"]
     image_url: str | None = None
     stage: int | None = None
+
+
+class OnsitePhotoResult(BaseModel):
+    status: Literal["pending", "processing", "ready", "refused", "failed"]
+    image_url: str | None = None
+    choice: Literal["ai", "character"] | None = None

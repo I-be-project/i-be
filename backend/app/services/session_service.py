@@ -27,6 +27,7 @@ from app.repositories.student_repo import StudentRecord
 from app.schemas.persona import Persona
 from app.schemas.students import (
     CardSummary,
+    OnsitePhotoResult,
     PersonaSummary,
     ProfileBoothStatus,
     ProfileCompetencyScore,
@@ -171,6 +172,22 @@ class SessionService:
         self._db_pool = db_pool
         self._booths = booths
         self._visits = visits
+
+    async def get_card_photo_result(self, student_id: UUID) -> OnsitePhotoResult:
+        """기존 카드의 사진만 조회한다. 현장 사전 생성 테이블 없이도 동작한다."""
+        student = await self._students.get_by_id(student_id)
+        if student is None or student.deleted_at is not None:
+            raise NotFoundError("학생을 찾을 수 없습니다.")
+        session = await self._sessions.get_latest_completed_for_student(student_id)
+        persona = await self._personas.get_by_session(session.id) if session else None
+        if persona is None:
+            return OnsitePhotoResult(status="pending")
+        chosen = persona.photo_chosen_at is not None
+        key = persona.image_key if chosen else persona.ai_image_key
+        if not key:
+            return OnsitePhotoResult(status="refused", choice="character" if chosen else None)
+        url = await self._storage.create_signed_url(key, ttl_seconds=3600)
+        return OnsitePhotoResult(status="ready", image_url=url, choice="ai" if chosen else None)
 
     async def get_profile_summary(self, student_id: UUID) -> ProfileSummary:
         """프로필 화면 상태를 조립한다.

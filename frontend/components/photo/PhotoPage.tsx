@@ -21,7 +21,7 @@ import { VoyageBackground } from "@/components/voyage/VoyageBackground";
 import { CtaButton } from "@/components/voyage/CtaButton";
 import { CameraCapture } from "@/components/photo/CameraCapture";
 import { FlowLoading } from "@/components/voyage/FlowLoading";
-import { useFlowGuard, useBlockBack } from "@/lib/explore/flow";
+import { useFlowGuard, useBlockBack, resumePath } from "@/lib/explore/flow";
 
 const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
 const MAX_BYTES = 10 * 1024 * 1024; // 10MB
@@ -43,11 +43,11 @@ const BAD_EXAMPLES = [
 
 // 설문 후 사진 등록과 기존 사진 수정을 공유한다.
 // 사진을 왜 받는지(카드의 어느 자리에 들어가는지)와 어떤 사진이 좋은지를 먼저 보여주고 받는다.
-export function PhotoPage({ editing = false }: { editing?: boolean }) {
+export function PhotoPage({ editing = false, onboarding = false }: { editing?: boolean; onboarding?: boolean }) {
   const router = useRouter();
   // 설문을 마쳐야 들어올 수 있고, 여기서부터는 뒤로 돌아갈 수 없다.
   // 사진을 안 올린 채 나갔다 다시 들어오면 resumeScreen이 이 화면으로 되돌려준다.
-  const { ready } = useFlowGuard("photo", editing);
+  const { ready } = useFlowGuard(onboarding ? "onsite-photo" : "photo", editing);
   useBlockBack();
 
   const setHasPhoto = useSessionStore((state) => state.setHasPhoto);
@@ -138,7 +138,8 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
     try {
       await uploadPhoto(studentToken, file);
       setHasPhoto(true);
-      router.push("/explore/pending-card");
+      const session = useSessionStore.getState();
+      router.push(editing && !session.onsiteMode ? "/explore/pending-card" : resumePath(session));
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
         showToast("로그인이 만료됐어. 다시 로그인하면 여기서 이어서 올릴 수 있어.", "error");
@@ -173,7 +174,7 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
           </button>
         )}
         <p className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-sky-100/80 px-3 py-1 text-[12px] font-bold tracking-wide text-sky-700">
-          {editing ? "사진 수정" : "마지막 단계"}
+          {editing ? "사진 수정" : onboarding ? "탐험 준비" : "마지막 단계"}
         </p>
         <h1 className="text-[2rem] font-black leading-[1.2] tracking-tight text-ink">
           {editing ? "대원증에 담을 사진을" : "사진 한 장만"}
@@ -181,7 +182,7 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
           {editing ? "바꿔볼까?" : "올려줘"}
         </h1>
         <p className="mt-3 break-keep text-[15px] font-medium leading-relaxed text-ink-muted">
-          {editing ? "새 사진을 올리면 기존 사진이 바뀌어. 설문 답변은 그대로 유지돼." : "질문은 모두 끝났어. 이제 사진만 올리면 네 카드가 완성돼."}
+          {editing ? "새 사진을 올리면 기존 사진이 바뀌어. 설문 답변은 그대로 유지돼." : onboarding ? "탐험을 시작하기 전에 사진을 찍어줘. 이 사진으로 탐험대원 모습을 만들어줄게." : "질문은 모두 끝났어. 이제 사진만 올리면 네 카드가 완성돼."}
         </p>
       </div>
 
@@ -202,7 +203,7 @@ export function PhotoPage({ editing = false }: { editing?: boolean }) {
           </h2>
           <p className="mt-1.5 break-keep text-[14px] font-medium leading-relaxed text-ink-muted">
             AI가 이 사진을 바탕으로 <b className="font-bold text-ink-soft">10년 뒤 네 모습</b>을 그려서
-            카드 <b className="font-bold text-ink-soft">위쪽 큰 칸</b>에 넣어. 아래 글자는 네가 방금 답한 내용으로 채워져.
+            카드 <b className="font-bold text-ink-soft">위쪽 큰 칸</b>에 넣어. 아래 글자는 {onboarding ? "네가 탐험에서 답할 내용" : "네가 방금 답한 내용"}으로 채워져.
           </p>
 
           <div className="relative mx-auto mt-4 w-[62%] overflow-hidden rounded-2xl ring-1 ring-zinc-200/80">

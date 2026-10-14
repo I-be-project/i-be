@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SessionHydrator } from "@/components/SessionHydrator";
+import { OnsitePhotoPreparation } from "@/components/photo/OnsitePhotoPreparation";
 import { AppFrame } from "@/components/AppFrame";
 import "./globals.css";
 
@@ -31,6 +32,7 @@ export default function RootLayout({
     <html lang="ko" className="h-full antialiased" suppressHydrationWarning>
       <body className="min-h-full flex flex-col font-sans">
         <SessionHydrator />
+        <OnsitePhotoPreparation />
         <TooltipProvider>
           <AppFrame>{children}</AppFrame>
         </TooltipProvider>
