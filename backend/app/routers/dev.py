@@ -111,7 +111,7 @@ async def list_students(
 ) -> DevStudentList:
     """학생 선택 목록. 페르소나·사진 생성 가능 여부와 원본 사진 URL을 함께 내린다.
 
-    학교를 고르면 반·번호 순, 아니면 최근 가입 순.
+    학교·반 필터와 관계없이 최근 가입 순.
     """
     _, records = await students.list_students(
         q=q,
@@ -120,7 +120,7 @@ async def list_students(
         class_no=class_no,
         limit=limit,
         offset=0,
-        sort=None if school else "created_desc",
+        sort="created_desc",
     )
     progress = await sessions.get_progress_for_students([r.id for r in records])
     # 건별로 서명하면 클라이언트 생성 비용(40~50ms)이 건마다 붙는다 — 한 번에 서명한다.
@@ -318,6 +318,23 @@ async def _get_draft_item(
     if draft is None:
         raise NotFoundError("초안을 찾을 수 없습니다.")
     return (await draft_items([draft], storage))[0]
+
+
+@router.get("/students/{student_id}/draft", response_model=DraftItem)
+async def get_student_draft(
+    student_id: UUID,
+    sessions: SessionRepoDep,
+    drafts: DraftRepoDep,
+    storage: StorageClientDep,
+) -> DraftItem:
+    """학생의 최신 완료 설문에 연결된 카드 초안을 조회한다."""
+    session = await sessions.get_latest_completed_for_student(student_id)
+    draft = await drafts.get_by_session(session.id) if session else None
+    if draft is None:
+        raise NotFoundError(
+            "재생성할 카드 초안이 없습니다. 먼저 페르소나 카드 검수에서 초안을 생성해 주세요."
+        )
+    return await _get_draft_item(draft.id, drafts, storage)
 
 
 @router.get("/drafts", response_model=DraftList)

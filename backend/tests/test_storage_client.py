@@ -57,6 +57,7 @@ async def test_upload_photo_uses_uploads_prefix_and_returns_key():
     assert fake.put_calls[0]["Body"] == b"bytes"
     assert fake.put_calls[0]["ContentType"] == "image/jpeg"
     assert fake.put_calls[0]["ServerSideEncryption"] == "AES256"
+    assert "CacheControl" not in fake.put_calls[0]
 
 
 async def test_upload_generated_image_uses_ai_images_prefix():
@@ -71,6 +72,7 @@ async def test_upload_card_image_uses_cards_prefix():
     key = await _make(fake).upload_card_image("card-1/c.png", b"x", content_type="image/png")
     assert key == "cards/card-1/c.png"
     assert fake.put_calls[0]["Key"] == "cards/card-1/c.png"
+    assert fake.put_calls[0]["CacheControl"] == "private, no-store, no-cache, max-age=0"
 
 
 async def test_create_signed_url_passes_key_and_ttl():
@@ -79,7 +81,11 @@ async def test_create_signed_url_passes_key_and_ttl():
     assert url == "https://signed.example/get"
     op, kwargs = fake.sign_calls[0]
     assert op == "get_object"
-    assert kwargs["Params"] == {"Bucket": "test-bucket", "Key": "cards/card-1/c.png"}
+    assert kwargs["Params"] == {
+        "Bucket": "test-bucket",
+        "Key": "cards/card-1/c.png",
+        "ResponseCacheControl": "private, no-store, no-cache, max-age=0",
+    }
     assert kwargs["ExpiresIn"] == 3600
 
 
@@ -87,6 +93,27 @@ async def test_delete_calls_delete_object_with_key():
     fake = _FakeS3()
     await _make(fake).delete("uploads/stud-1/a.jpg")
     assert fake.delete_calls[0] == {"Bucket": "test-bucket", "Key": "uploads/stud-1/a.jpg"}
+
+
+async def test_card_overwrite_keeps_key_without_deleting_first():
+    fake = _FakeS3()
+    client = _make(fake)
+    old_key = await client.upload_card_image("student/draft.png", b"old", content_type="image/png")
+    new_key = await client.upload_card_image("student/draft.png", b"new", content_type="image/png")
+    assert old_key == new_key == "cards/student/draft.png"
+    assert [call["Body"] for call in fake.put_calls] == [b"old", b"new"]
+    assert fake.delete_calls == []
+
+
+async def test_batch_signing_disables_cache_only_for_cards():
+    fake = _FakeS3()
+    await _make(fake).create_signed_urls(
+        ["cards/student/draft.png", "uploads/photo.jpg"], ttl_seconds=600
+    )
+    card_params = fake.sign_calls[0][1]["Params"]
+    photo_params = fake.sign_calls[1][1]["Params"]
+    assert card_params["ResponseCacheControl"] == "private, no-store, no-cache, max-age=0"
+    assert "ResponseCacheControl" not in photo_params
 
 
 class _CountingFactory:
