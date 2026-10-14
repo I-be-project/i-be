@@ -67,7 +67,9 @@ class StorageClient:
             session.client("s3", endpoint_url=f"https://s3.{self._region}.amazonaws.com"),
         )
 
-    async def _put(self, key: str, data: bytes, *, content_type: str) -> str:
+    async def _put(
+        self, key: str, data: bytes, *, content_type: str, cache_control: str | None = None
+    ) -> str:
         async with self._client_factory() as s3:
             await s3.put_object(
                 Bucket=self._bucket,
@@ -75,6 +77,7 @@ class StorageClient:
                 Body=data,
                 ContentType=content_type,
                 ServerSideEncryption="AES256",
+                **({"CacheControl": cache_control} if cache_control else {}),
             )
         return key
 
@@ -88,7 +91,20 @@ class StorageClient:
 
     async def upload_card_image(self, path: str, data: bytes, *, content_type: str) -> str:
         """최종 카드 이미지 업로드(cards/). 전체 S3 키 반환."""
-        return await self._put(f"{self._prefix_cards}/{path}", data, content_type=content_type)
+        # 카드 경로는 고정이며 재승인 시 덮어쓴다. 브라우저가 이전 PNG를 재사용하지 않게 한다.
+        return await self._put(
+            f"{self._prefix_cards}/{path}",
+            data,
+            content_type=content_type,
+            cache_control="private, no-store, no-cache, max-age=0",
+        )
+
+    def _get_params(self, key: str) -> dict[str, str]:
+        params = {"Bucket": self._bucket, "Key": key}
+        if key.startswith(f"{self._prefix_cards}/"):
+            # 기존 객체도 적용. 응답 옵션은 서명 전에 넣어야 S3 인증이 유효하다.
+            params["ResponseCacheControl"] = "private, no-store, no-cache, max-age=0"
+        return params
 
     async def download(self, key: str) -> bytes:
         """key의 객체 바이트를 직접 읽는다.
@@ -105,7 +121,7 @@ class StorageClient:
         async with self._client_factory() as s3:
             url = await s3.generate_presigned_url(
                 "get_object",
-                Params={"Bucket": self._bucket, "Key": key},
+                Params=self._get_params(key),
                 ExpiresIn=ttl_seconds,
             )
         return cast(str, url)
@@ -129,7 +145,7 @@ class StorageClient:
                         str,
                         await s3.generate_presigned_url(
                             "get_object",
-                            Params={"Bucket": self._bucket, "Key": key},
+                            Params=self._get_params(key),
                             ExpiresIn=ttl_seconds,
                         ),
                     )

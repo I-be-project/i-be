@@ -251,6 +251,10 @@ export function draftAction(
   return request(`/api/dev/drafts/${id}/${action}`, { method: "POST" }, GENERATE_TIMEOUT_MS);
 }
 
+export function getStudentDraft(studentId: string): Promise<Draft> {
+  return request(`/api/dev/students/${studentId}/draft`, { method: "GET" });
+}
+
 export function previewDraftCard(id: string): Promise<{ image_base64: string; qr_url: string }> {
   return request(`/api/dev/drafts/${id}/card`, { method: "GET" }, 60_000);
 }
