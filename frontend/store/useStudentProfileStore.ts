@@ -31,10 +31,17 @@ let pending: Promise<void> | null = null;
 
 interface Stored { token: string; profile: ProfileSummary; updatedAt: number }
 
+// 설문은 끝났는데 카드 이미지가 아직이면(생성 대기) 캐시를 믿지 않고 매번 다시 묻는다.
+// 그래야 새로고침·홈 탭 클릭·주기 갱신 때 카드가 나오자마자 바뀐다.
+function isFresh(profile: ProfileSummary | null, updatedAt: number): boolean {
+  if (!profile || Date.now() - updatedAt >= PROFILE_CACHE_TTL) return false;
+  return !(profile.has_completed && !profile.card?.card_image_url);
+}
+
 function readStored(token: string): Stored | null {
   try {
     const stored = JSON.parse(sessionStorage.getItem(STORAGE_KEY) ?? "null") as Stored | null;
-    if (!stored || stored.token !== token || Date.now() - stored.updatedAt >= PROFILE_CACHE_TTL) return null;
+    if (!stored || stored.token !== token || !isFresh(stored.profile, stored.updatedAt)) return null;
     return stored;
   } catch {
     return null; // 저장소를 못 쓰는 환경(SSR·프라이빗 모드) — 메모리 캐시만 쓴다
@@ -76,7 +83,7 @@ export function loadStudentProfile(token: string, force = false): Promise<void> 
     }
   } else {
     if (pending && !force) return pending;
-    if (!force && cache.profile && Date.now() - cache.updatedAt < PROFILE_CACHE_TTL) {
+    if (!force && isFresh(cache.profile, cache.updatedAt)) {
       return Promise.resolve();
     }
   }

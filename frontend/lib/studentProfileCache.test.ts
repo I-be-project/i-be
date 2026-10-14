@@ -10,7 +10,7 @@ vi.mock("./api", async (original) => ({
 
 const profile: ProfileSummary = {
   has_completed: true, retry_enabled: false, student: null, persona: null,
-  card: null, booths: [], competencies: [],
+  card: { card_image_url: "https://example.com/card.png" }, booths: [], competencies: [],
 };
 function deferred() {
   let resolve!: (value: ProfileSummary) => void;
@@ -137,5 +137,14 @@ describe("sessionStorage 저장본", () => {
     expect(sessionStorage.getItem("hm.profile")).not.toBeNull();
     useSessionStore.setState({ studentToken: null, studentId: null });
     expect(sessionStorage.getItem("hm.profile")).toBeNull();
+  });
+});
+
+describe("카드 생성 대기", () => {
+  it("설문 완료 후 카드 이미지가 없으면 캐시를 쓰지 않고 다시 조회한다", async () => {
+    vi.mocked(getMyProfile).mockResolvedValue({ ...profile, card: null });
+    await loadStudentProfile("student-a");
+    await loadStudentProfile("student-a");
+    expect(getMyProfile).toHaveBeenCalledTimes(2);
   });
 });
