@@ -1,8 +1,8 @@
 "use client";
 
-import { AlertTriangle, Check, ImageOff, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, Download, ImageOff, Loader2, Trash2, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SURVEY_STAGES } from "@/components/console/ProgressBadge";
 import { Button } from "@/components/ui/button";
 import {
@@ -183,8 +183,59 @@ export function StudentDetailSidebar({
   const [confirming, setConfirming] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [downloadResult, setDownloadResult] = useState<{
+    studentId: string;
+    message: string;
+    failed: boolean;
+  } | null>(null);
+  const downloadController = useRef<AbortController | null>(null);
 
   const studentId = student?.id ?? null;
+  const detailReady = !loadingDetail && !detailError && detail?.id === studentId;
+  const latestCard = detailReady
+    ? detail.sessions
+        .filter((session) => session.card_image_url)
+        .sort((a, b) => Date.parse(b.completed_at ?? b.created_at) - Date.parse(a.completed_at ?? a.created_at))[0]
+    : undefined;
+  const downloading = downloadingId === studentId && studentId !== null;
+  const currentDownloadResult = downloadResult?.studentId === studentId ? downloadResult : null;
+
+  useEffect(() => () => downloadController.current?.abort(), [studentId]);
+
+  async function handleDownload() {
+    if (!student || !latestCard?.card_image_url || downloadController.current) return;
+    const controller = new AbortController();
+    downloadController.current = controller;
+    setDownloadingId(student.id);
+    setDownloadResult(null);
+    try {
+      const response = await fetch(`/card-image?url=${encodeURIComponent(latestCard.card_image_url)}`, {
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error("카드 다운로드 실패");
+      const blob = await response.blob();
+      if (controller.signal.aborted) return;
+      const extension = blob.type.includes("jpeg") ? "jpg" : blob.type.includes("webp") ? "webp" : "png";
+      const name = student.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "_");
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = href;
+      link.download = `${name}-페르소나-카드.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 1000);
+      setDownloadResult({ studentId: student.id, message: "카드 다운로드를 시작했습니다.", failed: false });
+    } catch {
+      if (!controller.signal.aborted) {
+        setDownloadResult({ studentId: student.id, message: "다운로드하지 못했습니다. 잠시 후 다시 시도해 주세요.", failed: true });
+      }
+    } finally {
+      downloadController.current = null;
+      setDownloadingId(null);
+    }
+  }
 
   useEffect(() => {
     if (!studentId) return;
@@ -314,7 +365,8 @@ export function StudentDetailSidebar({
             </div>
 
             <div className="p-6">
-              <SheetHeader className="mb-1 gap-0.5 p-0 text-left">
+              <div className="mb-1 flex flex-wrap items-center justify-between gap-3">
+              <SheetHeader className="min-w-0 gap-0.5 p-0 text-left">
                 {/* 열린 채로 다른 학생으로 바뀔 때 포커스 이동이 없어 스크린리더가
                     조용히 넘어간다. aria-live로 이름 교체를 알린다. */}
                 <SheetTitle className="text-xl" aria-live="polite">
@@ -326,6 +378,31 @@ export function StudentDetailSidebar({
                     : student.school || "개인 참여자"}
                 </p>
               </SheetHeader>
+              <Button
+                type="button"
+                size="lg"
+                className="w-full gap-1.5 min-[480px]:w-auto"
+                disabled={!latestCard || downloading}
+                onClick={handleDownload}
+                aria-describedby="student-card-download-status"
+              >
+                {downloading ? <Loader2 className="size-4 animate-spin" aria-hidden /> : <Download className="size-4" aria-hidden />}
+                {downloading ? "다운로드 중…" : "페르소나 카드 다운로드"}
+              </Button>
+              </div>
+              <p
+                id="student-card-download-status"
+                className={`mt-2 text-xs ${currentDownloadResult?.failed ? "text-destructive" : "text-muted-foreground"}`}
+                role={currentDownloadResult?.failed ? "alert" : "status"}
+              >
+                {currentDownloadResult?.message ?? (detailError
+                  ? "카드 정보를 불러오지 못했습니다."
+                  : !detailReady
+                    ? "카드 정보를 확인하고 있어요."
+                    : latestCard
+                      ? "최신 발급 카드를 이미지로 저장합니다."
+                      : "아직 발급된 카드가 없어요.")}
+              </p>
 
               <dl className="mt-3 divide-y divide-border">
                 {/* 학교 소속 학생만 학년·반·번호가 의미 있다. 개인 참여자·테스트 계정은
