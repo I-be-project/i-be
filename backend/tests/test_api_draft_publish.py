@@ -92,13 +92,20 @@ class _Drafts:
         self.image: dict[str, Any] = {}
         self.targets = targets or []
         self.since: Any = None
+        self.record: Any = None
 
-    async def list_publish_targets(self, *, since: Any, limit: int) -> list[DraftTarget]:
+    async def get_by_session(self, session_id: UUID) -> Any:
+        return self.record if getattr(self.record, "session_id", session_id) == session_id else None
+
+    async def list_publish_targets(
+        self, *, since: Any, limit: int, exclude_session_ids: list[UUID] | None = None
+    ) -> list[DraftTarget]:
         self.since = since
-        return self.targets
+        return [t for t in self.targets if t.session_id not in (exclude_session_ids or [])][:limit]
 
     async def save_text(self, session_id: UUID, student_id: UUID, text: Any, raw: Any) -> UUID:
         self.text = text
+        self.record = SimpleNamespace(id=self.draft_id, session_id=session_id, status="pending", raw=raw)
         return self.draft_id
 
     async def save_image(self, draft_id: UUID, *, image_key: str | None, error: str | None) -> None:
@@ -231,6 +238,130 @@ async def test_run_once_limits_batch_to_concurrency() -> None:
     )
     assert await publisher.run_once() == 2
     assert len(draft_service.approved) == 2
+
+
+async def test_waiting_student_does_not_block_next_student_or_spin(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from unittest.mock import AsyncMock
+
+    waiting, ready = _target(), _target()
+    publisher, drafts, draft_service = _publisher(targets=[waiting, ready], concurrency=1)
+    clock = [100.0]
+    monkeypatch.setattr("app.services.card_publisher.time.monotonic", lambda: clock[0])
+    check = AsyncMock(side_effect=lambda student: student.id == waiting.student_id)
+    monkeypatch.setattr(publisher._service, "waiting_for_onsite_photo", check)
+    assert await publisher.run_once() == 0
+    assert waiting.session_id not in publisher._attempts
+    assert await publisher.run_once() == 1
+    assert len(draft_service.approved) == 1
+    drafts.targets = [waiting]
+    assert await publisher.run_once() == 0
+    assert check.await_count == 2
+    clock[0] += 31
+    assert await publisher.run_once() == 0
+    assert check.await_count == 3
+
+
+async def test_deferred_and_exhausted_targets_do_not_fill_query_limit() -> None:
+    import time
+
+    blocked = [_target() for _ in range(201)]
+    ready = _target()
+    publisher, _, draft_service = _publisher(targets=[*blocked, ready], concurrency=1)
+    for target in blocked[:100]:
+        publisher._retry_after[target.session_id] = time.monotonic() + 60
+    for target in blocked[100:]:
+        publisher._attempts[target.session_id] = 3
+    assert await publisher.run_once() == 1
+    assert len(draft_service.approved) == 1
+
+
+async def test_failed_onsite_image_is_held_for_review_without_more_image_calls() -> None:
+    from unittest.mock import AsyncMock
+
+    from app.repositories.onsite_photo_repo import OnsitePhoto
+
+    target = _target()
+    vertex = _Vertex()
+    publisher, drafts, draft_service = _publisher(vertex=vertex)
+    photos = AsyncMock()
+    photos.get_current.return_value = OnsitePhoto(
+        uuid4(), target.student_id, "uploads/p.jpg", "failed", None, None
+    )
+    publisher._service._onsite_photos = photos
+    for _ in range(3):
+        await publisher.publish(target)
+    assert drafts.text is not None
+    assert drafts.image["image_key"] is None
+    assert "운영진 확인" in drafts.image["error"]
+    assert draft_service.approved == []
+    assert publisher._attempts[target.session_id] == 3
+    assert vertex.calls == 0
+
+
+async def test_no_progress_publisher_loop_sleeps(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import AsyncMock
+
+    from app.services.card_publisher import card_publisher_loop
+
+    publisher, _, _ = _publisher()
+    monkeypatch.setattr(publisher, "run_once", AsyncMock(return_value=0))
+    sleep = AsyncMock(side_effect=asyncio.CancelledError)
+    monkeypatch.setattr("app.services.card_publisher.asyncio.sleep", sleep)
+    with pytest.raises(asyncio.CancelledError):
+        await card_publisher_loop(publisher, 5)
+    sleep.assert_awaited_once_with(5)
+
+
+async def test_upload_failure_does_not_leave_a_partial_draft(monkeypatch: pytest.MonkeyPatch) -> None:
+    from unittest.mock import AsyncMock
+
+    publisher, drafts, review = _publisher()
+    monkeypatch.setattr(
+        publisher._service._storage, "upload_generated_image",
+        AsyncMock(side_effect=RuntimeError("upload unavailable")),
+    )
+    with pytest.raises(RuntimeError):
+        await publisher.publish(_target())
+    assert drafts.record is None
+    assert review.approved == []
+
+
+@pytest.mark.parametrize("failure_stage", ["save_image", "approve"])
+async def test_interrupted_publication_resumes_after_restart_without_ai(
+    monkeypatch: pytest.MonkeyPatch, failure_stage: str,
+) -> None:
+    from unittest.mock import AsyncMock
+
+    vertex = _Vertex()
+    publisher, drafts, review = _publisher(vertex=vertex)
+    target = _target()
+    owner = drafts if failure_stage == "save_image" else review
+    original = getattr(owner, failure_stage)
+    with monkeypatch.context() as patch:
+        patch.setattr(owner, failure_stage, AsyncMock(side_effect=RuntimeError("offline")))
+        with pytest.raises(RuntimeError):
+            await publisher.publish(target)
+    assert drafts.record.raw["_auto_publish"]["image_key"]
+    # 새 프로세스처럼 publisher/service는 새로 만들고 저장된 초안만 재사용한다.
+    restarted, _, _ = _publisher()
+    restarted._drafts = cast(Any, drafts)
+    restarted._service._drafts = cast(Any, drafts)
+    restarted._service._draft_service = cast(Any, review)
+    generate = AsyncMock(side_effect=AssertionError("AI must not be called"))
+    monkeypatch.setattr(restarted._service, "generate", generate)
+    assert await restarted.publish(target) == drafts.draft_id
+    assert review.approved == [drafts.draft_id]
+    assert vertex.calls == 1
+    assert getattr(owner, failure_stage) == original
+
+
+async def test_manual_review_draft_is_not_automatically_resumed() -> None:
+    publisher, drafts, review = _publisher()
+    drafts.record = SimpleNamespace(id=drafts.draft_id, status="pending", raw=PERSONA)
+    assert await publisher._service.resume_publication(_target()) is None
+    assert review.approved == []
 
 
 # ──────────────────────────────────────────────────────────────

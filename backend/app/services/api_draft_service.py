@@ -105,7 +105,7 @@ class ApiDraftService:
             photo
             and photo.photo_key == student.photo_key
             and photo.choice != "character"
-            and photo.status not in ("ready", "refused")
+            and photo.status in ("pending", "processing")
         )
 
     async def generate(self, student: StudentRecord, session_id: UUID) -> ApiDraft:
@@ -137,19 +137,22 @@ class ApiDraftService:
             raise ExternalServiceError(
                 f"페르소나가 없어 저장할 수 없습니다: {result.persona_error}"
             )
-        draft_id = await self._drafts.save_text(
-            target.session_id, target.student_id, result.text, result.persona
-        )
+        key = None
         if result.image is not None:
             # 생성 이미지도 영구 보관 — 재생성마다 새 키(DraftService.generate_image와 같다).
             key = await self._storage.upload_generated_image(
-                f"{target.student_id}/{draft_id}-{uuid4().hex[:8]}.png",
+                f"{target.student_id}/api-{uuid4().hex}.png",
                 result.image.data,
                 content_type="image/png",
             )
-            await self._drafts.save_image(draft_id, image_key=key, error=None)
-        else:
-            await self._drafts.save_image(draft_id, image_key=None, error=result.image_error)
+        raw = dict(result.persona)
+        if approve:
+            # 승인 전 중단되어도 같은 이미지로 재개할 수 있게 초안과 함께 보관한다.
+            raw["_auto_publish"] = {"image_key": key, "image_error": result.image_error}
+        draft_id = await self._drafts.save_text(
+            target.session_id, target.student_id, result.text, raw
+        )
+        await self._drafts.save_image(draft_id, image_key=key, error=result.image_error)
         if approve:
             await self._draft_service.approve(draft_id)
             if self._onsite_photos:
@@ -163,6 +166,20 @@ class ApiDraftService:
                         if not await self._drafts.persona_photo_chosen(target.session_id):
                             raise
         return draft_id
+
+    async def resume_publication(self, target: DraftTarget) -> UUID | None:
+        """자동 승인 도중 중단된 초안만 복구한다. 수동 검수 초안은 건드리지 않는다."""
+        draft = await self._drafts.get_by_session(target.session_id)
+        if draft is None or draft.status != "pending":
+            return None
+        saved = draft.raw.get("_auto_publish")
+        if not isinstance(saved, dict):
+            return None
+        await self._drafts.save_image(
+            draft.id, image_key=saved.get("image_key"), error=saved.get("image_error")
+        )
+        await self._draft_service.approve(draft.id)
+        return draft.id
 
     async def _persona(self, session_id: UUID) -> tuple[dict[str, Any], float | None]:
         system, user = await self._draft_service.persona_prompts(session_id)
@@ -193,6 +210,8 @@ class ApiDraftService:
                     )
                 if prepared.status == "ready" and prepared.image_key:
                     return GeneratedImage(await self._storage.download(prepared.image_key), None)
+                if prepared.status == "failed":
+                    raise ExternalServiceError("현장 사진 생성에 실패했습니다. 운영진 확인이 필요합니다.")
                 # 사전 생성과 중복으로 과금하지 않고 준비된 결과를 기다린다.
                 raise ImageQuotaError("현장 사진 생성 결과를 기다리고 있습니다.")
         photo = await self._storage.download(student.photo_key)

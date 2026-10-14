@@ -18,6 +18,7 @@ AUTO_CARD_SINCE 이후 설문 완료 + 사진 있음 + 초안 없음. 별도 잡
 from __future__ import annotations
 
 import asyncio
+import time
 from datetime import datetime
 from uuid import UUID
 
@@ -48,6 +49,7 @@ class CardPublisher:
         since: datetime,
         concurrency: int,
         max_attempts: int,
+        retry_seconds: float = 30,
     ) -> None:
         self._service = service
         self._drafts = drafts
@@ -55,33 +57,49 @@ class CardPublisher:
         self._since = since
         self._concurrency = concurrency
         self._max_attempts = max_attempts
+        self._retry_seconds = retry_seconds
+        self._retry_after: dict[UUID, float] = {}
         # ponytail: 실패 횟수는 메모리에만 — 재시작하면 0부터 다시 센다. 상한에 닿으면
         # 초안을 남겨 대상에서 빠지므로 재시작으로 무한 반복되지는 않는다(페르소나 실패만 예외).
         self._attempts: dict[UUID, int] = {}
 
     async def run_once(self) -> int:
-        """대상을 한 묶음 처리한다. 처리한 대상 수(0이면 쉴 때)."""
+        """대상을 한 묶음 처리한다. 저장한 초안 수(진행이 없으면 0을 반환해 쉰다)."""
+        now = time.monotonic()
+        self._retry_after = {key: due for key, due in self._retry_after.items() if due > now}
+        excluded = set(self._retry_after) | {
+            key for key, attempts in self._attempts.items() if attempts >= self._max_attempts
+        }
         targets = [
             t
-            for t in await self._drafts.list_publish_targets(since=self._since, limit=200)
-            if self._attempts.get(t.session_id, 0) < self._max_attempts
+            for t in await self._drafts.list_publish_targets(
+                since=self._since, limit=200, exclude_session_ids=list(excluded)
+            )
+            if t.session_id not in excluded
         ][: self._concurrency]
-        await asyncio.gather(*(self._publish_logged(t) for t in targets))
-        return len(targets)
+        results = await asyncio.gather(*(self._publish_logged(t) for t in targets))
+        return sum(results)
 
-    async def _publish_logged(self, target: DraftTarget) -> None:
+    async def _publish_logged(self, target: DraftTarget) -> bool:
         try:
-            await self.publish(target)
+            if await self.publish(target) is not None:
+                self._retry_after.pop(target.session_id, None)
+                return True
         except Exception:
             # 저장 단계(S3·DB) 오류 등 — 일시적 실패와 같이 세고 다음 폴링에 다시 시도한다.
             self._attempts[target.session_id] = self._attempts.get(target.session_id, 0) + 1
             logger.exception("card_publisher.failed", student_id=str(target.student_id))
+        self._retry_after[target.session_id] = time.monotonic() + self._retry_seconds
+        return False
 
     async def publish(self, target: DraftTarget) -> UUID | None:
         """대상 1명 생성 → 공개 판단. 저장한 초안 id, 저장하지 않았으면 None."""
         student = await self._students.get_by_id(target.student_id)
         if student is None or not student.photo_key:
             return None
+        resumed = await self._service.resume_publication(target)
+        if resumed is not None:
+            return resumed
         if await self._service.waiting_for_onsite_photo(student):
             return None
         result = await self._service.generate(student, target.session_id)

@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { ArrowRight, LoaderCircle } from "lucide-react";
+import { ArrowRight, LoaderCircle, Sparkles } from "lucide-react";
 import { ApiError, getOnsitePhoto, startOnsitePhoto, type OnsitePhotoResult } from "@/lib/api";
 import { resumePath, useBlockBack } from "@/lib/explore/flow";
 import { useSessionStore } from "@/store/useSessionStore";
@@ -23,17 +23,18 @@ export default function OnsiteCompletePage() {
   const [loadFailed, setLoadFailed] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const [retry, setRetry] = useState(0);
+  const [startingNext, setStartingNext] = useState(false);
   useBlockBack();
 
   useEffect(() => {
-    if (!hydrated) return;
+    if (!hydrated || startingNext) return;
     if (!token) { router.replace(onsite ? "/onsite" : "/"); return; }
     if (!onsite || !completed || !hasPhoto) router.replace(resumePath(useSessionStore.getState()));
-  }, [hydrated, token, onsite, completed, hasPhoto, router]);
+  }, [hydrated, token, onsite, completed, hasPhoto, router, startingNext]);
 
   // 카드 합성을 기다리지 않고 사진 생성이 끝나는 즉시 표시한다.
   useEffect(() => {
-    if (!hydrated || !token || !onsite || !completed || !hasPhoto) return;
+    if (startingNext || !hydrated || !token || !onsite || !completed || !hasPhoto) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async (start = false) => {
@@ -58,13 +59,27 @@ export default function OnsiteCompletePage() {
     };
     void poll(retry === 0);
     return () => { active = false; if (timer) clearTimeout(timer); };
-  }, [hydrated, token, onsite, completed, hasPhoto, retry, router]);
+  }, [hydrated, token, onsite, completed, hasPhoto, retry, router, startingNext]);
 
   const nextParticipant = () => {
+    if (startingNext) return;
+    setStartingNext(true);
     useSessionStore.getState().reset();
-    window.location.replace("/onsite");
+    router.replace("/onsite");
   };
 
+  if (startingNext) return (
+    <main className="relative flex min-h-[100dvh] items-center justify-center overflow-hidden px-6 font-sans">
+      <VoyageBackground variant="soft" />
+      <div role="status" aria-live="polite" className="relative z-10 flex flex-col items-center gap-5 text-center">
+        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white/80 text-sky-600">
+          <Sparkles aria-hidden="true" className="h-9 w-9" />
+        </div>
+        <h1 className="text-2xl font-black tracking-tight text-ink">다음 참여자를 맞이하고 있어요</h1>
+        <p className="text-sm text-ink-soft">새로운 탐험을 곧 시작할게요.</p>
+      </div>
+    </main>
+  );
   if (!hydrated || !token || !onsite || !completed || !hasPhoto) return <FlowLoading mood="night" />;
   const unavailable = photo?.status === "failed" || photo?.status === "refused";
   const imageUrl = photo?.status === "ready" ? photo.image_url : null;

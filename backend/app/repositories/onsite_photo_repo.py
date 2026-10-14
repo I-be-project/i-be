@@ -31,6 +31,7 @@ class OnsitePhoto:
 
 
 _STATE = TypeAdapter(OnsitePhoto)
+PROCESSING_TIMEOUT_SECONDS = 600
 
 
 class OnsitePhotoRepository:
@@ -76,6 +77,13 @@ class OnsitePhotoRepository:
         if not student or not student.photo_key:
             return None
         saved = await self._read(student_id, student.photo_key)
+        if (
+            saved and saved[0].status == "processing"
+            and time.time() - saved[0].updated_at >= PROCESSING_TIMEOUT_SECONDS
+        ):
+            # 서버 재시작으로 사라진 작업을 조회만 하며 영구 대기하지 않도록 종료한다.
+            await self.finish(saved[0], "failed", None)
+            saved = await self._read(student_id, student.photo_key)
         return saved[0] if saved and saved[0].status != "pending" else None
 
     async def claim(self, student_id: UUID, photo_key: str) -> OnsitePhoto | None:
@@ -85,7 +93,7 @@ class OnsitePhotoRepository:
             if photo:
                 if photo.choice or photo.attempts >= 3 or photo.status in ("ready", "refused"):
                     return None
-                if photo.status == "processing" and time.time() - photo.updated_at < 600:
+                if photo.status == "processing" and time.time() - photo.updated_at < PROCESSING_TIMEOUT_SECONDS:
                     return None
             job = OnsitePhoto(
                 uuid4(),

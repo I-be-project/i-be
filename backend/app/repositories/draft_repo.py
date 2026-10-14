@@ -191,7 +191,9 @@ class DraftRepository(BaseRepository):
             rows = await conn.fetch(query, student_id, school, grade, class_no, limit)
         return [DraftTarget(session_id=r["session_id"], student_id=r["student_id"]) for r in rows]
 
-    async def list_publish_targets(self, *, since: datetime, limit: int) -> list[DraftTarget]:
+    async def list_publish_targets(
+        self, *, since: datetime, limit: int, exclude_session_ids: list[UUID] | None = None
+    ) -> list[DraftTarget]:
         """카드 자동 공개 대상 — since 이후 완료한 학생별 최근 세션 중 사진이 있고 초안이 없는 것.
 
         since로 자동 공개 이전(codex 검수 시절) 학생을 뺀다. 테스트 계정도 포함한다.
@@ -208,14 +210,22 @@ class DraftRepository(BaseRepository):
                 order by se.student_id, se.completed_at desc
             ) latest
             where latest.completed_at >= $1
-              and not exists (
-                select 1 from generated.persona_drafts d where d.session_id = latest.session_id
+              and not (latest.session_id = any($3::uuid[]))
+              and (
+                not exists (
+                  select 1 from generated.persona_drafts d where d.session_id = latest.session_id
+                )
+                or exists (
+                  select 1 from generated.persona_drafts d
+                  where d.session_id = latest.session_id and d.status = 'pending'
+                    and jsonb_typeof(d.raw->'_auto_publish') = 'object'
+                )
               )
             order by completed_at
             limit $2
         """
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(query, since, limit)
+            rows = await conn.fetch(query, since, limit, exclude_session_ids or [])
         return [DraftTarget(session_id=r["session_id"], student_id=r["student_id"]) for r in rows]
 
     async def count_targets(self) -> int:
@@ -541,7 +551,8 @@ class DraftRepository(BaseRepository):
             await conn.execute(
                 """
                 update generated.persona_drafts
-                set status = 'approved', reviewed_at = now(), updated_at = now()
+                set status = 'approved', reviewed_at = now(), updated_at = now(),
+                    raw = raw - '_auto_publish'
                 where id = $1
                 """,
                 draft.id,
