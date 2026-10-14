@@ -133,6 +133,7 @@ export function StudentPicker({ requires, selected, onSelect }: Props) {
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
+      <p className="text-xs text-muted-foreground">최신 등록 순</p>
       <div className="max-h-80 overflow-y-auto rounded-lg border">
         {loading ? (
           <div className="space-y-2 p-3">

@@ -40,8 +40,8 @@ function download(src: string, name?: string): void {
 export default function DevFuturePhotoPage() {
   const [student, setStudent] = useState<DevStudent | null>(null)
   const [prompt, setPrompt] = useState("")
-  // "" = codex, 그 밖은 Vertex AI 모델 id. 기본은 Nano Banana 2.1(비용·얼굴 보존 비교 결과)
-  const [model, setModel] = useState(VERTEX_MODELS[0].id)
+  // "" = codex exec, 그 밖은 Vertex AI 모델 id.
+  const [model, setModel] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<FuturePhotoResult | null>(null)
   const [error, setError] = useState<string | null>(null)

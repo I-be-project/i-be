@@ -5,6 +5,7 @@ import {
   ClipboardCheck,
   ImageIcon,
   LayoutGrid,
+  RefreshCw,
   UserRoundSearch,
   Zap,
 } from "lucide-react"
@@ -20,6 +21,14 @@ interface DevTool {
 }
 
 const DEV_TOOLS: DevTool[] = [
+  {
+    title: "카드 재생성",
+    description:
+      "최신 등록 순으로 학생을 골라 codex exec로 인물 이미지를 다시 만듭니다. 카드 미리보기를 확인한 뒤 저장할 수 있습니다.",
+    href: "/dev/card-regenerate",
+    tag: "codex",
+    icon: RefreshCw,
+  },
   {
     title: "페르소나 생성",
     description:
