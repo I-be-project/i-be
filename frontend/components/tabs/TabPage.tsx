@@ -1,10 +1,15 @@
+"use client";
+
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { HanmadangBackground } from "./HanmadangBackground";
 import { paperlogy } from "@/lib/fonts";
+import { useProfileView } from "./ProfileView";
 
 export function TabPage({ title, description, action, children }: { title?: string; description?: string; action?: ReactNode; children: ReactNode }) {
-  return <main className={`${paperlogy.className} relative min-h-[100dvh] touch-pan-y touch-pinch-zoom overflow-x-clip px-5 pb-44 pt-4`}>
+  // 공개 페이지(/p/[code])엔 카메라 플로팅 버튼이 없으므로 하단 네비 높이만큼만 띄운다.
+  const { readOnly } = useProfileView();
+  return <main className={`${paperlogy.className} relative min-h-[100dvh] touch-pan-y touch-pinch-zoom overflow-x-clip px-5 ${readOnly ? "pb-24" : "pb-44"} pt-4`}>
     <HanmadangBackground />
     <div className="relative z-10 mx-auto flex w-full max-w-2xl flex-col gap-6">
       <div className="-mb-2 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
