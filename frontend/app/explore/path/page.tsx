@@ -5,7 +5,7 @@ import type { ReactNode, CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSessionStore } from "@/store/useSessionStore";
-import { ApiError, generateStage, completeSurvey } from "@/lib/api";
+import { ApiError, generateStage, completeSurvey, getMyProfile } from "@/lib/api";
 import type { AnswerStage } from "@/lib/api";
 import { persistStage, reconcileAllAnswers } from "@/lib/answerSync";
 import { getQ7AOptions } from "@/lib/mock/q7a";
@@ -20,7 +20,7 @@ import { GeneratingScreen } from "@/components/explore/GeneratingScreen";
 import type { GeneratingStage } from "@/lib/assets/sceneManifest";
 import type { Q7BOption, Q8Chip, Q9Chip } from "@/store/useSessionStore";
 import { newRequestId } from "@/lib/requestId";
-import { useFlowGuard, useBlockBack, resumePath } from "@/lib/explore/flow";
+import { useFlowGuard, useBlockBack, resumePath, reconcileFromProfile } from "@/lib/explore/flow";
 import { useKeepTokenFresh } from "@/hooks/useKeepTokenFresh";
 
 // 별빛 프로그램은 Q9가 마지막 — 응답을 마치면 세션을 완료하고 공개 대기로 간다.
@@ -298,6 +298,16 @@ export default function PathPage() {
         return;
       }
       if (e instanceof ApiError && (e.status === 409 || e.status === 404)) {
+        // 다른 기기·탭에서 이미 완료했는데 이 기기만 진행 중으로 알고 있으면 여기서 영영 막힌다.
+        // 서버 프로필이 완료면 로컬을 맞추고 다음 화면(사진/홈)으로 넘긴다.
+        const profile = await getMyProfile(studentToken).catch(() => null);
+        if (!isCurrent()) return;
+        if (profile?.has_completed) {
+          setSurveyCompleted(true); // 재도전 중이어도 서버가 완료라 완료 저장이 거절된 상황이다
+          reconcileFromProfile(profile); // 서버 사진 여부도 맞춘다
+          router.push(resumePath(useSessionStore.getState()));
+          return;
+        }
         pendingRetry.current = null;
         setError("설문 상태가 변경됐어. 새로고침해서 현재 진행 상태를 확인해 줘.");
         return;
