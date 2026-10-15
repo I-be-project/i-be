@@ -426,7 +426,7 @@ async def set_draft_verdict(
 async def use_fallback_image(
     draft_id: UUID, service: DraftServiceDep, drafts: DraftRepoDep, storage: StorageClientDep
 ) -> DraftItem:
-    """생성 이미지 대신 폴백 캐릭터로 카드를 만든다."""
+    """폴백 캐릭터 카드로 합성·공개한다. 별도 승인 요청은 필요 없다."""
     await service.use_fallback(draft_id)
     return await _get_draft_item(draft_id, drafts, storage)
 

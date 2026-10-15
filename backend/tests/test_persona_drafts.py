@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import httpx
+import pytest
 from PIL import Image
 
 from app.core.errors import ExternalServiceError
@@ -249,7 +250,7 @@ async def test_generate_image_saves_new_key() -> None:
 
 
 class _CardDraft(_Draft):
-    image_key = None  # 폴백 캐릭터로 합성 — 다운로드 없이 렌더러만 탄다
+    image_key: str | None = None  # 폴백 캐릭터로 합성 — 다운로드 없이 렌더러만 탄다
     student_name, school, grade, class_no, student_no = "홍길동", "대전중학교", 2, 3, 14
     headline, base_career = "하늘을 설계하는", "드론 전문가"
 
@@ -258,6 +259,48 @@ class _CardStorage(_Storage):
     async def upload_card_image(self, path: str, data: bytes, *, content_type: str) -> str:
         self.uploaded.append(path)
         return f"cards/{path}"
+
+
+class _FallbackDrafts(_Drafts):
+    def __init__(self, draft: _CardDraft) -> None:
+        super().__init__(draft)
+        self.approved_key: str | None = None
+
+    async def clear_image(self, draft_id: UUID) -> None:
+        self.draft.image_key = None
+
+    async def approve(self, draft: Any, *, card_key: str) -> None:
+        assert draft.image_key is None
+        self.approved_key = card_key
+
+
+@pytest.mark.parametrize("image_key", [None, "ai-images/previous.png"])
+async def test_fallback_selection_publishes_card_without_separate_approval(
+    image_key: str | None,
+) -> None:
+    draft, storage = _CardDraft(), _CardStorage()
+    draft.image_key = image_key
+    drafts = _FallbackDrafts(draft)
+    await _service(drafts, _Codex(), storage).use_fallback(draft.id)
+
+    assert draft.image_key is None
+    assert drafts.approved_key == f"cards/{draft.student_id}/{draft.id}.png"
+    assert len(storage.uploaded) == 1
+
+
+async def test_fallback_upload_failure_does_not_publish_and_can_be_retried() -> None:
+    class _FailingStorage(_CardStorage):
+        async def upload_card_image(self, path: str, data: bytes, *, content_type: str) -> str:
+            raise ExternalServiceError("업로드 실패")
+
+    draft = _CardDraft()
+    drafts = _FallbackDrafts(draft)
+    with pytest.raises(ExternalServiceError, match="업로드 실패"):
+        await _service(drafts, _Codex(), _FailingStorage()).use_fallback(draft.id)
+    assert drafts.approved_key is None
+
+    await _service(drafts, _Codex(), _CardStorage()).use_fallback(draft.id)
+    assert drafts.approved_key is not None
 
 
 async def test_upload_card_reuses_fixed_key_so_rerender_overwrites() -> None:

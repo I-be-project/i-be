@@ -194,9 +194,10 @@ class DraftService:
             )
 
     async def use_fallback(self, draft_id: UUID) -> None:
-        """생성 이미지를 버리고 폴백 캐릭터로 — 생성은 됐지만 결과가 이상할 때."""
+        """폴백 캐릭터를 선택하면 카드까지 합성·공개한다. 별도 승인은 필요 없다."""
         await self._require(draft_id)
         await self._drafts.clear_image(draft_id)
+        await self.approve(draft_id)
 
     async def render_card(self, draft: DraftRecord, *, use_image: bool = True) -> bytes:
         # 생성 이미지가 없거나 쓰지 않으면 None → 렌더러가 폴백 캐릭터를 쓴다.

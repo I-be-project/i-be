@@ -233,7 +233,15 @@ export default function DevReviewPage() {
     act("평가", () => setDraftVerdict(id, v, v === "triangle" ? verdictReason : ""), issue === "regenerated")
   const regenText = () => act("텍스트 재생성", () => draftAction(id, "regenerate-text"))
   const regenImage = () => act("이미지 재생성", () => draftAction(id, "regenerate-image"))
-  const useFallback = () => act("폴백 적용", () => draftAction(id, "use-fallback"))
+  const useFallback = () =>
+    act(
+      "폴백 카드 공개",
+      async () => {
+        await updateDraft(id, edit!)
+        return draftAction(id, "use-fallback")
+      },
+      filter === "pending"
+    )
 
   // 삭제하면 그 학생은 다시 일괄 생성 대상이 된다.
   const remove = async (ids: string[]) => {
@@ -653,9 +661,9 @@ export default function DevReviewPage() {
               <Button
                 variant="outline"
                 onClick={useFallback}
-                disabled={!!busy || !selected.image_url}
+                disabled={!!busy}
               >
-                <Smile /> 폴백 이미지로
+                <Smile /> 폴백 카드로 공개
               </Button>
               <Button variant="destructive" onClick={reject} disabled={!!busy}>
                 <X /> 반려
